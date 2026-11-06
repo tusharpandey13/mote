@@ -1,4 +1,4 @@
-# Mote helper protocol, v1.1
+# Mote helper protocol, v1.2
 
 One JSON message protocol shared by both transports of the Mote Helper (macOS menu-bar app):
 
@@ -6,6 +6,8 @@ One JSON message protocol shared by both transports of the Mote Helper (macOS me
 - **BLE**: GATT service on the Mac (the helper is the peripheral, the phone is the central). Same JSON, fragmented (see [BLE framing](#ble-framing)).
 
 All messages are JSON objects with a type field `t`. Unknown fields are ignored. Unknown `t` gets an `err`. The protocol version is announced in `hello` (`"v": 1`); a peer that sees a different major version closes the connection. Minor versions only add optional fields, so `v` stays 1.
+
+Changes in 1.2 (backward compatible): `consumer` gains `action` (`down` / `up`) and the keys `fast` / `rewind`, for hold-to-seek (section 2, consumer).
 
 Changes in 1.1 (backward compatible): `hello.hostId` and `hello.local`, Bonjour TXT record, extra fields in the pairing link (section 1.1), and the opt-in [Tailscale](#tailscale) access rules (section 4).
 
@@ -96,9 +98,9 @@ Typed with `CGEventKeyboardSetUnicodeString`, so it is layout-independent and ha
 {"t": "consumer", "key": "play"}
 ```
 
-`key`: `play` (play/pause), `next`, `prev`, `volup`, `voldown`, `mute`, `brightup`, `brightdown`, and (protocol 1.1) `fast`, `rewind`.
+`key`: `play` (play/pause), `next`, `prev`, `volup`, `voldown`, `mute`, `brightup`, `brightdown`, and (protocol 1.2) `fast`, `rewind`. Posted as `NSEvent` `systemDefined` subtype 8 `NX_KEYTYPE_*` key down/up (shows the system HUD). Brightness falls back to the private `DisplayServices` framework for the built-in display if the NX key didn't change it (checked 150 ms later); if neither is available, `err` code `unsupported`.
 
-`action` (protocol 1.1, optional): `tap` (default: key down then up), `down` (press and hold; the helper re-posts it with the key-repeat bit every 100 ms after 300 ms, like a held media key), `up` (release the held key). Only one key is held at a time; a new `down` releases the previous one, and pausing or the last session closing releases it. The app sends `fast` / `rewind` `down` when prev/next is held past 400 ms (hold-to-seek) and `up` on lift. Older helpers reject `fast` / `rewind` with `err` `bad`; taps are unchanged. Posted as `NSEvent` `systemDefined` subtype 8 `NX_KEYTYPE_*` key down/up (shows the system HUD). Brightness falls back to the private `DisplayServices` framework for the built-in display if the NX key didn't change it (checked 150 ms later); if neither is available, `err` code `unsupported`.
+`action` (protocol 1.2, optional): `tap` (default: key down then up), `down` (press and hold; the helper re-posts it with the key-repeat bit every 100 ms after 300 ms, like a held media key), `up` (release the held key). Only one key is held at a time; a new `down` releases the previous one, and pausing or the last session closing releases it. The app sends `fast` / `rewind` `down` when prev/next is held past 400 ms (hold-to-seek) and `up` on lift. Older helpers reject `fast` / `rewind` with `err` `bad`; taps are unchanged.
 
 ### macro
 
