@@ -2,7 +2,6 @@ package dev.mote.remote.hid
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothHidDevice
 import android.bluetooth.BluetoothHidDeviceAppQosSettings
@@ -138,9 +137,13 @@ object Hid {
             if (!ok) _state.update { it.copy(phase = Phase.BLOCKED) }
         }
 
-        override fun onServiceDisconnected(profile: Int) {
+        // Fires when Bluetooth turns off. Close the proxy (so the system doesn't silently rebind it)
+        // and drop to a non-registering phase: the next start() then registers from scratch.
+        override fun onServiceDisconnected(profile: Int) = exec.execute {
+            val p = proxy
             proxy = null; device = null
-            _state.update { it.copy(phase = if (adapter?.isEnabled == true) Phase.REGISTERING else Phase.BT_OFF, connected = null, connecting = false) }
+            p?.let { runCatching { adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, it) } }
+            _state.update { it.copy(phase = if (adapter?.isEnabled == true) Phase.OFF else Phase.BT_OFF, connected = null, connecting = false) }
         }
     }
 
@@ -188,16 +191,12 @@ object Hid {
 
     private fun onConnected(d: BluetoothDevice) {
         device = d
-        val host = hostOf(d)
+        val host = Bt.hostOf(d)
         _state.update { it.copy(connected = host, selected = host, connecting = false) }
         scope.launch { Prefs.setSelectedHost(appContext, d.address) }
     }
 
     // ---- hosts / connection ----
-
-    fun bondedHosts(): List<Host> = runCatching {
-        adapter?.bondedDevices.orEmpty().map(::hostOf).sortedBy { it.kind.ordinal }
-    }.getOrDefault(emptyList())
 
     fun select(host: Host) {
         exec.execute {
@@ -225,16 +224,7 @@ object Hid {
     }
 
     private fun hostFor(address: String): Host? =
-        runCatching { adapter?.getRemoteDevice(address)?.let(::hostOf) }.getOrNull()
-
-    private fun hostOf(d: BluetoothDevice): Host {
-        val kind = when {
-            d.bluetoothClass?.majorDeviceClass != BluetoothClass.Device.Major.COMPUTER -> Host.Kind.OTHER
-            d.bluetoothClass?.deviceClass == BluetoothClass.Device.COMPUTER_DESKTOP -> Host.Kind.DESKTOP
-            else -> Host.Kind.LAPTOP
-        }
-        return Host(d.address, runCatching { d.name }.getOrNull() ?: d.address, kind)
-    }
+        runCatching { adapter?.getRemoteDevice(address)?.let(Bt::hostOf) }.getOrNull()
 
     // ---- report pipe (HID thread only) ----
 

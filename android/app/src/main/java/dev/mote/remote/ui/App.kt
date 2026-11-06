@@ -7,9 +7,12 @@ import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -54,6 +57,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.mote.remote.hid.Bt
+import dev.mote.remote.hid.BtGate
 import dev.mote.remote.data.Macro
 import dev.mote.remote.data.Macros
 import dev.mote.remote.data.Prefs
@@ -73,12 +80,9 @@ import dev.mote.remote.ui.theme.chassis
 import dev.mote.remote.ui.theme.well
 import kotlinx.coroutines.launch
 
-private fun requiredPermissions(): Array<String> = buildList {
-    if (Build.VERSION.SDK_INT >= 31) {
-        add(Manifest.permission.BLUETOOTH_CONNECT); add(Manifest.permission.BLUETOOTH_ADVERTISE); add(Manifest.permission.BLUETOOTH_SCAN)
-    }
-    if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
-}.toTypedArray()
+/** Bluetooth permissions plus notifications (link status), asked together from the gate. */
+private fun requestedPermissions(): Array<String> =
+    if (Build.VERSION.SDK_INT >= 33) Bt.permissions + Manifest.permission.POST_NOTIFICATIONS else Bt.permissions
 
 private fun granted(c: Context, p: String) = c.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
 
@@ -91,10 +95,9 @@ private fun requestDiscoverable(c: Context) {
     }
 }
 
-@SuppressLint("MissingPermission") // BLUETOOTH_CONNECT is checked on the first line (31+); legacy BLUETOOTH is a manifest grant
-private fun requestEnable(c: Context) {
-    if (Build.VERSION.SDK_INT >= 31 && !granted(c, Manifest.permission.BLUETOOTH_CONNECT)) return
-    runCatching { c.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
+@SuppressLint("MissingPermission") // only launched once Bt.permitted() (BLUETOOTH_CONNECT on 31+); legacy BLUETOOTH is a manifest grant
+private fun requestEnable(launcher: ActivityResultLauncher<Intent>) {
+    runCatching { launcher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
 }
 
 @Composable
@@ -128,15 +131,33 @@ private fun Root(theme: ThemeChoice) {
     var deviceSheet by remember { mutableStateOf(false) }
     var menuSheet by remember { mutableStateOf(false) }
     var pointerBanner by remember { mutableStateOf(false) }
-    var hasConnect by remember { mutableStateOf(Build.VERSION.SDK_INT < 31 || granted(ctx, Manifest.permission.BLUETOOTH_CONNECT)) }
+    // Single source of truth for adapter / permissions / bonded hosts: feeds the gate, the pill and the device sheet.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val bt by remember(lifecycle) { Bt.observe(ctx, lifecycle) }.collectAsStateWithLifecycle(remember { Bt.snapshot(ctx) })
+    LaunchedEffect(bt.gate) { if (bt.gate == BtGate.READY) HidService.start(ctx) }
 
+    val enableLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
+    var openSettings by remember { mutableStateOf(false) } // permission permanently denied: only Settings can grant it
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        hasConnect = Build.VERSION.SDK_INT < 31 || granted(ctx, Manifest.permission.BLUETOOTH_CONNECT)
-        if (hasConnect) HidService.start(ctx)
+        if (Bt.permitted(ctx)) {
+            if (!Bt.snapshot(ctx).enabled) requestEnable(enableLauncher)
+        } else {
+            val a = ctx as? Activity
+            openSettings = a != null && Bt.permissions.none { p -> a.shouldShowRequestPermissionRationale(p) }
+        }
     }
-    LaunchedEffect(Unit) {
-        val missing = requiredPermissions().filterNot { granted(ctx, it) }
-        if (missing.isNotEmpty()) permLauncher.launch(missing.toTypedArray())
+    val gateAction: () -> Unit = {
+        when {
+            bt.gate == BtGate.BT_OFF -> requestEnable(enableLauncher)
+            openSettings -> runCatching {
+                ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null)))
+            }
+            else -> permLauncher.launch(requestedPermissions())
+        }
+    }
+    if (bt.gate != BtGate.READY) {
+        BtGateScreen(bt.gate, openSettings, gateAction)
+        return
     }
 
     // CONNECT / DISCONNECT haptics on link transitions (not on first composition)
@@ -171,11 +192,7 @@ private fun Root(theme: ThemeChoice) {
                 ) { MIcon("more", if (c.dark) c.subtle else c.muted, size = 20.dp, description = "Menu") }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (!hasConnect) {
-                    Gate("Mote needs the Nearby devices permission to act as a Bluetooth keyboard and mouse.", "Grant permission") {
-                        permLauncher.launch(requiredPermissions())
-                    }
-                } else AnimatedContent(
+                AnimatedContent(
                     targetState = mode,
                     transitionSpec = {
                         // shared X axis: content slides 1/8 of the width toward the new mode and crossfades
@@ -198,7 +215,7 @@ private fun Root(theme: ThemeChoice) {
         }
 
         if (deviceSheet) MoteSheet(onDismiss = { deviceSheet = false }) { close ->
-            DeviceSheet(s, onPick = { host -> HidService.start(ctx); Hid.select(host); close() })
+            DeviceSheet(s, bt.hosts, onPick = { host -> HidService.start(ctx); Hid.select(host); close() })
         }
         if (menuSheet) MoteSheet(onDismiss = { menuSheet = false }) { close ->
             MenuSheet(theme, onTheme = { t -> scope.launch { Prefs.setTheme(ctx, t) } }, onPair = { close(); deviceSheet = true })
@@ -217,17 +234,33 @@ fun MoteSheet(onDismiss: () -> Unit, content: @Composable (close: () -> Unit) ->
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, containerColor = c.surface1) { content(close) }
 }
 
+/** First-run (and Bluetooth-off) gate: shown instead of the remote until Bluetooth is usable. */
 @Composable
-private fun Gate(text: String, action: String, onAction: () -> Unit) {
+private fun BtGateScreen(gate: BtGate, openSettings: Boolean, onAction: () -> Unit) {
     val c = LocalMote.current
+    val (text, action) = when (gate) {
+        BtGate.UNSUPPORTED -> "This phone has no Bluetooth adapter Mote can use." to null
+        BtGate.NEEDS_PERMISSION -> if (openSettings) {
+            "Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices in Settings, then come back." to "Open settings"
+        } else {
+            "Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices so it can pair and connect, then turn Bluetooth on." to "Allow and turn on Bluetooth"
+        }
+        else -> "Mote works as a keyboard, mouse and media remote for your computer. Bluetooth is off; turn it on to continue." to "Turn on Bluetooth"
+    }
     Column(
-        Modifier.fillMaxSize().padding(32.dp),
+        Modifier.fillMaxSize().chassis().systemBarsPadding().padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(text, style = T.body, color = c.ink, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(24.dp))
-        PrimaryButton(action, onClick = onAction)
+        MIcon("bluetooth", c.accent, size = 40.dp)
+        Spacer(Modifier.height(16.dp))
+        Text("Mote connects over Bluetooth", style = T.title, color = c.ink, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(8.dp))
+        Text(text, style = T.body, color = c.muted, textAlign = TextAlign.Center)
+        if (action != null) {
+            Spacer(Modifier.height(24.dp))
+            PrimaryButton(action, onClick = onAction)
+        }
     }
 }
 
@@ -240,23 +273,18 @@ fun PrimaryButton(label: String, modifier: Modifier = Modifier, onClick: () -> U
 }
 
 @Composable
-private fun DeviceSheet(s: HidState, onPick: (Host) -> Unit) {
+private fun DeviceSheet(s: HidState, hosts: List<Host>, onPick: (Host) -> Unit) {
     val ctx = LocalContext.current
     val c = LocalMote.current
-    val hosts = remember(s.phase, s.connected) { Hid.bondedHosts() }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
         Text("Devices", style = T.title, color = c.ink)
         Spacer(Modifier.height(4.dp))
         val note = when (s.phase) {
             Phase.UNSUPPORTED -> "This phone does not support Bluetooth HID device mode."
             Phase.BLOCKED -> "Bluetooth HID is unavailable. Another app may be registered as a keyboard; close it and reopen Mote."
-            Phase.BT_OFF -> "Bluetooth is off."
             else -> "Mote reconnects to the selected device while the app is open."
         }
         Text(note, style = T.body, color = c.muted)
-        if (s.phase == Phase.BT_OFF) {
-            Spacer(Modifier.height(12.dp)); PrimaryButton("Turn on Bluetooth") { requestEnable(ctx) }
-        }
         Spacer(Modifier.height(12.dp))
         Column(Modifier.fillMaxWidth().well(RoundedCornerShape(20.dp)).padding(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (hosts.isEmpty()) Text("No paired devices yet.", style = T.body, color = c.muted, modifier = Modifier.padding(12.dp))

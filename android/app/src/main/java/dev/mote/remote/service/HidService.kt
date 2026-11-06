@@ -52,6 +52,7 @@ class HidService : Service() {
         when (intent?.action) {
             ACTION_STOP -> { Hid.disconnect(); stopSelf() }
             ACTION_PLAY -> Hid.consumer(Consumer.PLAY_PAUSE)
+            else -> Hid.start(this) // idempotent; re-registers after Bluetooth comes back on
         }
         return START_NOT_STICKY
     }
