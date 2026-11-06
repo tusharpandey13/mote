@@ -11,6 +11,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -68,7 +70,6 @@ import dev.mote.remote.ui.theme.well
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 @Composable
 fun MacrosScreen(macros: List<Macro>, run: (Macro) -> Unit, save: (List<Macro>) -> Unit) {
@@ -76,11 +77,16 @@ fun MacrosScreen(macros: List<Macro>, run: (Macro) -> Unit, save: (List<Macro>) 
     var editMode by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Macro?>(null) }
     Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 8.dp)) {
-        SectionHead("Macros") {
-            Text(if (editMode) "DONE" else "EDIT", style = T.caps, color = if (editMode) c.accent else c.subtle,
-                modifier = Modifier.clickable { editMode = !editMode }.padding(4.dp))
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Macros", style = T.headline, color = c.ink, modifier = Modifier.weight(1f))
+            EditCap(if (editMode) "Done" else "Edit", active = editMode) { editMode = !editMode }
         }
-        Spacer(Modifier.height(8.dp))
+        Text(
+            if (editMode) "Tap a tile to edit it; tap a star to add or remove it from Media."
+            else "Tap to run. Spaces is a gesture tile: hold and slide. Use Edit to change or star.",
+            style = T.body, color = c.muted,
+        )
+        Spacer(Modifier.height(12.dp))
         LazyVerticalGrid(
             GridCells.Fixed(3),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -166,64 +172,104 @@ fun MacroTile(m: Macro, modifier: Modifier, compact: Boolean, onRun: (Macro) -> 
     ) { TileFace(m, compact, armed = armed) }
 }
 
-/** Spaces gesture tile: hold and slide sends ⌃← / ⌃→ (one step per 32dp), tap sends ⌃↑. */
+/**
+ * Spaces gesture tile. Slide past 40% of the tile width = exactly one ⌃← / ⌃→ (then locked until
+ * lift), with a 450 ms cooldown matching the macOS slide animation; tap = ⌃↑. See [SpacesGesture].
+ */
 @Composable
 fun SpacesTile(modifier: Modifier, compact: Boolean) {
     val c = LocalMote.current
     val h = haptics()
     val linked by rememberUpdatedState(LocalLinked.current)
+    val reduced = reducedMotion()
     var pressed by remember { mutableStateOf(false) }
-    var dir by remember { mutableIntStateOf(0) }
+    var flash by remember { mutableIntStateOf(0) } // -1 / +1 while the commit label shows
+    var cooling by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val nudge = remember { Animatable(0f) } // content follows the finger a little, springs back
-    val dirTint by animateFloatAsState(if (dir != 0) 1f else 0f, Motion.effectFast(), label = "dir")
-    val step = with(LocalDensity.current) { 32.dp.toPx() }
+    val nudge = remember { Animatable(0f) }
+    val flashAlpha = remember { Animatable(0f) }
+    val dim by animateFloatAsState(if (cooling) 0.55f else 1f, Motion.effectFast(), label = "cool")
     val slop = with(LocalDensity.current) { 8.dp.toPx() }
+    var widthPx by remember { mutableIntStateOf(1) }
+    val gesture = remember(widthPx) { SpacesGesture(thresholdPx = widthPx * SpacesGesture.THRESHOLD_FRACTION, slopPx = slop) }
+    var timer by remember { mutableStateOf<Job?>(null) }
+
+    fun now() = android.os.SystemClock.uptimeMillis()
+    fun handle(out: List<SpacesGesture.Out>) {
+        for (o in out) when (o) {
+            is SpacesGesture.Out.Step -> Remote.tap(if (o.right) "right" else "left", Mod.CTRL) // ctrl down, arrow down/up, ctrl up
+            is SpacesGesture.Out.Committed -> {
+                h(Haptic.CLICK)
+                flash = if (o.right) 1 else -1
+                scope.launch { flashAlpha.snapTo(1f); delay(if (reduced) 600 else 350); flashAlpha.animateTo(0f, Motion.effectMed()) }
+            }
+            SpacesGesture.Out.MissionControl -> Remote.tap("up", Mod.CTRL)
+            // a clean all-up keyboard report: no modifier can stay down on the host
+            SpacesGesture.Out.ReleaseAll -> Remote.setMods(Hid.Mods())
+        }
+        if (out.any { it is SpacesGesture.Out.Step || it is SpacesGesture.Out.Committed }) {
+            timer?.cancel()
+            timer = scope.launch {
+                cooling = true
+                while (true) {
+                    delay(gesture.cooldownLeft(now()).coerceAtLeast(16))
+                    val t = now()
+                    gesture.tick(t).forEach { o -> if (o is SpacesGesture.Out.Step) Remote.tap(if (o.right) "right" else "left", Mod.CTRL) }
+                    if (!gesture.inCooldown(now()) && !gesture.hasPending) break
+                }
+                cooling = false
+            }
+        }
+    }
+
     Box(
         modifier
+            .onSizeChanged { widthPx = it.width.coerceAtLeast(1) }
             .raised(RoundedCornerShape(if (compact) 16.dp else 20.dp), pressed)
             .semantics { contentDescription = "Spaces: slide to switch, tap for Mission Control" }
-            .pointerInput(Unit) {
+            .pointerInput(gesture) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     if (!linked) { h(Haptic.REJECT); waitForUpOrCancellation(); return@awaitEachGesture }
-                    pressed = true; h(Haptic.CLICK)
-                    var anchor = down.position.x
-                    var moved = false
-                    while (true) {
-                        val ev = awaitPointerEvent()
-                        val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
-                        if (!ch.pressed) break
-                        if (abs(ch.position.x - down.position.x) > slop) moved = true
-                        val dx = ch.position.x - anchor
-                        if (abs(dx) >= step) {
-                            val right = dx > 0
-                            Remote.tap(if (right) "right" else "left", Mod.CTRL)
-                            h(Haptic.TICK); dir = if (right) 1 else -1
-                            anchor += if (right) step else -step
+                    pressed = true; h(Haptic.TICK)
+                    gesture.down(down.position.x)
+                    var lifted = false
+                    try {
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!ch.pressed) { lifted = true; break }
+                            if (ch.isConsumed) break
+                            handle(gesture.move(ch.position.x, now()))
+                            val f = gesture.follow(ch.position.x - down.position.x)
+                            scope.launch { nudge.snapTo(f) }
+                            ch.consume()
                         }
-                        val follow = ((ch.position.x - anchor) * 0.35f).coerceIn(-step * 0.35f, step * 0.35f)
-                        scope.launch { nudge.snapTo(follow) }
-                        ch.consume()
+                    } finally {
+                        handle(if (lifted) gesture.up(now()) else gesture.cancel())
+                        pressed = false
+                        scope.launch { if (reduced) nudge.snapTo(0f) else nudge.animateTo(0f, Motion.spatialFast()) }
                     }
-                    if (!moved) Remote.tap("up", Mod.CTRL)
-                    pressed = false; dir = 0
-                    scope.launch { nudge.animateTo(0f, Motion.spatialFast()) }
                 }
             },
         contentAlignment = Alignment.Center,
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp).offset { IntOffset(nudge.value.roundToInt(), 0) },
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp).offset { IntOffset(nudge.value.roundToInt(), 0) }.alpha(dim),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MIcon("chevLeft", if (dir < 0) lerp(c.muted, c.accent, dirTint) else c.muted, size = 20.dp)
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                MIcon("spaces", c.ink, size = if (compact) 20.dp else 24.dp)
-                Text("Spaces", style = T.small, color = c.ink)
-                Text("hold & slide", style = T.caps, color = c.subtle)
+            MIcon("chevLeft", if (flash < 0) lerp(c.muted, c.accent, flashAlpha.value) else c.muted, size = 20.dp)
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Column(Modifier.alpha(1f - flashAlpha.value), horizontalAlignment = Alignment.CenterHorizontally) {
+                    MIcon("spaces", c.ink, size = if (compact) 20.dp else 24.dp)
+                    Text("Spaces", style = T.small, color = c.ink)
+                    Text("hold & slide", style = T.caps, color = c.subtle)
+                }
+                if (flashAlpha.value > 0f) {
+                    Text(if (flash < 0) "← Space" else "Space →", style = T.label, color = c.accent, modifier = Modifier.alpha(flashAlpha.value))
+                }
             }
-            MIcon("chevRight", if (dir > 0) lerp(c.muted, c.accent, dirTint) else c.muted, size = 20.dp)
+            MIcon("chevRight", if (flash > 0) lerp(c.muted, c.accent, flashAlpha.value) else c.muted, size = 20.dp)
         }
     }
 }
