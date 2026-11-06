@@ -61,21 +61,21 @@ object UiPrefs {
     private fun clampSpeed(v: Float?) = (v ?: 1f).coerceIn(UiSettings.SPEED_MIN, UiSettings.SPEED_MAX)
 
     private fun read(p: Preferences) = UiSettings(
-        pointerSpeed = clampSpeed(p[POINTER]),
-        scrollSpeed = clampSpeed(p[SCROLL]),
-        naturalScroll = p[NATURAL] ?: true,
-        rightClick = p[RIGHT]?.let { runCatching { RightClick.valueOf(it) }.getOrNull() } ?: RightClick.HOLD,
-        clearModsOnSwitch = p[CLEAR_MODS] ?: false,
-        releaseModsIdle = p[IDLE_MODS] ?: true,
-        keepScreenOn = p[SCREEN_ON] ?: true,
-        extraDim = p[DIM] ?: false,
-        hapticStrength = p[H_STRENGTH]?.let { runCatching { HapticStrength.valueOf(it) }.getOrNull() } ?: HapticStrength.STANDARD,
-        hapticKeys = p[H_KEYS] ?: true,
-        hapticDetents = p[H_DETENTS] ?: true,
-        hapticLink = p[H_LINK] ?: true,
-        desktopCount = (p[DESKTOPS] ?: 4).coerceIn(1, 16),
-        ctrlNumberShortcuts = p[CTRL_N] ?: false,
-        spacesHintDone = p[SPACES_HINT] ?: false,
+        pointerSpeed = clampSpeed(p.typed(POINTER)),
+        scrollSpeed = clampSpeed(p.typed(SCROLL)),
+        naturalScroll = p.typed(NATURAL) ?: true,
+        rightClick = p.typed(RIGHT)?.let { runCatching { RightClick.valueOf(it) }.getOrNull() } ?: RightClick.HOLD,
+        clearModsOnSwitch = p.typed(CLEAR_MODS) ?: false,
+        releaseModsIdle = p.typed(IDLE_MODS) ?: true,
+        keepScreenOn = p.typed(SCREEN_ON) ?: true,
+        extraDim = p.typed(DIM) ?: false,
+        hapticStrength = p.typed(H_STRENGTH)?.let { runCatching { HapticStrength.valueOf(it) }.getOrNull() } ?: HapticStrength.STANDARD,
+        hapticKeys = p.typed(H_KEYS) ?: true,
+        hapticDetents = p.typed(H_DETENTS) ?: true,
+        hapticLink = p.typed(H_LINK) ?: true,
+        desktopCount = (p.typed(DESKTOPS) ?: 4).coerceIn(1, 16),
+        ctrlNumberShortcuts = p.typed(CTRL_N) ?: false,
+        spacesHintDone = p.typed(SPACES_HINT) ?: false,
     )
 
     fun flow(c: Context): Flow<UiSettings> = c.store.data.map(::read)

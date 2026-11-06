@@ -31,4 +31,12 @@ class PrefsCorruptionTest {
             scope.cancel(); dir.deleteRecursively()
         }
     }
+
+    /** Regression (chaos storage-settings-hostile): a String stored under a Float key crash-looped UiPrefs. */
+    @Test fun wrongTypeReadsAsNull() {
+        val stored = androidx.datastore.preferences.core.preferencesOf(stringPreferencesKey("pointer_speed") to "fast")
+        val asFloat = androidx.datastore.preferences.core.floatPreferencesKey("pointer_speed")
+        assertEquals(null, stored.typed(asFloat))
+        assertEquals("fast", stored.typed(stringPreferencesKey("pointer_speed")))
+    }
 }

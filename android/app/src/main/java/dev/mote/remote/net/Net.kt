@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.mote.remote.data.typed
 import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.TestSeam
 import kotlinx.coroutines.CoroutineScope
@@ -89,9 +90,9 @@ object Net {
         app = context.applicationContext
         scope.launch {
             val p = app.store.data.first()
-            _saved.value = SavedHost.decode(p[HOSTS])
-            _wifiChosen.value = p[WIFI_CHOSEN] ?: false
-            Selection.decode(p[SELECTION])?.let { apply(it) }
+            _saved.value = SavedHost.decode(p.typed(HOSTS))
+            _wifiChosen.value = p.typed(WIFI_CHOSEN) ?: false
+            Selection.decode(p.typed(SELECTION))?.let { apply(it) }
         }
         // Wi-Fi power save delayed 3 of 12 sparse taps by 140-530 ms (Nothing Phone 2, Android 16);
         // hold a low-latency Wi-Fi lock only while a helper host is active and the app is on screen.
