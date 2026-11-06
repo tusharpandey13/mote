@@ -183,6 +183,7 @@ fun HostSheet(
     LaunchedEffect(link) {
         val l = link ?: return@LaunchedEffect
         Net.pendingLink.value = null
+        Net.chooseWifi() // a pairing link is a Wi-Fi choice: keep the first-run gate out of the way
         target = l.host; targetPort = l.port; targetName = l.host; tailnetHint = l.tailnet; code = l.code
         error = null; page = Page.CODE
     }
