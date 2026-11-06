@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.mote.remote.hid.Hid
+import dev.mote.remote.net.Remote
 import dev.mote.remote.hid.Key
 import dev.mote.remote.hid.Mod
 import dev.mote.remote.ui.theme.LocalMote
@@ -138,7 +139,7 @@ private fun TypeRow() {
         if (t.isNotEmpty()) {
             text = ""
             scope.launch {
-                val skipped = Hid.typeText(t)
+                val skipped = Remote.typeText(t)
                 if (skipped > 0) Toast.makeText(ctx, "$skipped characters skipped (US layout only)", Toast.LENGTH_SHORT).show()
             }
         }
@@ -172,8 +173,8 @@ private fun KeyCap(k: K, modifier: Modifier, radius: androidx.compose.ui.unit.Dp
     Cap(
         modifier.fillMaxHeight(), RoundedCornerShape(radius), haptic = Haptic.TICK,
         description = k.label.ifEmpty { k.key },
-        onDown = { if (k.mods == 0) Hid.keyDown(k.key) else Hid.tap(k.key, k.mods) },
-        onRelease = { if (k.mods == 0) Hid.keyUp(k.key) },
+        onDown = { if (k.mods == 0) Remote.keyDown(k.key) else Remote.tap(k.key, k.mods) },
+        onRelease = { if (k.mods == 0) Remote.keyUp(k.key) },
     ) {
         when {
             k.icon != null -> MIcon(k.icon, c.ink, size = 22.dp)
@@ -191,7 +192,7 @@ private fun KeyCap(k: K, modifier: Modifier, radius: androidx.compose.ui.unit.Dp
 private fun ModKey(bit: Int, glyph: String, name: String, modifier: Modifier) {
     val c = LocalMote.current
     val h = haptics()
-    val mods by Hid.mods.collectAsState()
+    val mods by Remote.mods.collectAsState()
     var lastTap by remember { mutableLongStateOf(0L) }
     val armed = mods.armed and bit != 0
     val locked = mods.locked and bit != 0
@@ -199,7 +200,7 @@ private fun ModKey(bit: Int, glyph: String, name: String, modifier: Modifier) {
     // state transitions: yellow fill and ring fade in on the spatial-fast spring
     val lit by animateFloatAsState(if (armed || locked) 1f else 0f, Motion.spatialFast(), label = "lit")
     val ring by animateFloatAsState(if (locked) 1f else 0f, Motion.spatialFast(), label = "ring")
-    fun set(a: Boolean, l: Boolean) = Hid.setMods(
+    fun set(a: Boolean, l: Boolean) = Remote.setMods(
         Hid.Mods(
             armed = if (a) mods.armed or bit else mods.armed and bit.inv(),
             locked = if (l) mods.locked or bit else mods.locked and bit.inv(),
@@ -239,7 +240,7 @@ private fun ModKey(bit: Int, glyph: String, name: String, modifier: Modifier) {
 private fun ChordStrip() {
     val c = LocalMote.current
     val h = haptics()
-    val mods by Hid.mods.collectAsState()
+    val mods by Remote.mods.collectAsState()
     Row(
         Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 8.dp).well(RoundedCornerShape(12.dp)).padding(start = 10.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -256,7 +257,7 @@ private fun ChordStrip() {
         Text(if (mods.active == 0) "Modifiers: tap once to arm, twice to lock" else "+ next key", style = T.small, color = c.muted, modifier = Modifier.weight(1f))
         if (mods.active != 0) {
             Cap(Modifier.height(32.dp).width(64.dp), RoundedCornerShape(10.dp), needsLink = false, haptic = null, description = "Clear modifiers",
-                onClick = { Hid.setMods(Hid.Mods()); h(Haptic.RELEASE) }) { Text("Clear", style = T.small, color = c.muted) }
+                onClick = { Remote.setMods(Hid.Mods()); h(Haptic.RELEASE) }) { Text("Clear", style = T.small, color = c.muted) }
         }
     }
 }

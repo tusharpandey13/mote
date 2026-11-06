@@ -29,7 +29,7 @@ class PhysicalHidTest {
 
     @Before
     fun setUp() {
-        TestSeam.sink = null
+        TestSeam.transport = null
         TestSeam.adapter = null
         val perms = Bt.permissions.toList() + if (Build.VERSION.SDK_INT >= 33) listOf(Manifest.permission.POST_NOTIFICATIONS) else emptyList()
         perms.forEach { instr.uiAutomation.grantRuntimePermission(ctx.packageName, it) }

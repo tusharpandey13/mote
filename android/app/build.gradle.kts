@@ -20,8 +20,8 @@ android {
         applicationId = "dev.mote.remote"
         minSdk = 28
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 10
+        versionName = "0.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Fresh process + cleared data per test. The physical-HID suite is opt-in (see README).
@@ -83,7 +83,9 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
     implementation(libs.datastore.preferences)
+    implementation(libs.okhttp)
     testImplementation(libs.junit)
+    testImplementation(libs.org.json) // the JVM test classpath has only stubs of android.jar's org.json
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

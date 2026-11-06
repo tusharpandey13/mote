@@ -201,34 +201,6 @@ fun Led(color: Color, pulse: Boolean) {
     }
 }
 
-/** Device selector pill: LED, host name, chevron. */
-@Composable
-fun DevicePill(s: HidState, onClick: () -> Unit) {
-    val c = LocalMote.current
-    val searching = !s.isConnected && s.selected != null && s.phase == dev.mote.remote.hid.Phase.READY
-    val led = when {
-        s.isConnected -> c.linkOk
-        searching || s.phase == dev.mote.remote.hid.Phase.REGISTERING -> c.linkWait
-        else -> c.linkBad
-    }
-    val name = s.connected?.name ?: s.selected?.name ?: "Choose a device"
-    Cap(
-        Modifier.height(40.dp).widthIn(max = 250.dp),
-        shape = RoundedCornerShape(50),
-        needsLink = false,
-        description = "Device: $name. Tap to choose",
-        onClick = onClick,
-    ) {
-        Row(Modifier.padding(start = 14.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Led(led, searching)
-            Spacer(Modifier.size(10.dp))
-            Text(name, style = T.label, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-            Spacer(Modifier.size(4.dp))
-            MIcon("chevDown", c.muted, size = 20.dp)
-        }
-    }
-}
-
 /** "MOTE" debossed into the chassis: dark edge above, light highlight below. */
 @Composable
 fun WordmarkText() {

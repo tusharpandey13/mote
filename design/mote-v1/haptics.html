@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mote — Haptics</title>
+<link rel="stylesheet" href="mote.css">
+<style>
+  .screen { grid-template-rows: var(--status-h) var(--top-h) 1fr var(--nav-h); }
+  .back { display: flex; align-items: center; gap: 4px; }
+  .back .icon-btn { margin-left: -12px; color: var(--on-surface); }
+  .sub { display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+  .grp { border-radius: 20px; padding: 6px 14px; }
+  .grp-h { color: var(--on-surface-subtle); margin: 14px 4px 2px; }
+  .set { display: flex; align-items: center; gap: 12px; min-height: 60px; }
+  .set + .set { border-top: 1px solid var(--outline); }
+  .set .tx { flex: 1; }
+  .set .tx .sub2 { font: 400 13px/18px var(--font-ui); color: var(--on-surface-muted); }
+  .hslider { position: relative; height: 40px; border-radius: 20px; margin: 4px 0 12px; }
+  .hslider .ticks { position: absolute; left: 18px; right: 18px; top: 6px; bottom: 6px; background: repeating-linear-gradient(90deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 10%) top / 100% 5px no-repeat, repeating-linear-gradient(90deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 10%) bottom / 100% 5px no-repeat; opacity: .5; }
+  .hslider .fill { position: absolute; left: 6px; top: 17px; height: 6px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+  .hslider .thumb { position: absolute; top: 4px; width: 48px; height: 32px; border-radius: 10px; transform: translateX(-50%);
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.06) 1px 2px), var(--metal);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px var(--metal-edge), 0 3px 4px var(--dshadow); }
+  .chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 4px 0 12px; }
+  .chips > div { height: 48px; border-radius: 14px; display: grid; place-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface); }
+  .warn { display: flex; gap: 10px; padding: 14px; border-radius: 16px; color: var(--on-surface-muted); font: 400 14px/20px var(--font-ui); }
+</style>
+</head>
+<body>
+<div class="screen" data-dc-id="screen">
+  <div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>
+  <header class="topbar" data-dc-id="topbar">
+    <div class="back"><div class="icon-btn" data-dc-id="back"><i data-i="chevLeft"></i></div><span class="t-title">Haptics</span></div>
+    <div class="brand" data-dc-id="brand">
+      <span class="wordmark" data-dc-id="wordmark">MOTE</span>
+      <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
+    </div>
+  </header>
+  <main class="content sub" data-dc-id="haptics-content">
+    <span class="t-caps grp-h">Strength</span>
+    <div class="seg-ctl well" data-dc-id="haptic-strength"><div>Off</div><div>Light</div><div class="on raised">Standard</div><div>Strong</div></div>
+    <span class="t-caps grp-h">Try them</span>
+    <div class="chips" data-dc-id="haptic-preview"><div class="raised">Tick</div><div class="raised">Click</div><div class="raised">Heavy</div><div class="raised">Lock</div><div class="raised">Reject</div></div>
+    <section class="grp raised" data-dc-id="haptics-options">
+      <div class="set" data-dc-id="hap-keys"><div class="tx"><div class="t-label">Key presses</div><div class="sub2">Tick on every key and D-pad step</div></div><div class="switch on"></div></div>
+      <div class="set" data-dc-id="hap-sliders"><div class="tx"><div class="t-label">Slider detents</div><div class="sub2">Ticks as scroll and volume speed change</div></div><div class="switch on"></div></div>
+      <div class="set" data-dc-id="hap-link"><div class="tx"><div class="t-label">Connect and disconnect</div><div class="sub2">Distinct pulses when the link changes</div></div><div class="switch on"></div></div>
+    </section>
+    <div class="warn well" data-dc-id="haptic-warning"><i data-i="info" class="i20"></i><span>Haptics follow Android's touch feedback setting. If you feel nothing, turn on Settings, then Sound &amp; vibration, then Touch feedback.</span></div>
+  </main>
+  <div class="navbar"></div>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

@@ -29,7 +29,12 @@ command -v shasum >/dev/null || die "shasum is required"
 command -v ditto >/dev/null || die "ditto is required"
 
 ASSET="MoteHelper-macos-$ARCH.zip"
-URL="https://github.com/$REPO/releases/latest/download/$ASSET"
+# MOTE_RELEASE_URL overrides the release download base (tests: a local fixture server).
+# Plain http is only allowed for loopback; anything else must be https.
+BASE_URL="${MOTE_RELEASE_URL:-https://github.com/$REPO/releases/latest/download}"
+URL="$BASE_URL/$ASSET"
+PROTO='=https'
+case "$BASE_URL" in *@*) ;; http://127.0.0.1[:/]*|http://localhost[:/]*) PROTO='=http' ;; esac
 
 say "This will:"
 echo "    download  $URL"
@@ -42,8 +47,8 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 say "Downloading $ASSET"
-curl -fL --proto '=https' --tlsv1.2 --progress-bar -o "$TMP/$ASSET" "$URL"
-curl -fsSL --proto '=https' --tlsv1.2 -o "$TMP/$ASSET.sha256" "$URL.sha256"
+curl -fL --proto "$PROTO" --tlsv1.2 --progress-bar -o "$TMP/$ASSET" "$URL"
+curl -fsSL --proto "$PROTO" --tlsv1.2 -o "$TMP/$ASSET.sha256" "$URL.sha256"
 
 say "Verifying SHA-256"
 EXPECTED="$(awk '{print $1; exit}' "$TMP/$ASSET.sha256")"

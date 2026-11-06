@@ -5,6 +5,7 @@ import Foundation
 final class Hub {
     let config: Config
     let store: DeviceStore
+    let settings: Settings
     let pairing = Pairing()
     let limiter = RateLimiter()
     let injector: Injector
@@ -28,6 +29,7 @@ final class Hub {
     init(config: Config) {
         self.config = config
         self.store = DeviceStore(service: config.keychainService, memoryOnly: config.memoryStore)
+        self.settings = Settings(config: config)
         self.injector = Injector(dryRun: config.dryRun)
         pairing.onChange = { [weak self] in self?.onChange?() }
         // Accessibility can be granted at any time in System Settings; poll and tell clients.
@@ -105,7 +107,10 @@ final class Hub {
         run(0)
     }
 
-    func cancelMacro() { macroGen += 1; macroRunning = false }
+    func cancelMacro() {
+        if macroRunning { log("macro: cancelled") }
+        macroGen += 1; macroRunning = false
+    }
 }
 
 /// One client connection on either transport. Speaks the protocol; never injects before `authed`.
@@ -128,7 +133,8 @@ final class Session {
 
     func start() {
         hub.add(self)
-        send(["t": "hello", "v": 1, "app": "mote-helper", "host": Host.computerName, "nonce": nonce, "pairing": hub.pairing.isOpen])
+        send(["t": "hello", "v": 1, "app": "mote-helper", "host": Host.computerName, "hostId": hub.settings.hostId, "local": Host.localName,
+                   "nonce": nonce, "pairing": hub.pairing.isOpen])
         // Unauthenticated connections get the pairing window's length to finish, then are dropped.
         DispatchQueue.main.asyncAfter(deadline: .now() + Pairing.window) { [weak self] in
             if let self, !self.authed { self.close() }

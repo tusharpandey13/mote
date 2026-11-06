@@ -37,20 +37,20 @@ class FirstRunGateTest {
     @get:Rule val rule = MoteRule(grantPermissions = false)
     private val c get() = rule.compose
     private val ctx get() = InstrumentationRegistry.getInstrumentation().targetContext
-    private val allow = "Allow and turn on Bluetooth"
+    private val allow = "Connect with Bluetooth"
 
     private fun remoteShown() = c.onAllNodes(hasContentDescription("Play or pause")).fetchSemanticsNodes().isNotEmpty()
 
     @Test
     fun deniedKeepsGateThenGrantResolvesIt() {
-        c.onNodeWithText("Mote connects over Bluetooth").assertExists()
+        c.onNodeWithText("How do you want to connect?").assertExists()
         assertFalse(remoteShown())
 
         c.desc(allow).performClick()
         assertTrue("a permission dialog was shown", rule.device.answerPermissionDialogs(allow = false) > 0)
         c.waitForIdle()
         assertFalse(Bt.permitted(ctx))
-        c.onNodeWithText("Mote connects over Bluetooth").assertExists()
+        c.onNodeWithText("How do you want to connect?").assertExists()
         assertFalse(remoteShown())
 
         c.desc(allow).performClick()

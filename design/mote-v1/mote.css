@@ -341,3 +341,158 @@ svg.i.i16 { width: 16px; height: 16px; }
 .fav.add .lb { color: var(--on-surface-subtle); }
 .fav-edit-btn { height: 40px; margin-right: -2px; padding: 0 14px 0 10px; border-radius: 13px; display: inline-flex; align-items: center; gap: 6px; font: 600 14px/1 var(--font-ui); color: var(--on-surface); }
 .arrowed { display: flex; align-items: center; gap: 2px; }
+
+/* =====================================================================
+   Revision 4: one material per control family (all Compose-buildable).
+   backplate  = textured metal + grain + vignette
+   plastic    = .raised (favourites, brightness, mute, rail cap, keys)
+   rubber     = D-pad (matte, side wall, contact shadow)
+   metal      = slider thumbs (brushed, chamfered)
+   glass      = transport (acrylic, specular band, inner LED glow)
+   ===================================================================== */
+:root {
+  --noise-a: .30;
+  --vignette: radial-gradient(130% 90% at 50% 38%, transparent 55%, rgba(30, 38, 50, .14) 100%);
+  /* rubber (light): matte mid-grey, clearly different from glossy white plastic */
+  --rub-top: #D3D5D9; --rub-bot: #C3C6CB; --rub-wall: #9EA2A9;
+  /* metal thumb */
+  --metal: linear-gradient(180deg, #FDFDFE 0%, #D4D7DC 48%, #BFC3C9 52%, #E6E8EB 100%);
+  --metal-edge: #8D9198;
+  /* glass / acrylic */
+  --glass-top: rgba(255, 255, 255, .92); --glass-bot: rgba(226, 232, 240, .86);
+  --glass-ink: #1C1D20;
+  --glass-glow: rgba(64, 160, 255, .22);
+  --gloss: linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.35) 38%, rgba(255,255,255,0) 40%);
+}
+.dark {
+  --noise-a: .42;
+  --chassis-top: #26282D; --chassis-bot: #17181B; --bg: #1C1D21;
+  --well: #0B0C0E;
+  --key-top: #474A52; --key-bot: #363940; --key-edge: #101114;   /* plastic: lifted further from backplate */
+  --vignette: radial-gradient(130% 90% at 50% 38%, transparent 50%, rgba(0, 0, 0, .45) 100%);
+  --rub-top: #2B2D32; --rub-bot: #232529; --rub-wall: #0E0F11;    /* rubber: darker + matte than plastic */
+  --metal: linear-gradient(180deg, #C9CDD3 0%, #8C9198 48%, #6F747C 52%, #A3A8AF 100%);
+  --metal-edge: #2A2C30;
+  --glass-top: rgba(70, 78, 92, .78); --glass-bot: rgba(22, 26, 32, .92);
+  --glass-ink: #9ED9FF;
+  --glass-glow: rgba(108, 196, 255, .35);
+  --gloss: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,.08) 38%, rgba(255,255,255,0) 40%);
+}
+.screen {
+  background:
+    var(--vignette),
+    repeating-linear-gradient(90deg, var(--grain) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--chassis-top), var(--chassis-bot));
+}
+
+/* rubber */
+.dpad .disc, .dpad .cap { filter: drop-shadow(0 3px 0 var(--rub-wall)) drop-shadow(0 6px 8px var(--dshadow)); }
+.dpad .contact { fill: var(--dshadow); filter: blur(6px); }
+
+/* glass transport channel */
+.channel { display: grid; grid-template-columns: 72px 1fr 72px; gap: 8px; padding: 8px; border-radius: 30px; align-items: center; }
+.glass {
+  position: relative; display: grid; place-items: center; color: var(--glass-ink); border-radius: 22px; overflow: hidden;
+  background: var(--gloss), linear-gradient(180deg, var(--glass-top), var(--glass-bot));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -10px 18px -8px var(--glass-glow), inset 0 0 0 1px rgba(255,255,255,.25),
+    0 1px 0 var(--key-edge), 0 4px 6px var(--dshadow), 0 12px 20px -10px var(--dshadow);
+}
+.dark .glass { box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -12px 22px -8px var(--glass-glow), inset 0 0 0 1px rgba(255,255,255,.06),
+    0 1px 0 #000, 0 4px 6px rgba(0,0,0,.6), 0 12px 20px -10px rgba(0,0,0,.7); }
+.dark .glass svg { filter: drop-shadow(0 0 6px var(--glass-glow)) drop-shadow(0 0 2px var(--glass-glow)); }
+.glass.sm { height: 64px; border-radius: 20px; }
+.glass.play { height: 84px; }
+
+/* machined sliders */
+.slider { position: relative; width: 56px; height: 208px; border-radius: 28px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 0; color: var(--on-surface-muted); }
+.slider .ticks { position: absolute; top: 40px; bottom: 40px; left: 7px; right: 7px;
+  background:
+    repeating-linear-gradient(180deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 14px) left / 6px 100% no-repeat,
+    repeating-linear-gradient(180deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 14px) right / 6px 100% no-repeat;
+  opacity: .55; }
+.slider .ticks::after { content: ""; position: absolute; left: -2px; right: -2px; top: 50%; height: 2px; margin-top: -1px; background: var(--on-surface-subtle); opacity: .9; }
+.slider .end { width: 32px; height: 32px; display: grid; place-items: center; font: 700 18px/1 var(--font-ui); color: var(--on-surface-muted); z-index: 1; }
+.slider .thumb { position: absolute; left: 10px; right: 10px; top: 50%; height: 60px; transform: translateY(-50%); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.06) 1px 2px), var(--metal);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(0,0,0,.25), 0 0 0 1px var(--metal-edge), 0 3px 4px var(--dshadow), 0 8px 12px -6px var(--dshadow);
+  color: #3A3D43; }
+.slider .thumb .grip { display: block; width: 18px; height: 2px; border-radius: 1px; background: rgba(0,0,0,.35); box-shadow: 0 1px 0 rgba(255,255,255,.6); }
+.engrave { font: 900 9px/1 var(--font-mark); letter-spacing: 2px; text-transform: uppercase; color: var(--engrave-fill); text-shadow: var(--engrave-shadow); text-align: center; }
+.light-ink { color: var(--on-surface); }
+
+
+/* =====================================================================
+   Revision 5: grain on every control (#55), Mac brushed metal (#56),
+   and Compose parity (#57). Every layer here maps 1:1 to docs/design/tokens.json.
+   Texture URIs are stand-ins for the two runtime bitmaps described there.
+   ===================================================================== */
+:root {
+  --grain-08: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .08'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-12: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .12'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-16: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .16'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-22: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .22'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-24: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .24'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-30: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .30'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-36: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .36'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --brushed-30: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .30'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  --brushed-45: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .45'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  --brushed-60: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .60'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  /* per-material grain (Overlay) — light */
+  --g-plate: var(--grain-22); --g-plastic: var(--grain-16); --g-rubber: var(--grain-24); --g-metal: var(--grain-12); --g-glass: var(--grain-08);
+  --b-plate: var(--brushed-45); --b-metal: var(--brushed-60);
+  /* anisotropic sheen for horizontal brushing: soft vertical bands */
+  --sheen-plate: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.38) 30%, rgba(255,255,255,0) 52%, rgba(255,255,255,.18) 74%, rgba(255,255,255,0) 90%);
+  --sheen-metal: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 35%, rgba(255,255,255,0) 60%);
+  --ring-metal: conic-gradient(from 0deg, #F2F3F5 0deg, #B8BCC2 45deg, #F7F8F9 90deg, #AEB2B9 135deg, #EEF0F2 180deg, #B3B7BE 225deg, #F5F6F7 270deg, #ADB1B8 315deg, #F2F3F5 360deg);
+  --bezel-top: #B9BDC3; --bezel-bot: #D6D9DD;
+}
+.dark {
+  --g-plate: var(--grain-30); --g-plastic: var(--grain-22); --g-rubber: var(--grain-30); --g-metal: var(--grain-16); --g-glass: var(--grain-12);
+  --b-plate: var(--brushed-60); --b-metal: var(--brushed-60);
+  --sheen-plate: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.07) 30%, rgba(255,255,255,0) 52%, rgba(255,255,255,.04) 74%, rgba(255,255,255,0) 90%);
+  --sheen-metal: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 35%, rgba(255,255,255,0) 60%);
+  --ring-metal: conic-gradient(from 0deg, #8E939A 0deg, #4B4F56 45deg, #9A9FA6 90deg, #464A51 135deg, #8B9097 180deg, #484C53 225deg, #969BA2 270deg, #43474E 315deg, #8E939A 360deg);
+  --bezel-top: #08090A; --bezel-bot: #16171A;
+}
+
+/* backplate: base gradient -> brushed (Overlay) -> sheen -> speck grain (Overlay) -> vignette */
+.screen {
+  background: var(--vignette), var(--g-plate), var(--sheen-plate), var(--b-plate), linear-gradient(180deg, var(--chassis-top), var(--chassis-bot));
+  background-blend-mode: normal, overlay, normal, overlay, normal;
+}
+.screen::before { display: none; }
+
+/* plastic caps (raised, keys, mods, tiles, rail cap, pill, sheet) */
+.raised, .key, .mod:not(.armed):not(.locked), .tile:not(.confirm):not(.add) {
+  background: var(--g-plastic), linear-gradient(180deg, var(--key-top), var(--key-bot));
+  background-blend-mode: overlay, normal;
+}
+.rail { background: var(--g-plastic), var(--surface-1); background-blend-mode: overlay, normal; }
+.well { background: var(--g-rubber), var(--well); background-blend-mode: overlay, normal; }
+.sheet { background: var(--g-plastic), linear-gradient(180deg, var(--surface-1), var(--bg)); background-blend-mode: overlay, normal; }
+.accent-cap {
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 45%), var(--g-plastic), linear-gradient(180deg, var(--prim-top), var(--prim-bot));
+  background-blend-mode: normal, overlay, normal;
+}
+
+/* glass: gloss band -> grain -> body gradient */
+.glass { background: var(--gloss), var(--g-glass), linear-gradient(180deg, var(--glass-top), var(--glass-bot)); background-blend-mode: normal, overlay, normal; }
+
+/* metal thumbs: 4-stop body -> brushed (Overlay) -> sheen -> grain */
+.slider .thumb, .hslider .thumb {
+  background: var(--g-metal), var(--sheen-metal), var(--b-metal), var(--metal);
+  background-blend-mode: overlay, normal, overlay, normal;
+}
+
+/* D-pad: machined metal bezel ring (sweep sheen) around the rubber disc */
+.dpad-wrap { position: relative; width: 208px; height: 208px; border-radius: 50%;
+  background: var(--g-metal), var(--b-metal), var(--ring-metal); background-blend-mode: overlay, overlay, normal;
+  box-shadow: 0 1px 0 var(--hi), 0 -1px 0 var(--lo), 0 6px 10px -4px var(--dshadow); }
+.dpad .housing { fill: var(--well); }
+.dpad .grain { mix-blend-mode: overlay; }
+
+/* transport channel = recessed bezel: explicit stops (no color-mix) */
+.bezel, .channel.well { background: var(--g-rubber), linear-gradient(180deg, var(--bezel-top), var(--bezel-bot)); background-blend-mode: overlay, normal; }
+
+/* parity swaps: no CSS-only filters */
+.offline .live { opacity: .35; filter: none; }

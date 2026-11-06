@@ -17,11 +17,27 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         menu.delegate = self
         item.menu = menu
         refresh()
+        refreshTailnet()
     }
+
+    func menuWillOpen(_ menu: NSMenu) { refreshTailnet() }
 
     var port: UInt16 { hub.config.port }
     var mdnsURL: String { "http://\(Host.localName).local:\(port)" }
     var ipURL: String? { Host.lanIPv4.first.map { "http://\($0):\(port)" } }
+    /// Tailnet address for the menu and the pairing QR: MagicDNS name if the CLI told us, else the 100.x IP.
+    var tailnetHost: String? {
+        guard hub.settings.allowTailscale else { return nil }
+        return Tailnet.name ?? Host.tailnetIPv4
+    }
+
+    /// Pairing link: the web remote URL (any phone camera opens it), plus fields for the Android app.
+    /// `#code=` is what site/remote reads; `id` = hostId, `ts` = tailnet address (only when allowed).
+    func pairingURL(_ code: String) -> String {
+        var s = "\(ipURL ?? mdnsURL)/#code=\(code)&id=\(hub.settings.hostId)"
+        if let ts = tailnetHost { s += "&ts=\(ts)" }
+        return s
+    }
 
     /// Called whenever hub / transports change.
     func refresh() {
@@ -63,6 +79,13 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
 
         _ = add("Wi-Fi remote: \(mdnsURL)", #selector(copyURL(_:))).representedObject = mdnsURL
         if let ip = ipURL { _ = add("     or \(ip)", #selector(copyURL(_:))).representedObject = ip }
+        _ = add("Allow Tailscale connections", #selector(toggleTailscale), state: hub.settings.allowTailscale)
+        if let ts = tailnetHost {
+            let u = "http://\(ts):\(port)"
+            _ = add("Tailscale: \(u)", #selector(copyURL(_:))).representedObject = u
+        } else if hub.settings.allowTailscale {
+            _ = add("Tailscale: not detected (is it running?)")
+        }
         _ = add("Wi-Fi: \(web?.status ?? "off")")
         _ = add("Bluetooth: \(ble?.status ?? "off")")
         menu.addItem(.separator())
@@ -96,6 +119,13 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     @objc func startPairing() { hub.pairing.open(); showPairing() }
     @objc func stopPairing() { hub.pairing.close() }
     @objc func togglePause() { hub.paused.toggle() }
+    @objc func toggleTailscale() { hub.settings.allowTailscale.toggle(); refreshTailnet() }
+
+    /// Re-reads the MagicDNS name in the background (Tailscale may start after the helper).
+    func refreshTailnet() {
+        guard hub.settings.allowTailscale else { return }
+        Tailnet.refresh { [weak self] in self?.refresh() }
+    }
     @objc func quit() { NSApp.terminate(nil) }
 
     @objc func revokeAll() {
@@ -139,7 +169,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         }
         let codeLabel = label("\(code.prefix(3)) \(code.suffix(3))", .monospacedDigitSystemFont(ofSize: 44, weight: .semibold))
         codeLabel.isSelectable = true
-        let qr = NSImageView(image: qrImage("\(url)/#code=\(code)") ?? NSImage())
+        let qr = NSImageView(image: qrImage(pairingURL(code)) ?? NSImage())
         qr.imageScaling = .scaleProportionallyUpOrDown
         qr.translatesAutoresizingMaskIntoConstraints = false
         qr.widthAnchor.constraint(equalToConstant: 220).isActive = true

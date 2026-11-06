@@ -1,7 +1,9 @@
 # Mote for Android
 
 The phone becomes a Bluetooth HID device (keyboard + mouse + consumer control) for a Mac or any
-Bluetooth host. No software is needed on the host. Architecture: `docs/research/tech.md`. Design: `docs/design/design-language.md`.
+Bluetooth host. No software is needed on the host. With Mote Helper on a Mac it can also connect over
+Wi-Fi or Tailscale (protocol: `docs/protocol.md`), which adds Unicode typing, precise brightness and
+click-at-point. Architecture: `docs/research/tech.md`, `docs/research/network-transport.md`. Design: `docs/design/design-language.md`.
 
 ## Toolchain (verified 2026-11-06)
 
@@ -27,10 +29,15 @@ echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties   # gitignored
 
 ```sh
 cd android
-./gradlew :app:testDebugUnitTest :app:lintRelease   # encoder unit tests + lint (0 errors)
+./gradlew :app:testDebugUnitTest :app:lintRelease   # unit tests + helper integration test + lint (0 errors)
 ./gradlew :app:assembleDebug                        # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleRelease                      # R8-minified, signed if a keystore is configured
 ```
+
+### Tests
+
+- `net/ProtoTest`, `net/HostsTest`: message encoding, HMAC (RFC 4231 and a `node:crypto` vector), host grouping, the connect fallback order, address and pairing-link parsing.
+- `net/HelperIntegrationTest`: starts the built helper (`helper/build.sh` first) with `--dry-run --headless --no-ble --memory-store --open-pairing` on a free port, then pairs, authenticates and sends input through `WsTransport`, asserting the helper's `DRY ...` log lines (coalesced moves, ordering, Unicode text, brightness, clickAt, wrong token / code). Nothing is injected. It is skipped if no helper binary is found; point it elsewhere with `MOTE_HELPER=/path/to/MoteHelper`. Run only it: `./gradlew :app:testDebugUnitTest --tests '*HelperIntegrationTest'`.
 
 ### Release signing
 
@@ -71,12 +78,16 @@ ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest
 Bluetooth HID doesn't exist on the emulator, so `MoteRule` installs fakes through `hid/TestSeam.kt`
 (both hooks are null in production):
 
-- `TestSeam.sink` = `FakeTransport`: records every HID report (ID + bytes) instead of sending it, and makes
-  `Hid` skip the real profile registration. Tests set the link state with `Hid.setStateForTest(...)`.
+- `TestSeam.transport` = `FakeTransport`, a `net.Transport` that `Net` uses in place of Bluetooth HID.
+  Every UI action (`Remote.*`) lands there as a `Call`. With `Caps.HID` it stands in for Bluetooth HID, with
+  `Caps.HELPER` for Mote Helper. The Media, Mouse, Keys and Macros suites run once per transport. `Hid`
+  skips the real profile registration, but host selection (`Hid.select`) still works.
 - `TestSeam.adapter` = a `MutableStateFlow<TestSeam.Adapter>`: adapter present / enabled / bonded hosts.
   Updating it re-emits `Bt.observe`, like the system broadcasts do. Runtime permissions stay real.
 
-Tests assert exact report bytes (`Rpt.kb/mouse/consumer` in `FakeTransport.kt`). Timing tests
+Tests assert the exact transport calls (key names, modifier bits, consumer usages, wheel/pan).
+The HID byte encoding is covered by `EncoderTest`, and the helper wire protocol by `ProtoTest` and
+`HelperIntegrationTest` (JVM). Timing tests
 (auto-repeat, long-press, the scroll lever, macro confirm) pause the Compose clock
 (`mainClock.autoAdvance = false`) and advance it explicitly, so they're deterministic.
 
@@ -127,11 +138,27 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 
 The emulator has no HID device profile, so test on a real phone.
 
+### Over Wi-Fi or Tailscale (Mote Helper)
+
+1. Install Mote Helper on the Mac (`site/install.sh`) and grant Accessibility.
+2. In Mote: first-run **Use Wi-Fi with Mote Helper** (no Bluetooth permission needed), or device pill > **Add Mac over Wi-Fi**.
+3. On the Mac: Mote Helper menu > **Pair new device**. Pick the Mac in the nearby list and type the 6-digit code,
+   or scan the QR with the phone camera and tap **Open in the Mote app** on the page that opens (a `mote://pair` link).
+4. Tailscale: on the Mac turn on **Allow Tailscale connections** (menu). If you paired on the LAN while it was on, the
+   phone already knows the tailnet address. Otherwise use device pill > **Enter address** with the MagicDNS name or `100.x` IP.
+
+The app reconnects to the selected helper while it is in the foreground (pings every 20 s, backoff up to 8 s) and
+closes the socket 30 s after it leaves the screen. Connect order per Mac: the address NSD just found, the cached IP,
+`<name>.local`, then the tailnet / typed address. Tokens are imported into the Android Keystore as HMAC keys
+(AES-GCM wrapped fallback). Long-press a Mac in the picker to forget it.
+
 ## Layout
 
 ```
 app/src/main/java/dev/mote/remote/
-  hid/       HidDescriptor (composite descriptor, report builders), Keys (usages, US typing), Hid (registration, connection, ordered report pipe)
+  hid/       HidDescriptor (composite descriptor, report builders), Keys (usages, US typing), Hid (registration, connection, ordered report pipe), Bt (adapter/permission state)
+  net/       Transport (+ BtHidTransport), Remote (UI entry point), Proto (codec, HMAC), WsSession / WsTransport (OkHttp),
+             Hosts (saved hosts, picker reducer, fallback order, links), Net (selection, persistence), Discovery (NSD), Vault (Keystore)
   service/   HidService: connectedDevice foreground service + notification
   data/      Prefs (DataStore), Macro model + JSON + runner
   ui/        App shell, Media / Mouse / Keys / Macros screens, haptics, motion tokens, theme (Silver / Titanium)
@@ -140,14 +167,17 @@ app/src/main/java/dev/mote/remote/
 ## Behaviour notes
 
 - **Scroll direction** assumes macOS natural scrolling (the default). Two-finger scroll follows the content. The scroll lever and its chevrons move toward the top or bottom of the document.
-- **Text typing** uses the US layout. Characters it can't type are skipped, with a toast.
+- **Text typing** over Bluetooth uses the US layout; characters it can't type are skipped, with a toast. Over Mote Helper it sends Unicode text (any layout, emoji).
 - **fn** can't be sent over generic HID.
-- **Brightness** uses Consumer 0x6F/0x70. It probably works on built-in displays, but this isn't verified.
+- **Brightness** over Bluetooth uses Consumer 0x6F/0x70 (probably works on built-in displays, not verified). Over Mote Helper it uses the helper's path (NX key, DisplayServices fallback).
+- **Sticky modifiers** over Mote Helper apply to keys, not to clicks (the protocol's `button` has no modifiers).
+- **Pointer speed** over Mote Helper maps touchpad dp to Mac points 1:1 (`WsTransport.POINT_GAIN`); tune on a device.
 - **Animations** follow the system "Remove animations" setting.
 
 ## Not in this MVP
 
-- Click-at-point macros.
+- Click-at-point on Bluetooth hosts (helper hosts only).
+- In-app QR scanning (use the phone camera + "Open in the Mote app"), TLS pinning on the LAN, now-playing.
 - Multi-step macro editing in the UI. Steps can be text/delay in JSON, but the editor records only one chord.
 - Landscape layouts (the app is portrait-locked).
 - 3-finger gestures, tap-and-hold drag.

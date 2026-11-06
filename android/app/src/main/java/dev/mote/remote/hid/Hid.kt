@@ -37,6 +37,8 @@ data class HidState(
     val selected: Host? = null,
     val connected: Host? = null,
     val connecting: Boolean = false,
+    /** The saved host is no longer bonded: needs pairing again. */
+    val unpaired: Boolean = false,
 ) {
     val isConnected get() = connected != null
 }
@@ -72,12 +74,18 @@ object Hid {
     val inForeground: StateFlow<Boolean> = _fg.asStateFlow()
     var foreground: Boolean
         get() = _fg.value
-        set(v) { _fg.value = v; if (v) kick() else setMods(Mods()) }
+        set(v) { _fg.value = v; if (v) envChanged() else setMods(Mods()) }
 
     private lateinit var appContext: Context
     private var adapter: BluetoothAdapter? = null
     private var proxy: BluetoothHidDevice? = null
     private var device: BluetoothDevice? = null
+    /** Host the stack reports as virtually plugged at registration; reconnect target when none is selected. */
+    private var plugged: String? = null
+    private var attempts = 0
+    private var pausedUntil = 0L
+    /** A Mote Helper host is active ([deselect]); Bluetooth auto-connect is off until [select]. */
+    private var released = false
     private var reconnectJob: Job? = null
 
     // keyboard / mouse state, touched only on the HID thread
@@ -91,7 +99,7 @@ object Hid {
 
     fun start(context: Context) = exec.execute {
         appContext = context.applicationContext
-        if (TestSeam.sink != null) return@execute // state is driven by the test
+        if (TestSeam.transport != null) return@execute // tests: no real HID registration
         if (proxy != null || _state.value.phase == Phase.REGISTERING) return@execute
         val a = context.getSystemService(BluetoothManager::class.java)?.adapter
         adapter = a
@@ -112,7 +120,7 @@ object Hid {
     }
 
     fun stop() {
-        if (TestSeam.sink != null) return
+        if (TestSeam.transport != null) return
         reconnectJob?.cancel(); reconnectJob = null
         exec.execute {
             releaseAll()
@@ -154,6 +162,7 @@ object Hid {
             Log.i(TAG, "registered=$registered plugged=${pluggedDevice?.address}")
             _state.update { it.copy(phase = if (registered) Phase.READY else Phase.BLOCKED) }
             if (registered) {
+                plugged = pluggedDevice?.address
                 if (pluggedDevice != null && proxy?.getConnectionState(pluggedDevice) == BluetoothProfile.STATE_CONNECTED) {
                     onConnected(pluggedDevice)
                 } else tryReconnect()
@@ -193,6 +202,7 @@ object Hid {
 
     private fun onConnected(d: BluetoothDevice) {
         device = d
+        attempts = 0
         val host = Bt.hostOf(d)
         _state.update { it.copy(connected = host, selected = host, connecting = false) }
         scope.launch { Prefs.setSelectedHost(appContext, d.address) }
@@ -204,24 +214,49 @@ object Hid {
         exec.execute {
             val p = proxy
             val cur = device
-            _state.update { it.copy(selected = host) }
+            _state.update { it.copy(selected = host, unpaired = false) }
             scope.launch { Prefs.setSelectedHost(appContext, host.address) }
             if (p != null && cur != null && cur.address != host.address) runCatching { p.disconnect(cur) }
-            tryReconnect()
+            // Explicit user tap: one connect even if unbonded (may start pairing once). Then normal policy.
+            attempts = 0; pausedUntil = 0L; released = false
+            if (p != null && _state.value.phase == Phase.READY && _state.value.connected?.address != host.address) {
+                adapter?.getRemoteDevice(host.address)?.let { d -> attempts++; runCatching { p.connect(d) } }
+            }
         }
     }
 
+    /** Bond/ACL/adapter change or app resume: give auto-reconnect a fresh budget. */
+    fun envChanged() = exec.execute { attempts = 0; tryReconnect() }
+
+    /** Pairing flow started: phone discoverable for [ms]; no auto-connect meanwhile. */
+    fun pausePairing(ms: Long) = exec.execute { pausedUntil = System.currentTimeMillis() + ms }
+
     fun disconnect() = exec.execute { device?.let { d -> runCatching { proxy?.disconnect(d) } } }
 
-    private fun kick() = exec.execute { tryReconnect() }
+    /**
+     * Another transport (Mote Helper) took over: forget the selection, drop the link, and don't
+     * auto-connect (not even to the plugged host) until the user picks a Bluetooth host again.
+     */
+    fun deselect() = exec.execute {
+        released = true
+        _state.update { it.copy(selected = null, unpaired = false) }
+        device?.let { d -> runCatching { proxy?.disconnect(d) } }
+        if (::appContext.isInitialized) scope.launch { Prefs.clearSelectedHost(appContext) }
+    }
 
     private fun tryReconnect() {
+        if (released) return
         val s = _state.value
         val p = proxy ?: return
-        val target = s.selected ?: return
+        val bonded = runCatching { adapter?.bondedDevices.orEmpty().map { it.address }.toSet() }.getOrDefault(emptySet())
+        val unpaired = Reconnect.unpaired(s.selected?.address, bonded)
+        if (unpaired != s.unpaired) _state.update { it.copy(unpaired = unpaired) }
+        val target = Reconnect.target(s.selected?.address, plugged, bonded) ?: return
         if (!foreground || s.phase != Phase.READY || s.connected != null) return
-        val d = adapter?.getRemoteDevice(target.address) ?: return
+        if (!Reconnect.allowed(attempts, System.currentTimeMillis(), pausedUntil)) return
+        val d = adapter?.getRemoteDevice(target) ?: return
         if (p.getConnectionState(d) == BluetoothProfile.STATE_CONNECTING) return
+        attempts++
         runCatching { p.connect(d) }
     }
 
@@ -231,7 +266,6 @@ object Hid {
     // ---- report pipe (HID thread only) ----
 
     private fun send(id: Int, data: ByteArray) {
-        TestSeam.sink?.let { it.send(id, data); return }
         val p = proxy ?: return
         val d = device ?: return
         runCatching { p.sendReport(d, id, data) }
@@ -338,10 +372,6 @@ object Hid {
     fun scroll(wheel: Int, pan: Int) = exec.execute {
         if (wheel != 0 || pan != 0) send(HidDescriptor.ID_MOUSE, HidDescriptor.mouseReport(buttons, 0, 0, wheel, pan))
     }
-
-    /** Test hook: sets the link state directly (with [TestSeam.sink] installed nothing else writes it). */
-    @androidx.annotation.VisibleForTesting
-    fun setStateForTest(s: HidState) { _state.value = s }
 
     const val BUTTON_LEFT = 1
     const val BUTTON_RIGHT = 2

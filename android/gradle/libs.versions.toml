@@ -10,6 +10,8 @@ androidxTestExtJunit = "1.3.0"
 orchestrator = "1.6.1"
 testServices = "1.6.0"
 uiautomator = "2.3.0"
+okhttp = "5.5.1"
+orgJson = "20260814"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -29,6 +31,8 @@ androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version
 androidx-test-orchestrator = { group = "androidx.test", name = "orchestrator", version.ref = "orchestrator" }
 androidx-test-services = { group = "androidx.test.services", name = "test-services", version.ref = "testServices" }
 androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

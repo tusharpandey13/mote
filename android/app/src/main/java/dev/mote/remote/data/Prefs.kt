@@ -18,6 +18,7 @@ object Prefs {
 
     fun selectedHost(c: Context): Flow<String?> = c.store.data.map { it[HOST] }
     suspend fun setSelectedHost(c: Context, address: String) { c.store.edit { it[HOST] = address } }
+    suspend fun clearSelectedHost(c: Context) { c.store.edit { it.remove(HOST) } }
 
     fun theme(c: Context): Flow<ThemeChoice> = c.store.data.map { p ->
         p[THEME]?.let { runCatching { ThemeChoice.valueOf(it) }.getOrNull() } ?: ThemeChoice.LIGHT
