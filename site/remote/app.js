@@ -32,6 +32,9 @@
   let retryT = 0, backoff = 1000, ready = false, pendingSubmit = false, submitRetries = 0;
   let paused = false, ax = true, view = 'connect', mode = LS.get('mode', 'media');
   let autoCode = M && M.autoPairCode ? M.autoPairCode() : null;
+  // On Android, a scanned pairing link may be meant for the Mote app: offer it, and don't spend
+  // the one-time code in the browser until the user taps Pair.
+  const appLink = autoCode && M.appLink && /Android/i.test(navigator.userAgent) ? M.appLink() : null;
 
   const send = (m) => { if (authed && conn) conn.send(m); };
   const key = (usage, mods) => send({ t: 'key', usage, mods: mods || 0 });
@@ -183,7 +186,8 @@
     if (s.pairing === false) $('#p-closed').hidden = false;
     else if (s.pairing === true) $('#p-closed').hidden = true;
     if (s.reason === 'auth' || s.reason === 'revoked') pairMsg("This Mac doesn't recognise this browser any more. Pair again.");
-    if (autoCode) { codeIn.value = autoCode; autoCode = null; submitPair(); }
+    if (appLink) { const a = $('#p-app'); a.href = appLink; a.hidden = false; }
+    if (autoCode) { codeIn.value = autoCode; autoCode = null; if (!appLink) submitPair(); }
     else if (pendingSubmit && ready) submitPair();
   }
   function submitPair() {

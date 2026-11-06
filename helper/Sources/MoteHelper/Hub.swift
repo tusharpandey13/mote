@@ -130,7 +130,7 @@ final class Session {
 
     func start() {
         hub.add(self)
-        send(["t": "hello", "v": 1, "app": "mote-helper", "host": Host.computerName, "hostId": hub.settings.hostId,
+        send(["t": "hello", "v": 1, "app": "mote-helper", "host": Host.computerName, "hostId": hub.settings.hostId, "local": Host.localName,
                    "nonce": nonce, "pairing": hub.pairing.isOpen])
         // Unauthenticated connections get the pairing window's length to finish, then are dropped.
         DispatchQueue.main.asyncAfter(deadline: .now() + Pairing.window) { [weak self] in

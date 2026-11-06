@@ -66,6 +66,7 @@ button:disabled { opacity: .4; cursor: default; pointer-events: none; }
 .p-err { color: var(--danger); min-height: 20px; }
 .p-err.info { color: var(--on-surface-muted); }
 .p-back { margin-top: auto; }
+#p-app { text-decoration: none; margin-bottom: 16px; }
 
 /* ---------- media (from media.html) ---------- */
 .media { display: flex; flex-direction: column; }

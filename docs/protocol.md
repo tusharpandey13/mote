@@ -7,7 +7,7 @@ One JSON message protocol shared by both transports of the Mote Helper (macOS me
 
 All messages are JSON objects with a type field `t`. Unknown fields are ignored. Unknown `t` gets an `err`. The protocol version is announced in `hello` (`"v": 1`); a peer that sees a different major version closes the connection. Minor versions only add optional fields, so `v` stays 1.
 
-Changes in 1.1 (backward compatible): `hello.hostId`, Bonjour TXT record, extra fields in the pairing link (section 1.1), and the opt-in [Tailscale](#tailscale) access rules (section 4).
+Changes in 1.1 (backward compatible): `hello.hostId` and `hello.local`, Bonjour TXT record, extra fields in the pairing link (section 1.1), and the opt-in [Tailscale](#tailscale) access rules (section 4).
 
 ## 1. Handshake and auth
 
@@ -29,7 +29,7 @@ client                                   helper
 
 | Message | Direction | Fields |
 |---|---|---|
-| `hello` | helper -> client | `v` (1), `app` ("mote-helper"), `host` (Mac name), `hostId` (v1.1: 16 hex chars, stable per Mac), `nonce`, `pairing` (bool: pairing window open) |
+| `hello` | helper -> client | `v` (1), `app` ("mote-helper"), `host` (Mac name), `hostId` (v1.1: 16 hex chars, stable per Mac), `local` (v1.1: Bonjour host name, reachable as `<local>.local`), `nonce`, `pairing` (bool: pairing window open) |
 | `pair` | client -> helper | `code` ("123456"), `name` (device label, ≤ 64 chars) |
 | `paired` | helper -> client | `id` (device id, uuid), `token` (64 hex) |
 | `auth` | client -> helper | `id`, `mac` |
@@ -52,7 +52,7 @@ The helper's pairing window shows the code and a QR of:
 http://<lan-ip or name.local>:8790/#code=123456&id=<hostId>[&ts=<tailnet host>]
 ```
 
-The web remote reads `code` from the fragment and ignores the rest. The Android app accepts the same link (it registers for `http://*:8790/` links, or the user pastes it) and also reads `id` and `ts` (MagicDNS name such as `mac.tailnet.ts.net`, or the `100.x` IP; only present while Tailscale connections are allowed), so a phone paired on the LAN already knows the tailnet address.
+The web remote reads `code` from the fragment and ignores the rest. On Android it doesn't auto-submit the code; it offers "Open in the Mote app", a `mote://pair?h=<host:port>&code=…&id=…[&ts=…]` link (Android 12+ opens unverified `http` links only in the browser, so the app can't claim the `http` URL itself). The Android app accepts that link, or the pasted `http` link, and also reads `id` and `ts` (MagicDNS name such as `mac.tailnet.ts.net`, or the `100.x` IP; only present while Tailscale connections are allowed), so a phone paired on the LAN already knows the tailnet address.
 
 ## 2. Input messages (only after `authed`)
 
