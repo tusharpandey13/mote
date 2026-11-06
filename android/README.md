@@ -46,6 +46,68 @@ keyPassword=...
 If the file is missing, `assembleRelease` produces an unsigned APK. Never commit the keystore or the passwords.
 To verify a build, run `$ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk`.
 
+## Tests
+
+| Suite | Where | Runs on | Command |
+|---|---|---|---|
+| Unit (encoder, gate reducer) | `app/src/test/` | JVM | `./gradlew :app:testDebugUnitTest` |
+| End-to-end UI (default) | `app/src/androidTest/java/dev/mote/remote/e2e/` | emulator or phone | `./gradlew :app:connectedDebugAndroidTest` |
+| Process death | `scripts/process-death-test.sh` | emulator or phone | see below |
+| Physical HID (opt-in) | `app/src/androidTest/hid/` | real phone + bonded Mac | see below |
+
+Set `ANDROID_SERIAL=<serial>` when more than one device is attached; otherwise Gradle runs on all of them.
+
+### End-to-end UI suite
+
+Compose UI tests plus UiAutomator for system dialogs, run through the AndroidX Test Orchestrator with
+`clearPackageData`, so every test starts in a fresh process with no DataStore and no runtime permissions.
+
+```sh
+cd android
+ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest
+# one class: -Pandroid.testInstrumentationRunnerArguments.class=dev.mote.remote.e2e.MediaTest
+```
+
+Bluetooth HID doesn't exist on the emulator, so `MoteRule` installs fakes through `hid/TestSeam.kt`
+(both hooks are null in production):
+
+- `TestSeam.sink` = `FakeTransport`: records every HID report (ID + bytes) instead of sending it, and makes
+  `Hid` skip the real profile registration. Tests set the link state with `Hid.setStateForTest(...)`.
+- `TestSeam.adapter` = a `MutableStateFlow<TestSeam.Adapter>`: adapter present / enabled / bonded hosts.
+  Updating it re-emits `Bt.observe`, like the system broadcasts do. Runtime permissions stay real.
+
+Tests assert exact report bytes (`Rpt.kb/mouse/consumer` in `FakeTransport.kt`). Timing tests
+(auto-repeat, long-press, the scroll lever, macro confirm) pause the Compose clock
+(`mainClock.autoAdvance = false`) and advance it explicitly, so they're deterministic.
+
+### Process death
+
+An instrumented test can't kill its own process (`am kill` would take the instrumentation down too), so
+this one is a host-driven black-box script. It opens Keys, types unsent text, goes Home, runs
+`adb shell am kill`, relaunches, and checks that the mode and the text are restored. It uses the real
+adapter, so Bluetooth must be on (the script runs `cmd bluetooth_manager enable`).
+
+```sh
+./gradlew :app:installDebug
+ANDROID_SERIAL=emulator-5554 scripts/process-death-test.sh
+```
+
+### Physical HID suite
+
+`@PhysicalHid` tests use the real `BluetoothHidDevice` with no fakes. They assert that `registerApp`
+succeeds (phase `READY`) and that the HID connection reaches `STATE_CONNECTED` with a bonded host.
+The default run excludes them. Before you run them:
+
+1. Use a real phone with Bluetooth on, and quit other apps that register as a HID device.
+2. Pair the Mac once through the app (**Pair new device**). Keep the Mac awake and in range.
+
+```sh
+ANDROID_SERIAL=<phone-serial> ./gradlew :app:connectedDebugAndroidTest -PmoteHid
+# a specific host: add -Pandroid.testInstrumentationRunnerArguments.host=AA:BB:CC:DD:EE:FF
+```
+
+If no host is given, the test uses the first bonded computer. If none is bonded, it's skipped (assumption failure).
+
 ## Install
 
 Turn on USB debugging on the phone, then:
