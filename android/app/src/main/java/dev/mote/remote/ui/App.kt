@@ -65,6 +65,8 @@ import dev.mote.remote.data.Macro
 import dev.mote.remote.data.Macros
 import dev.mote.remote.data.Prefs
 import dev.mote.remote.data.ThemeChoice
+import dev.mote.remote.data.UiPrefs
+import dev.mote.remote.data.UiSettings
 import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.HidState
 import dev.mote.remote.hid.Host
@@ -104,8 +106,9 @@ fun MoteApp() {
             }
         }
     }
+    val settings by UiPrefs.flow(ctx).collectAsState(initial = UiSettings())
     MoteTheme(if (dark) Titanium else Silver) {
-        CompositionLocalProvider(LocalHaptics provides rememberHaptics()) { Root(choice) }
+        CompositionLocalProvider(LocalHaptics provides rememberHaptics(), LocalSettings provides settings) { Root(choice) }
     }
 }
 

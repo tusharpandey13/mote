@@ -76,6 +76,9 @@ import kotlinx.coroutines.launch
 /** Whether a host is connected; controls that need it are dimmed and reject taps otherwise. */
 val LocalLinked = compositionLocalOf { false }
 
+/** Persisted Settings / Haptics choices (menu sheet). */
+val LocalSettings = compositionLocalOf { dev.mote.remote.data.UiSettings() }
+
 object T {
     val caps = TextStyle(fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp)
     val label = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
