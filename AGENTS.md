@@ -6,6 +6,7 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
 - `android/`: Kotlin/Compose app, Bluetooth HID. Own it via `android/README.md`.
 - `helper/`: Swift macOS menu-bar helper (Wi-Fi WebSocket + BLE GATT, CGEvent injector). `helper/tests/smoke.mjs` is its test.
 - `site/`: website, `demo.html`, `install.sh`. `site/remote/`: web remote (Wi-Fi WebSocket / Web Bluetooth). The helper bundles it at build time.
+- `chaos/helper/`: chaos/robustness suite for the helper (fault proxy, fuzzer, storms, kills): `node chaos/helper/run.mjs --budget 10m --seed N`. See `chaos/README.md`.
 - `design/`: Paseo design canvas (`mote-v1`). `tools/design-gen/`: generator. `docs/`: protocol, design language, research.
 
 ## Source of truth
