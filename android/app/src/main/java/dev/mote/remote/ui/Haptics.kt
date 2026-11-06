@@ -10,15 +10,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalView
+import dev.mote.remote.data.HapticStrength
+import dev.mote.remote.data.UiSettings
 
 /** Semantic haptics from design-language 5.2. */
-enum class Haptic { TICK, CLICK, HEAVY, ARM, LOCK, RELEASE, CONNECT, DISCONNECT, REJECT, EDGE }
+enum class Haptic { TICK, CLICK, HEAVY, ARM, LOCK, RELEASE, CONNECT, DISCONNECT, REJECT, EDGE, DETENT }
 
 class Haptics(private val view: View) {
     private val vibrator: Vibrator? = view.context.getSystemService(Vibrator::class.java)
     private var last = 0L
 
+    /** Haptics screen: strength and per-family switches. */
+    var cfg: UiSettings = UiSettings()
+
     fun play(h: Haptic) {
+        val allowed = when (h) {
+            Haptic.TICK, Haptic.CLICK -> cfg.hapticKeys
+            Haptic.DETENT -> cfg.hapticDetents
+            Haptic.CONNECT, Haptic.DISCONNECT -> cfg.hapticLink
+            else -> true
+        }
+        if (allowed) preview(h)
+    }
+
+    /** Plays [h] at the chosen strength, ignoring the per-family switches (the "Try them" chips). */
+    fun preview(h: Haptic) {
+        if (cfg.hapticStrength == HapticStrength.OFF) return
         val now = SystemClock.uptimeMillis()
         if (now - last < 25) return // coalesce: at most one haptic per 25 ms
         last = now
@@ -31,9 +48,10 @@ class Haptics(private val view: View) {
         if (Build.VERSION.SDK_INT < 31) return false // THUD / LOW_TICK primitives are API 31
         val c = VibrationEffect.startComposition()
         val prims = mutableListOf<Int>()
-        fun add(p: Int, s: Float, delay: Int = 0) { prims += p; c.addPrimitive(p, s, delay) }
+        val k = cfg.hapticStrength.scale
+        fun add(p: Int, s: Float, delay: Int = 0) { prims += p; c.addPrimitive(p, (s * k).coerceIn(0f, 1f), delay) }
         when (h) {
-            Haptic.TICK -> add(VibrationEffect.Composition.PRIMITIVE_TICK, 0.6f)
+            Haptic.TICK, Haptic.DETENT -> add(VibrationEffect.Composition.PRIMITIVE_TICK, 0.7f)
             Haptic.CLICK -> add(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.8f)
             Haptic.HEAVY -> add(VibrationEffect.Composition.PRIMITIVE_THUD, 0.7f)
             Haptic.ARM -> add(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.5f)
@@ -50,7 +68,7 @@ class Haptics(private val view: View) {
     }
 
     private fun fallback(h: Haptic): Int = when (h) {
-        Haptic.TICK, Haptic.EDGE, Haptic.RELEASE -> HapticFeedbackConstants.CLOCK_TICK
+        Haptic.TICK, Haptic.EDGE, Haptic.RELEASE, Haptic.DETENT -> HapticFeedbackConstants.CLOCK_TICK
         Haptic.CLICK -> HapticFeedbackConstants.VIRTUAL_KEY
         Haptic.HEAVY -> HapticFeedbackConstants.LONG_PRESS
         Haptic.ARM -> HapticFeedbackConstants.CONTEXT_CLICK

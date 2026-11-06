@@ -86,6 +86,7 @@ object T {
     val key = TextStyle(fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)
     val keyS = TextStyle(fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
     val title = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
+    val headline = TextStyle(fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
     val body = TextStyle(fontSize = 15.sp, lineHeight = 22.sp)
 }
 
@@ -203,16 +204,11 @@ fun Led(color: Color, pulse: Boolean) {
     }
 }
 
-/** "MOTE" debossed into the chassis: dark edge above, light highlight below. */
+/** "MOTE" debossed into the chassis (Unbounded Black 19sp, tracking 2.5): dark edge above, light below. */
 @Composable
 fun WordmarkText() {
     val c = LocalMote.current
-    val style = TextStyle(fontFamily = Wordmark, fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 3.sp)
-    Box {
-        Text("MOTE", style = style, color = if (c.dark) Color.Black.copy(alpha = 0.75f) else Color(0x5914202A), modifier = Modifier.offset(y = (-1).dp))
-        Text("MOTE", style = style, color = c.hi, modifier = Modifier.offset(y = 1.dp))
-        Text("MOTE", style = style, color = c.engrave)
-    }
+    EngravedText("MOTE", 19.sp, 2.5.sp, c.engrave)
 }
 
 enum class Mode(val label: String, val icon: String) {
