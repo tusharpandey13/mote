@@ -411,3 +411,5 @@ All values below are also in `docs/design/tokens.json` → `components`. Every l
   - **D-pad OK when pressed:** the cap and its "OK" move down 1.5dp and scale to 0.96, the bevel inverts (dark top, light bottom), the side wall shrinks to 1dp, and the legend dims to `onSurfaceMuted`.
   - The `dpad-press` artboard shows rest vs pressed. Tokens: `components.cap.press` and `components.dpad.press` (`legendFollowsCap: true`).
 - **Grain:** this revision keeps the halved grain and brushed alphas (plate .11/.15, plastic .08/.11, rubber .12/.15, metal .06/.08, glass .04/.06; brushed .32/.42) merged from the parallel tuning pass.
+
+- **Grain halved (0.3.1, on-device feedback "too much grain").** Grain alpha is half the table above in both themes (plate .11/.15, plastic .08/.11, rubber and wells .12/.15, metal .06/.08, glass .04/.06), and brushed alpha is about 30% lower (plate .32/.42, metal .42/.42). `tokens.json` holds the live values.
