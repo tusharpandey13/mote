@@ -69,6 +69,8 @@ import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.HidState
 import dev.mote.remote.hid.Host
 import dev.mote.remote.hid.Phase
+import dev.mote.remote.net.Net
+import dev.mote.remote.net.Remote
 import dev.mote.remote.service.HidService
 import dev.mote.remote.ui.theme.LocalMote
 import dev.mote.remote.ui.theme.MIcon
@@ -129,6 +131,11 @@ private fun Root(theme: ThemeChoice) {
     val macros by Macros.flow(ctx).collectAsState(initial = Macros.defaults)
     var mode by rememberSaveable { mutableStateOf(Mode.MEDIA) }
     var deviceSheet by remember { mutableStateOf(false) }
+    var addHost by remember { mutableStateOf(false) } // open the host sheet on "Add Mac over Wi-Fi"
+    val wifiChosen by Net.wifiChosen.collectAsState()
+    val link by Net.pendingLink.collectAsState()
+    LaunchedEffect(link) { if (link != null) deviceSheet = true }
+    val linked by Remote.linked.collectAsState()
     var menuSheet by remember { mutableStateOf(false) }
     var pointerBanner by remember { mutableStateOf(false) }
     // Single source of truth for adapter / permissions / bonded hosts: feeds the gate, the pill and the device sheet.
@@ -155,17 +162,17 @@ private fun Root(theme: ThemeChoice) {
             else -> permLauncher.launch(requestedPermissions())
         }
     }
-    if (bt.gate != BtGate.READY) {
-        BtGateScreen(bt.gate, openSettings, gateAction)
+    if (bt.gate != BtGate.READY && !wifiChosen && link == null) {
+        BtGateScreen(bt.gate, openSettings, gateAction, onWifi = { Net.chooseWifi(); addHost = true; deviceSheet = true })
         return
     }
 
     // CONNECT / DISCONNECT haptics on link transitions (not on first composition)
     var wasConnected by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(s.isConnected) {
+    LaunchedEffect(linked) {
         val prev = wasConnected
-        if (prev != null && prev != s.isConnected) h(if (s.isConnected) Haptic.CONNECT else Haptic.DISCONNECT)
-        wasConnected = s.isConnected
+        if (prev != null && prev != linked) h(if (linked) Haptic.CONNECT else Haptic.DISCONNECT)
+        wasConnected = linked
     }
 
     val runMacro: (Macro) -> Unit = { m ->
@@ -177,13 +184,13 @@ private fun Root(theme: ThemeChoice) {
     }
     val saveMacros: (List<Macro>) -> Unit = { list -> scope.launch { Macros.save(ctx, list) } }
 
-    CompositionLocalProvider(LocalLinked provides s.isConnected) {
+    CompositionLocalProvider(LocalLinked provides linked) {
         Column(Modifier.fillMaxSize().chassis().systemBarsPadding().imePadding()) {
             Row(
                 Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DevicePill(s) { deviceSheet = true }
+                HostPill { deviceSheet = true }
                 Spacer(Modifier.weight(1f))
                 WordmarkText()
                 Box(
@@ -214,8 +221,8 @@ private fun Root(theme: ThemeChoice) {
             ModeRail(mode) { mode = it }
         }
 
-        if (deviceSheet) MoteSheet(onDismiss = { deviceSheet = false }) { close ->
-            DeviceSheet(s, bt.hosts, onPick = { host -> HidService.start(ctx); Hid.select(host); close() })
+        if (deviceSheet) MoteSheet(onDismiss = { deviceSheet = false; addHost = false }) { close ->
+            HostSheet(s, bt, addHost, onBtSetup = gateAction, onPickBt = { host -> HidService.start(ctx); Hid.select(host) }, close = close)
         }
         if (menuSheet) MoteSheet(onDismiss = { menuSheet = false }) { close ->
             MenuSheet(theme, onTheme = { t -> scope.launch { Prefs.setTheme(ctx, t) } }, onPair = { close(); deviceSheet = true })
@@ -236,14 +243,14 @@ fun MoteSheet(onDismiss: () -> Unit, content: @Composable (close: () -> Unit) ->
 
 /** First-run (and Bluetooth-off) gate: shown instead of the remote until Bluetooth is usable. */
 @Composable
-private fun BtGateScreen(gate: BtGate, openSettings: Boolean, onAction: () -> Unit) {
+private fun BtGateScreen(gate: BtGate, openSettings: Boolean, onAction: () -> Unit, onWifi: () -> Unit) {
     val c = LocalMote.current
     val (text, action) = when (gate) {
         BtGate.UNSUPPORTED -> "This phone has no Bluetooth adapter Mote can use." to null
         BtGate.NEEDS_PERMISSION -> if (openSettings) {
             "Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices in Settings, then come back." to "Open settings"
         } else {
-            "Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices so it can pair and connect, then turn Bluetooth on." to "Allow and turn on Bluetooth"
+            "Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices so it can pair and connect, then turn Bluetooth on." to "Connect with Bluetooth"
         }
         else -> "Mote works as a keyboard, mouse and media remote for your computer. Bluetooth is off; turn it on to continue." to "Turn on Bluetooth"
     }
@@ -254,13 +261,14 @@ private fun BtGateScreen(gate: BtGate, openSettings: Boolean, onAction: () -> Un
     ) {
         MIcon("bluetooth", c.accent, size = 40.dp)
         Spacer(Modifier.height(16.dp))
-        Text("Mote connects over Bluetooth", style = T.title, color = c.ink, textAlign = TextAlign.Center)
+        Text("How do you want to connect?", style = T.title, color = c.ink, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         Text(text, style = T.body, color = c.muted, textAlign = TextAlign.Center)
         if (action != null) {
             Spacer(Modifier.height(24.dp))
             PrimaryButton(action, onClick = onAction)
         }
+        WifiGateOption(primary = action == null, onWifi)
     }
 }
 
