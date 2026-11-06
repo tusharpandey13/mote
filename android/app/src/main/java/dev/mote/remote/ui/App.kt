@@ -194,7 +194,7 @@ private fun Root(theme: ThemeChoice) {
     }
     // Settings: keep the screen on while connected; extra dim lowers this window's brightness
     val view = LocalView.current
-    val linkedUi = linked || demo
+    val linkedUi = linked || (demo && !isDemoOffline(ctx))
     DisposableEffect(linkedUi, settings.keepScreenOn) {
         view.keepScreenOn = linkedUi && settings.keepScreenOn
         onDispose { view.keepScreenOn = false }
@@ -324,6 +324,9 @@ private fun isDemo(c: Context): Boolean {
     if (c.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) return false
     return (c as? Activity)?.intent?.getBooleanExtra("mote.demo", false) == true
 }
+
+/** Debug builds: `--ez mote.demo.offline true` with mote.demo shows the app disconnected (unlit wordmark). */
+private fun isDemoOffline(c: Context): Boolean = (c as? Activity)?.intent?.getBooleanExtra("mote.demo.offline", false) == true
 
 @Composable
 fun PrimaryButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {

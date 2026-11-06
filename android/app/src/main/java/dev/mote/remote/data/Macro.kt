@@ -20,7 +20,7 @@ sealed interface Step {
 }
 
 /**
- * A macro is a named list of steps. [Kind.SPACES] is the built-in gesture tile
+ * A macro is a named list of steps. [Kind.SPACES] is the built-in Spaces carousel
  * (hold + slide = ⌃←/⌃→, tap = ⌃↑) and has no steps.
  */
 data class Macro(
@@ -37,7 +37,7 @@ data class Macro(
 
     /** Chord shown under the tile name, e.g. "⌘⇧4". */
     val hint: String get() = when {
-        kind == Kind.SPACES -> "⌃← ⌃→"
+        kind == Kind.SPACES -> "swipe or tap a desktop"
         steps.size == 1 && steps[0] is Step.Chord -> (steps[0] as Step.Chord).let { Mod.glyphs(it.mods) + dev.mote.remote.hid.Key.label(it.key) }
         steps.size == 1 && steps[0] is Step.ClickAt -> (steps[0] as Step.ClickAt).let { "click ${(it.x * 100).toInt()}%, ${(it.y * 100).toInt()}%" }
         else -> "${steps.size} steps"
