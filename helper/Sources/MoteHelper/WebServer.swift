@@ -84,7 +84,9 @@ private final class HTTPConnection {
     func start() {
         conn.stateUpdateHandler = { [weak self] st in
             switch st {
-            case .failed, .cancelled: self?.finish()
+            // A failed connection (e.g. peer RST) still holds its socket until it is cancelled.
+            case .failed: self?.conn.cancel()
+            case .cancelled: self?.finish()
             default: break
             }
         }
