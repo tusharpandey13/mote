@@ -100,14 +100,14 @@ fun HostPill(onClick: () -> Unit) {
         }
         pulse = st is WsStatus.Connecting
     } else {
-        val searching = !s.isConnected && s.selected != null && s.phase == Phase.READY
+        val searching = !s.isConnected && s.selected != null && !s.unpaired && s.phase == Phase.READY
         led = when {
             s.isConnected -> c.linkOk
             searching || s.phase == Phase.REGISTERING -> c.linkWait
             else -> c.linkBad
         }
         pulse = searching
-        name = s.connected?.name ?: s.selected?.name ?: "Choose a device"
+        name = s.connected?.name ?: s.selected?.let { if (s.unpaired) "Not paired: pair again" else it.name } ?: "Choose a device"
         route = if (s.connected != null || s.selected != null) Route.BT else null
     }
     Cap(
@@ -238,7 +238,9 @@ fun HostSheet(
                     else -> "Mote reconnects to the selected device while the app is open."
                 }
                 Text(note, style = T.body, color = c.muted)
-                val rows = hostRows(bt.hosts, saved, found)
+                // A saved host that was unpaired is no longer in the bonded list; keep it visible so its "Not paired" state shows.
+                val btHosts = s.selected?.takeIf { sel -> s.unpaired && bt.hosts.none { it.address == sel.address } }?.let { bt.hosts + it } ?: bt.hosts
+                val rows = hostRows(btHosts, saved, found)
                 Column(Modifier.fillMaxWidth().well(RoundedCornerShape(20.dp)).padding(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (rows.isEmpty()) Text(if (scanning) "Looking for Macs…" else "No devices yet.", style = T.body, color = c.muted, modifier = Modifier.padding(12.dp))
                     rows.forEach { r ->
@@ -360,6 +362,7 @@ private fun HostRowCap(
         viaHelper && ws is WsStatus.Failed -> failedText(ws)
         viaHelper -> "Connecting…"
         selected && r.bt != null && s.connected?.address == r.bt.address -> "Connected · BT"
+        selected && r.bt != null && s.unpaired -> "Not paired: pair again"
         selected && r.bt != null -> "Searching…"
         r.saved == null && r.bt == null -> "Nearby · tap to pair"
         r.saved == null && r.found != null -> "Paired over Bluetooth · Mote Helper found"
@@ -435,12 +438,16 @@ private fun friendly(e: Throwable, address: String): String = when (e) {
     }
 }
 
+private const val DISCOVERABLE_S = 120
+
+/** Makes the phone discoverable for Bluetooth pairing; auto-connect pauses meanwhile (Reconnect policy). */
 private fun requestDiscoverable(c: Context) {
     if (Build.VERSION.SDK_INT >= 31 && c.checkSelfPermission(Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) {
         Toast.makeText(c, "Allow Nearby devices to pair", Toast.LENGTH_SHORT).show(); return
     }
+    Hid.pausePairing(DISCOVERABLE_S * 1000L)
     runCatching {
-        c.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120))
+        c.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_S))
     }
 }
 

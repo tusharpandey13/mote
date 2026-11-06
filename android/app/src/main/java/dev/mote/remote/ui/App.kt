@@ -86,17 +86,6 @@ import kotlinx.coroutines.launch
 private fun requestedPermissions(): Array<String> =
     if (Build.VERSION.SDK_INT >= 33) Bt.permissions + Manifest.permission.POST_NOTIFICATIONS else Bt.permissions
 
-private fun granted(c: Context, p: String) = c.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
-
-private fun requestDiscoverable(c: Context) {
-    if (Build.VERSION.SDK_INT >= 31 && !granted(c, Manifest.permission.BLUETOOTH_ADVERTISE)) {
-        Toast.makeText(c, "Allow Nearby devices to pair", Toast.LENGTH_SHORT).show(); return
-    }
-    runCatching {
-        c.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120))
-    }
-}
-
 @SuppressLint("MissingPermission") // only launched once Bt.permitted() (BLUETOOTH_CONNECT on 31+); legacy BLUETOOTH is a manifest grant
 private fun requestEnable(launcher: ActivityResultLauncher<Intent>) {
     runCatching { launcher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
@@ -142,6 +131,7 @@ private fun Root(theme: ThemeChoice) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val bt by remember(lifecycle) { Bt.observe(ctx, lifecycle) }.collectAsStateWithLifecycle(remember { Bt.snapshot(ctx) })
     LaunchedEffect(bt.gate) { if (bt.gate == BtGate.READY) HidService.start(ctx) }
+    LaunchedEffect(bt) { Hid.envChanged() } // bond/ACL/adapter change or resume: fresh reconnect budget
 
     val enableLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
     var openSettings by remember { mutableStateOf(false) } // permission permanently denied: only Settings can grant it
@@ -279,53 +269,6 @@ fun PrimaryButton(label: String, modifier: Modifier = Modifier, onClick: () -> U
         Text(label, style = T.label, color = c.onPrim)
     }
 }
-
-@Composable
-private fun DeviceSheet(s: HidState, hosts: List<Host>, onPick: (Host) -> Unit) {
-    val ctx = LocalContext.current
-    val c = LocalMote.current
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-        Text("Devices", style = T.title, color = c.ink)
-        Spacer(Modifier.height(4.dp))
-        val note = when (s.phase) {
-            Phase.UNSUPPORTED -> "This phone does not support Bluetooth HID device mode."
-            Phase.BLOCKED -> "Bluetooth HID is unavailable. Another app may be registered as a keyboard; close it and reopen Mote."
-            else -> "Mote reconnects to the selected device while the app is open."
-        }
-        Text(note, style = T.body, color = c.muted)
-        Spacer(Modifier.height(12.dp))
-        Column(Modifier.fillMaxWidth().well(RoundedCornerShape(20.dp)).padding(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (hosts.isEmpty()) Text("No paired devices yet.", style = T.body, color = c.muted, modifier = Modifier.padding(12.dp))
-            hosts.forEach { host ->
-                val selected = s.selected?.address == host.address
-                val status = when {
-                    s.connected?.address == host.address -> "Connected"
-                    selected -> "Searching…"
-                    else -> "Paired"
-                }
-                Cap(Modifier.fillMaxWidth().height(60.dp), RoundedCornerShape(14.dp), needsLink = false, description = "Use ${host.name}", onClick = { onPick(host) }) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        MIcon(when (host.kind) { Host.Kind.LAPTOP -> "laptop"; Host.Kind.DESKTOP -> "desktop"; else -> "bluetooth" }, c.muted)
-                        Spacer(Modifier.size(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(host.name, style = T.label, color = c.ink, maxLines = 1)
-                            Text(status, style = T.small, color = if (status == "Connected") c.linkOk else c.subtle)
-                        }
-                        if (selected) MIcon("check", c.accent)
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        PrimaryButton("Pair new device") { requestDiscoverable(ctx) }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Makes this phone visible for 2 minutes. Pair it from the computer's Bluetooth settings; Android asks you to confirm the code.",
-            style = T.body, color = c.muted,
-        )
-    }
-}
-
 @Composable
 private fun MenuSheet(theme: ThemeChoice, onTheme: (ThemeChoice) -> Unit, onPair: () -> Unit) {
     val c = LocalMote.current

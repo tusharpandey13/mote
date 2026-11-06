@@ -25,10 +25,10 @@ final class WebServer {
         // TXT: id = stable hostId (match saved hosts without connecting), v = protocol major.
         l.service = NWListener.Service(name: Host.computerName, type: "_mote._tcp", domain: nil,
                                        txtRecord: NWTXTRecord(["id": hub.settings.hostId, "v": "1"]))
-        l.stateUpdateHandler = { [weak self] st in
+        l.stateUpdateHandler = { [weak self, weak l] st in
             guard let self else { return }
             switch st {
-            case .ready: self.status = "listening on :\(self.hub.config.port)"
+            case .ready: self.status = "listening on :\(l?.port?.rawValue ?? self.hub.config.port)"   // real port with --port 0
             case .failed(let e): self.status = "failed: \(e)"
             default: break
             }

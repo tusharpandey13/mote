@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates design/mote-v1/*.html (rev 3: light default; media.html is the dark variant). Static HTML is the artifact; this only removes chrome duplication."""
+"""Generates design/mote-v1/*.html (rev 4: light default; media.html is the dark variant). Static HTML is the artifact; this only removes chrome duplication."""
 import sys, pathlib
 OUT = pathlib.Path(sys.argv[1])
 
@@ -74,9 +74,10 @@ def dpad():
         % (n, (' transform="rotate(%d 104 104)"' % r) if r else "", DPAD_ARM, TRI)
         for n, r in [("up", 0), ("right", 90), ("down", 180), ("left", 270)])
     return f"""<svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
-        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--key-top)"/><stop offset="1" style="stop-color:var(--key-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient></defs>
+        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient></defs>
         <circle class="housing" cx="104" cy="104" r="104"/>
-        <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)"/>
+        <circle class="contact" cx="104" cy="110" r="92"/>
+        <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
         <circle class="bevel" cx="104" cy="104" r="95.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
         {arms}
         <g><line class="div" x1="73" y1="73" x2="47" y2="47"/><line class="div" x1="135" y1="73" x2="161" y2="47"/><line class="div" x1="73" y1="135" x2="47" y2="161"/><line class="div" x1="135" y1="135" x2="161" y2="161"/></g>
@@ -91,12 +92,17 @@ MEDIA_CSS = """
   .fav { height: 64px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative; color: var(--on-surface); }
   .fav .lb { font: 600 12px/14px var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
   .fav.gesture { grid-column: span 2; flex-direction: row; padding: 0 8px; }
-  .nav-row { display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; align-items: end; margin-top: 22px; }
-  .nav-row .kc { width: 52px; height: 40px; border-radius: 13px; display: grid; place-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface-muted); }
   .sec-row { margin-top: auto; }
-  .transport { display: grid; grid-template-columns: 64px auto 64px; justify-content: space-between; align-items: center; margin-top: 20px; }
-  .transport .side { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; color: var(--on-surface); }
-  .vol { margin-top: 20px; grid-template-columns: 1fr 76px 1fr; }
+  .sec-row .cap { color: var(--on-surface) !important; }
+  .cluster { position: relative; height: 256px; margin-top: 24px; align-items: center; display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; }
+  .cluster .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .cluster .dpad { margin-top: 0; }
+  .cluster .mute { position: absolute; right: 66px; bottom: 6px; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: var(--on-surface); }
+  .transport { margin-top: 20px; }
+  .transport .glass.sm { height: 72px; }
+  .transport .glass.play { height: 96px; border-radius: 24px; }
+  .cluster .slider { height: 232px; }
+  .dark .engrave { color: #4F535B; }
 """
 
 def spaces_tile(dc, cls):
@@ -106,42 +112,47 @@ def spaces_tile(dc, cls):
           <i data-i="chevRight" class="i20" data-dc-id="{dc}-next"></i></div>
       </div>"""
 
+def slider(dc, label, top, bottom, thumb):
+    return f"""<div class="col">
+        <div class="slider well" data-dc-id="{dc}">
+          <span class="end" data-dc-id="{dc}-top">{top}</span>
+          <span class="ticks"></span>
+          <div class="thumb" data-dc-id="{dc}-thumb">{thumb}</div>
+          <span class="end" data-dc-id="{dc}-bottom">{bottom}</span>
+        </div>
+        <span class="engrave" data-dc-id="{dc}-label">{label}</span>
+      </div>"""
+
 def media_inner(offline=False):
     live = " live" if offline else ""
     fav_html = spaces_tile("fav-next-space", "fav") + '<div class="fav add" style="grid-column: span 2" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div>'
+    grip = '<span class="grip"></span><span class="grip"></span><span class="grip"></span>'
+    scroll = slider("scroll-lever", "Scroll", '<i data-i="triUp" class="i16"></i>', '<i data-i="triDown" class="i16"></i>', grip)
+    volume = slider("volume-group", "Volume", "+", "−", '<i data-i="speaker" class="i20"></i>')
     return f"""<main class="content media{' offline' if offline else ''}" data-dc-id="media-content">
     <section class="fav-wrap{live}" data-dc-id="fav-strip">
       <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="fav-edit-btn raised" data-dc-id="fav-edit"><i data-i="edit" class="i16"></i>Edit</span></div>
       <div class="favs">{fav_html}</div>
     </section>
 
-    <div class="nav-row{live}" data-dc-id="dpad-row">
-      <div class="kc raised" data-dc-id="esc">esc</div>
-      {dpad()}
-      <div class="lever well" data-dc-id="scroll-lever">
-        <i data-i="chevUp" class="i20" data-dc-id="scroll-notch-up"></i>
-        <div class="thumb raised" data-dc-id="scroll-thumb"><span class="grip"></span><span class="grip"></span><span class="grip"></span></div>
-        <i data-i="chevDown" class="i20" data-dc-id="scroll-notch-down"></i>
-      </div>
-    </div>
-
     <div class="sec-row{live}" data-dc-id="brightness-row">
       <div class="pair small well" data-dc-id="brightness-group">
-        <div class="cap raised" data-dc-id="brightness-down"><span class="arrowed"><i data-i="sunDown"></i><i data-i="arrowDown" class="i16" data-dc-id="brightness-down-arrow"></i></span></div>
-        <div class="cap raised" data-dc-id="brightness-up"><span class="arrowed"><i data-i="sunUp"></i><i data-i="arrowUp" class="i16" data-dc-id="brightness-up-arrow"></i></span></div>
+        <div class="cap raised" data-dc-id="brightness-down"><span class="arrowed"><i data-i="sunDown"></i><i data-i="arrowDown" class="i20" data-dc-id="brightness-down-arrow"></i></span></div>
+        <div class="cap raised" data-dc-id="brightness-up"><span class="arrowed"><i data-i="sunUp"></i><i data-i="arrowUp" class="i20" data-dc-id="brightness-up-arrow"></i></span></div>
       </div>
     </div>
 
-    <div class="transport{live}" data-dc-id="transport">
-      <div class="side raised" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
-      <div class="bezel" data-dc-id="play-bezel"><div class="play accent-cap" data-dc-id="play-pause"><i data-i="playPause" class="i32"></i></div></div>
-      <div class="side raised" data-dc-id="next"><i data-i="next" class="i28"></i></div>
+    <div class="cluster{live}" data-dc-id="dpad-row">
+      {scroll}
+      {dpad()}
+      {volume}
+      <div class="mute raised" data-dc-id="mute"><i data-i="mute" class="i20"></i></div>
     </div>
 
-    <div class="pair well vol{live}" data-dc-id="volume-group">
-      <div class="cap raised" data-dc-id="volume-down"><i data-i="volDown" class="i28"></i></div>
-      <div class="cap raised" data-dc-id="mute"><i data-i="mute"></i></div>
-      <div class="cap raised" data-dc-id="volume-up"><i data-i="volUp" class="i28"></i></div>
+    <div class="channel well transport{live}" data-dc-id="transport">
+      <div class="glass sm" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
+      <div class="glass play" data-dc-id="play-pause"><i data-i="playPause" class="i32"></i></div>
+      <div class="glass sm" data-dc-id="next"><i data-i="next" class="i28"></i></div>
     </div>
   </main>"""
 
@@ -348,6 +359,7 @@ MACROS_CSS = """
   .grid { margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 """
 TILES = [("macro-spotlight", "search", "Spotlight", "⌘ space", "slate", False),
+         ("macro-esc", "escape", "Escape", "esc", "slate", False),
          ("macro-mission", "windows", "Mission Control", "⌃↑", "indigo", False),
          ("macro-screenshot", "camera", "Screenshot area", "⌘⇧4", "blue", False),
          ("macro-open-safari", "apps", "Open Safari", "3 steps", "cyan", False)]
@@ -508,6 +520,82 @@ def landscape_page():
 </div>"""
     return page("Mouse (landscape)", body, LAND_CSS)
 
+# ---------------------------------------------------------------- menu sub-screens (rev 4, #53)
+SUB_CSS = """
+  .screen { grid-template-rows: var(--status-h) var(--top-h) 1fr var(--nav-h); }
+  .back { display: flex; align-items: center; gap: 4px; }
+  .back .icon-btn { margin-left: -12px; color: var(--on-surface); }
+  .sub { display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+  .grp { border-radius: 20px; padding: 6px 14px; }
+  .grp-h { color: var(--on-surface-subtle); margin: 14px 4px 2px; }
+  .set { display: flex; align-items: center; gap: 12px; min-height: 60px; }
+  .set + .set { border-top: 1px solid var(--outline); }
+  .set .tx { flex: 1; }
+  .set .tx .sub2 { font: 400 13px/18px var(--font-ui); color: var(--on-surface-muted); }
+  .hslider { position: relative; height: 40px; border-radius: 20px; margin: 4px 0 12px; }
+  .hslider .ticks { position: absolute; left: 18px; right: 18px; top: 6px; bottom: 6px; background: repeating-linear-gradient(90deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 10%) top / 100% 5px no-repeat, repeating-linear-gradient(90deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 10%) bottom / 100% 5px no-repeat; opacity: .5; }
+  .hslider .fill { position: absolute; left: 6px; top: 17px; height: 6px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+  .hslider .thumb { position: absolute; top: 4px; width: 48px; height: 32px; border-radius: 10px; transform: translateX(-50%);
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.06) 1px 2px), var(--metal);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px var(--metal-edge), 0 3px 4px var(--dshadow); }
+  .chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 4px 0 12px; }
+  .chips > div { height: 48px; border-radius: 14px; display: grid; place-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface); }
+  .warn { display: flex; gap: 10px; padding: 14px; border-radius: 16px; color: var(--on-surface-muted); font: 400 14px/20px var(--font-ui); }
+"""
+def sub_page(title, dc, inner):
+    body = f"""<div class="screen" data-dc-id="screen">
+  {STATUS}
+  <header class="topbar" data-dc-id="topbar">
+    <div class="back"><div class="icon-btn" data-dc-id="back"><i data-i="chevLeft"></i></div><span class="t-title">{title}</span></div>
+    {BRAND}
+  </header>
+  <main class="content sub" data-dc-id="{dc}">{inner}
+  </main>
+  <div class="navbar"></div>
+</div>"""
+    return page(title, body, SUB_CSS)
+
+def setrow(dc, title, sub, ctl):
+    sub_html = f'<div class="sub2">{sub}</div>' if sub else ""
+    return f'<div class="set" data-dc-id="{dc}"><div class="tx"><div class="t-label">{title}</div>{sub_html}</div>{ctl}</div>'
+SW_ON = '<div class="switch on"></div>'
+SW_OFF = '<div class="switch"></div>'
+
+def settings_page():
+    inner = f"""
+    <span class="t-caps grp-h">Pointer</span>
+    <section class="grp raised" data-dc-id="settings-pointer">
+      {setrow("set-speed", "Pointer speed", "6 of 10. Higher moves farther per swipe.", "")}
+      <div class="hslider well" data-dc-id="set-speed-slider"><span class="ticks"></span><span class="fill" style="width:55%"></span><span class="thumb" style="left:57%"></span></div>
+      {setrow("set-natural", "Natural scrolling", "Content follows your fingers", SW_ON)}
+      {setrow("set-rightclick", "Right-click", None, '<div class="seg-ctl well" style="width:190px"><div class="on raised">Hold</div><div>2-finger tap</div></div>')}
+    </section>
+    <span class="t-caps grp-h">Keyboard</span>
+    <section class="grp raised" data-dc-id="settings-keyboard">
+      {setrow("set-clear-mods", "Clear modifiers on mode switch", None, SW_OFF)}
+      {setrow("set-idle-release", "Release modifiers after 30 s idle", None, SW_ON)}
+    </section>
+    <span class="t-caps grp-h">Screen</span>
+    <section class="grp raised" data-dc-id="settings-screen">
+      {setrow("set-awake", "Keep screen on while connected", None, SW_ON)}
+      {setrow("set-dim", "Extra dim", "For dark rooms and presentations", SW_OFF)}
+    </section>"""
+    return sub_page("Settings", "settings-content", inner)
+
+def haptics_page():
+    inner = f"""
+    <span class="t-caps grp-h">Strength</span>
+    <div class="seg-ctl well" data-dc-id="haptic-strength"><div>Off</div><div>Light</div><div class="on raised">Standard</div><div>Strong</div></div>
+    <span class="t-caps grp-h">Try them</span>
+    <div class="chips" data-dc-id="haptic-preview"><div class="raised">Tick</div><div class="raised">Click</div><div class="raised">Heavy</div><div class="raised">Lock</div><div class="raised">Reject</div></div>
+    <section class="grp raised" data-dc-id="haptics-options">
+      {setrow("hap-keys", "Key presses", "Tick on every key and D-pad step", SW_ON)}
+      {setrow("hap-sliders", "Slider detents", "Ticks as scroll and volume speed change", SW_ON)}
+      {setrow("hap-link", "Connect and disconnect", "Distinct pulses when the link changes", SW_ON)}
+    </section>
+    <div class="warn well" data-dc-id="haptic-warning"><i data-i="info" class="i20"></i><span>Haptics follow Android's touch feedback setting. If you feel nothing, turn on Settings, then Sound &amp; vibration, then Touch feedback.</span></div>"""
+    return sub_page("Haptics", "haptics-content", inner)
+
 # ---------------------------------------------------------------- write
 files = {
     "media.html": page("Media (dark)", screen(media_inner(), "media"), MEDIA_CSS, dark=True),
@@ -522,6 +610,8 @@ files = {
     "disconnected.html": page("Disconnected", screen(disconnected_inner(), "media", state="searching"), MEDIA_CSS + LOST_CSS),
     "device-picker.html": page("Device picker", screen(disconnected_inner(), "media", state="searching", overlay=device_sheet()), MEDIA_CSS + LOST_CSS + SHEET_CSS),
     "pairing.html": pairing_page(),
+    "settings.html": settings_page(),
+    "haptics.html": haptics_page(),
 }
 for name, html in files.items():
     (OUT / name).write_text(html)

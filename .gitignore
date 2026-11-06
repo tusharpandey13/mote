@@ -29,3 +29,6 @@ keystore.properties
 .AppleDouble
 .LSOverride
 ._*
+.claude/settings.local.json
+.claude/worktrees/
+docs/design/device-shots/

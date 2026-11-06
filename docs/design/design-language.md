@@ -322,3 +322,39 @@ These override the sections above where they conflict. `design/mote-v1/mote.css`
 - **Directional legends:** brightness caps show the sun plus a small arrow (↓ dim, ↑ bright), because the two sun shapes alone weren't distinct enough.
 - **Favourites default to Spaces only.** The rest of the strip is an empty dashed "+ Add favourite" slot, so the strip never looks broken. Lock is no longer a favourite, which settles the confirm-on-favourite question. The strip's Edit is a real control: a 40dp raised cap with an icon and a 14sp label, with a 48dp hit area.
 - **Selection language (one rule everywhere):** the selected item is a **raised cap**. Unselected items are **flat**, with a hairline outline and no shadow. **Recessed** is only for containers (tracks, wells, fields), never for an unselected item. This applies to the rail, device picker rows and segmented controls.
+
+## Revision 4 decisions (2026-11, first on-device review)
+
+### One material per control family
+Every control family has its own material and keeps it in both themes. That gives the eye tonal and specular contrast instead of "everything is the same grey". Each recipe below uses only Compose primitives: `Brush` gradients, layered `drawBehind`/`shadow`, and one tiled noise `ImageBitmap` (generate a 128px fractal-noise PNG once at build time; alpha about 0.9 black).
+
+| Family | Used by | Light | Dark | Compose recipe |
+|---|---|---|---|---|
+| **Backplate** (machined, textured) | screen background | bead-blasted aluminium `#EEEFF1`->`#D9DBDF` | anodised `#26282D`->`#17181B` | `verticalGradient(top, bot)`, then a 1px/3px vertical hairline pattern at 2% (`drawBehind` lines or a tiled bitmap), then the noise `ShaderBrush(ImageShader(noise, Repeat, Repeat))` at 30% / 42% with `BlendMode.Overlay`, then a vignette `radialGradient(transparent 55% -> #1E2632@14%)` (dark: black@45%) |
+| **Plastic** (soft-touch / glossy white) | favourites, brightness, mute, rail cap, keys, tiles, sheets | `#FBFBFC`->`#E6E7EA`, edge `#B4B8BE` | `#474A52`->`#363940`, edge `#101114` | `verticalGradient` fill; noise at ~12% `SoftLight`; inner top line `#FFF@95%` (dark 10%); 1dp bottom edge colour; two shadows: 2dp/3dp blur + 8dp/14dp blur at 16-28% |
+| **Rubber** (matte) | D-pad disc and OK cap | `#D3D5D9`->`#C3C6CB`, wall `#9EA2A9` | `#2B2D32`->`#232529`, wall `#0E0F11` | Fill gradient. **Full bevel**: 1.5dp stroke with `verticalGradient(white@90% 0f, clear .35f, clear .7f, black@22% 1f)`. **Side wall**: the same circle drawn 3dp lower in the wall colour, behind the disc. **Contact shadow**: a circle offset 6dp, blurred 6-8dp (`Modifier.blur` on a layer, or `shadow(elevation)` with an ambient colour). No gloss |
+| **Metal** (brushed, chamfered) | slider thumbs (scroll, volume, settings sliders) | `#FDFDFE`/`#D4D7DC`/`#BFC3C9`/`#E6E8EB` 4-stop gradient with a hard step at 50% | `#C9CDD3`/`#8C9198`/`#6F747C`/`#A3A8AF` | 4-stop `verticalGradient` (the hard mid step reads as a turned edge); 1px/2px vertical brushed lines at ±8%; 1dp outline `metal-edge`; inner top white@90%; drop shadow. Metal stays light in dark mode on purpose: it's the brightest material |
+| **Glass / acrylic** | transport caps (prev, play, next) | frosted white `rgba(255,255,255,.92)`->`rgba(226,232,240,.86)`, ink legend | smoked `rgba(70,78,92,.78)`->`rgba(22,26,32,.92)`, LED legend `#9ED9FF` with glow | Fill gradient. **Specular band**: an overlay `verticalGradient(white@95% 0f, white@35% .38f, clear .40f)` (dark: 28%/8%) with a hard edge at 40%. **Inner glow**: an inner shadow at the bottom, 18dp blur, LED tint at 22% / 35%. 1dp inner rim white@25%. Dark legends get a 6dp LED-tint glow (draw the icon twice, the blurred copy behind) |
+| **Well** (recess) | slots, channels, tracks, fields | `#CBCED3` | `#0B0C0E` | Fill, inner shadow at the top (2dp offset, 5-6dp blur, black@26-70%), 1dp bottom highlight |
+| **Engraving** | wordmark, SCROLL/VOLUME labels | fill `#C4C7CC` | fill `#4F535B` (labels) / `#1C1D21` (wordmark) | Text drawn three times: dark copy at y-1, light copy at y+1, fill on top (light from the top) |
+
+### Layout and controls
+- **Media layout (top to bottom):**
+  - Favourites.
+  - Brightness pair.
+  - Control cluster: **SCROLL slider (left) / D-pad / VOLUME slider (right)**, with a round 48dp mute cap at the D-pad's lower right, beside the volume slider's − end.
+  - Transport channel (thumb zone).
+  - The separate volume −/+ row is **removed**: the VOLUME slider covers both stepping (tap an end = one step) and rate control (hold and drag = rate by displacement, same deadzone and speed bands as scroll). Volume is no longer at the very bottom, but the slider sits in the lower half within thumb reach.
+- **Machined slider (component):**
+  - 56x232dp slot (well) with ticks every 14dp on both edges, a centre detent line, and end markers (▲▼ or + −) that step once on tap.
+  - A brushed-metal thumb, 36x60, spring-centred.
+  - An engraved Unbounded label under the slot (9sp, tracking 2).
+  - Thumb glyph: grip lines for scroll, a speaker for volume.
+- **Transport:** one family. Prev, play and next are all glass caps in one recessed channel. Play is wider and taller (96dp), not a different material.
+- **esc** leaves Media and becomes a default **Escape** macro tile.
+- **Brightness legends:** sun 24dp plus an arrow 20dp, stroke 1.75 at ink colour (not muted), so they stay legible at device scale (about 52px at 2.625 px/dp).
+- **Menu sheet (confirmed):** Theme (segmented), Manage devices, Haptics, Settings, About Mote.
+  - **Settings:** Pointer: speed 1-10 on a metal slider, natural scrolling, right-click = Hold or 2-finger tap. Keyboard: clear modifiers on mode switch, release modifiers after 30 s idle. Screen: keep screen on while connected, extra dim.
+  - **Haptics:** strength Off/Light/Standard/Strong; preview chips for Tick/Click/Heavy/Lock/Reject; toggles for key presses, slider detents and connect/disconnect; a note that Android's Touch feedback setting must be on.
+  - **About:** version, open-source licences (incl. OFL fonts), source link.
+- The device-vs-design gap list for the Compose app is in `docs/design/device-vs-design.md`.

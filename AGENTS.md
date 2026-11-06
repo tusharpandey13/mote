@@ -23,6 +23,7 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
   # Tailscale Host rules: start the helper with --allow-tailscale and run MOTE_TAILNET=1 node helper/tests/smoke.mjs ...
   ```
   Never inject real input in tests: always `--dry-run`; use `--memory-store` or `--keychain-service NAME`.
+- E2E (web remote + helper in `--dry-run`, and `site/install.sh`): `cd e2e/web && npm ci && npm test`. See `e2e/web/README.md`.
 - Site: the deployed layout is `site/` plus `design/mote-v1/*` copied to `design/` (see `.github/workflows/pages.yml`). Locally: `mkdir -p /tmp/mote-site/mote/design && cp -R site/. /tmp/mote-site/mote/ && cp -R design/mote-v1/. /tmp/mote-site/mote/design/ && python3 -m http.server -d /tmp/mote-site 8000`, open `http://localhost:8000/mote/`.
 
 ## Release
