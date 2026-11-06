@@ -221,7 +221,7 @@ private fun Root(theme: ThemeChoice) {
                 MenuPage.ABOUT -> AboutPage(onBack = { page = null })
             }
           } else {
-            Row(
+            CappedFontScale { Row(
                 Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -232,7 +232,7 @@ private fun Root(theme: ThemeChoice) {
                     Modifier.size(44.dp).clickable(onClickLabel = "Menu") { menuSheet = true },
                     contentAlignment = Alignment.Center,
                 ) { MIcon("more", if (c.dark) c.subtle else c.muted, size = 20.dp, description = "Menu") }
-            }
+            } }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 AnimatedContent(
                     targetState = mode,

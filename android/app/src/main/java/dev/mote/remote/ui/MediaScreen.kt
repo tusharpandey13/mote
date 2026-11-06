@@ -69,6 +69,7 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
         val slot = cluster - 24.dp
         val dpad = (cluster - 48.dp).coerceAtMost(208.dp)
         Column(Modifier.fillMaxSize()) {
+            CappedFontScale { // fixed-height header + carousel
             // the Edit chip's 48dp touch target overhangs this 32dp row
             Row(Modifier.fillMaxWidth().height(32.dp).padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 MIcon("starFill", c.subtle, size = 16.dp)
@@ -83,6 +84,7 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
                 Spacer(Modifier.height(4.dp))
                 SpacesCarousel()
                 Spacer(Modifier.height(8.dp))
+            }
             }
             FavouriteStrip(favourites.filter { it.kind != Macro.Kind.SPACES }, run, onAdd = onEditFavourites)
             Spacer(Modifier.weight(1f))
