@@ -1,0 +1,13 @@
+{
+  "name": "mote-e2e-web",
+  "private": true,
+  "description": "End-to-end tests: web remote (site/remote) + Mote Helper in --dry-run, and site/install.sh",
+  "scripts": {
+    "test": "playwright test",
+    "test:repeat": "playwright test --repeat-each=3",
+    "install-browser": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  }
+}
