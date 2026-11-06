@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalCoroutinesApi::class)
 @SuppressLint("StaticFieldLeak") // holds only the application context
 object Net {
-    private val Context.store by preferencesDataStore("hosts")
+    private val Context.store by preferencesDataStore("hosts", corruptionHandler = dev.mote.remote.data.Prefs.corruptionHandler) // corrupt -> re-pair, not a crash loop
     private val HOSTS = stringPreferencesKey("helper_hosts")
     private val SELECTION = stringPreferencesKey("selection")
     private val WIFI_CHOSEN = booleanPreferencesKey("wifi_chosen")

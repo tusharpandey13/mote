@@ -41,7 +41,7 @@ data class UiSettings(
 }
 
 object UiPrefs {
-    private val Context.store by preferencesDataStore("mote_settings")
+    private val Context.store by preferencesDataStore("mote_settings", corruptionHandler = Prefs.corruptionHandler)
     private val POINTER = floatPreferencesKey("pointer_speed")
     private val SCROLL = floatPreferencesKey("scroll_speed")
     private val NATURAL = booleanPreferencesKey("natural_scroll")

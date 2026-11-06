@@ -13,7 +13,7 @@ enum class ThemeChoice { LIGHT, DARK, SYSTEM }
 
 /** All persisted state lives in one Preferences DataStore. */
 object Prefs {
-    /** A corrupt file (bad flash, killed mid-write, tampering) resets to defaults instead of crashing every read. */
+    /** Shared by every DataStore (mote, mote_settings, hosts): a corrupt file (bad flash, killed mid-write, tampering) resets to defaults instead of crashing every read. */
     internal val corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }
     private val Context.store by preferencesDataStore("mote", corruptionHandler = corruptionHandler)
     private val HOST = stringPreferencesKey("selected_host")
