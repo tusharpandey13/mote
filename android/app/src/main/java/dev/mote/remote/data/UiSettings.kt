@@ -27,6 +27,12 @@ data class UiSettings(
     val hapticKeys: Boolean = true,
     val hapticDetents: Boolean = true,
     val hapticLink: Boolean = true,
+    /** Spaces over Bluetooth: how many desktops to show (1-16). */
+    val desktopCount: Int = 4,
+    /** The Mac has "Switch to Desktop N" enabled, so a card can send ⌃N instead of stepping. */
+    val ctrlNumberShortcuts: Boolean = false,
+    /** The one-time ⌃N hint card was dismissed with Done. */
+    val spacesHintDone: Boolean = false,
 ) {
     companion object {
         const val SPEED_MIN = 0.25f
@@ -48,6 +54,9 @@ object UiPrefs {
     private val H_KEYS = booleanPreferencesKey("haptic_keys")
     private val H_DETENTS = booleanPreferencesKey("haptic_detents")
     private val H_LINK = booleanPreferencesKey("haptic_link")
+    private val DESKTOPS = androidx.datastore.preferences.core.intPreferencesKey("desktop_count")
+    private val CTRL_N = booleanPreferencesKey("ctrl_number_shortcuts")
+    private val SPACES_HINT = booleanPreferencesKey("spaces_hint_done")
 
     private fun clampSpeed(v: Float?) = (v ?: 1f).coerceIn(UiSettings.SPEED_MIN, UiSettings.SPEED_MAX)
 
@@ -64,6 +73,9 @@ object UiPrefs {
         hapticKeys = p[H_KEYS] ?: true,
         hapticDetents = p[H_DETENTS] ?: true,
         hapticLink = p[H_LINK] ?: true,
+        desktopCount = (p[DESKTOPS] ?: 4).coerceIn(1, 16),
+        ctrlNumberShortcuts = p[CTRL_N] ?: false,
+        spacesHintDone = p[SPACES_HINT] ?: false,
     )
 
     fun flow(c: Context): Flow<UiSettings> = c.store.data.map(::read)
@@ -76,6 +88,7 @@ object UiPrefs {
             it[SCREEN_ON] = s.keepScreenOn; it[DIM] = s.extraDim
             it[H_STRENGTH] = s.hapticStrength.name; it[H_KEYS] = s.hapticKeys
             it[H_DETENTS] = s.hapticDetents; it[H_LINK] = s.hapticLink
+            it[DESKTOPS] = s.desktopCount.coerceIn(1, 16); it[CTRL_N] = s.ctrlNumberShortcuts; it[SPACES_HINT] = s.spacesHintDone
         }
     }
 }

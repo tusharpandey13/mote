@@ -148,6 +148,16 @@ fun SettingsPage(onBack: () -> Unit, update: (UiSettings) -> Unit) {
                 }
             }
         }
+        Overline("Spaces")
+        SettingsCard {
+            SettingRow("Desktops", "${s.desktopCount} on the Mac. Sets the cards in the Spaces carousel over Bluetooth.") {}
+            MetalSlider(s.desktopCount.toFloat(), 1f, 16f, 16, "Desktops") { update(s.copy(desktopCount = it.toInt())) }
+            Spacer(Modifier.height(4.dp))
+            SettingRow(
+                "Use ⌃1–⌃9 shortcuts",
+                "Turn on Switch to Desktop 1-9 on the Mac (System Settings, Keyboard Shortcuts, Mission Control). Off: Mote steps with ⌃← and ⌃→.",
+            ) { Switch(s.ctrlNumberShortcuts, "Use control 1 to 9 shortcuts") { update(s.copy(ctrlNumberShortcuts = it)) } }
+        }
         Overline("Keyboard")
         SettingsCard {
             SettingRow("Clear modifiers on mode switch") { Switch(s.clearModsOnSwitch, "Clear modifiers on mode switch") { update(s.copy(clearModsOnSwitch = it)) } }

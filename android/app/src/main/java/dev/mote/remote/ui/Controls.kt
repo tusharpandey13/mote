@@ -95,17 +95,22 @@ fun GlassIcon(name: String, size: Dp, lit: Boolean = false) {
     }
 }
 
-/** The raised "Edit" cap (40dp tall, 48dp hit area): icon + 14sp label. */
+/**
+ * The raised "Edit" cap: 40dp with a 14sp label, or [compact] (rev 6 #63, tokens components.editChip):
+ * 32dp visual, 13sp/600 label, 5dp gap, radius 10. Either way the touch target is 48dp.
+ */
 @Composable
-fun EditCap(label: String = "Edit", active: Boolean = false, onClick: () -> Unit) {
+fun EditCap(label: String = "Edit", active: Boolean = false, compact: Boolean = false, onClick: () -> Unit) {
     val c = LocalMote.current
-    Box(Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
-        Cap(Modifier.height(40.dp), RoundedCornerShape(13.dp), needsLink = false, haptic = Haptic.TICK, description = label,
+    val h = if (compact) 32.dp else 40.dp
+    // a 32dp chip still gets a 48dp touch target: Compose extends hit-testing to minimumTouchTargetSize
+    Box(if (compact) Modifier.height(h) else Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
+        Cap(Modifier.height(h), RoundedCornerShape(if (compact) 10.dp else 13.dp), needsLink = false, haptic = Haptic.TICK, description = label,
             forcePressed = active, onClick = onClick) {
-            Row(Modifier.padding(start = 10.dp, end = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = if (compact) 9.dp else 10.dp, end = if (compact) 12.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 MIcon(if (active) "check" else "edit", if (active) c.accent else c.ink, size = 16.dp)
-                Spacer(Modifier.width(6.dp))
-                Text(label, style = T.label, color = if (active) c.accent else c.ink)
+                Spacer(Modifier.width(if (compact) 5.dp else 6.dp))
+                Text(label, style = if (compact) T.label.copy(fontSize = 13.sp, lineHeight = 16.sp) else T.label, color = if (active) c.accent else c.ink)
             }
         }
     }
@@ -249,6 +254,8 @@ fun MachinedSlider(
     slotHeight: Dp,
     thumb: @Composable () -> Unit,
     onNotch: (up: Boolean) -> Unit,
+    /** Volume variant (rev 6 #62): a cap in the base of the same well; ticks end 92dp above the bottom. */
+    base: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalMote.current
     val h = haptics()
@@ -258,14 +265,15 @@ fun MachinedSlider(
     val scope = rememberCoroutineScope()
     val offset = remember { Animatable(0f) }
     var dragging by remember { mutableStateOf(false) }
-    val endH = 40.dp
+    val endH = if (base != null) 36.dp else 40.dp
+    val bottomInset = if (base != null) 92.dp else endH
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
                 .size(56.dp, slotHeight)
                 .well(RoundedCornerShape(28.dp))
                 .drawWithCache {
-                    val tickTop = endH.toPx(); val tickBot = size.height - endH.toPx()
+                    val tickTop = endH.toPx(); val tickBot = size.height - bottomInset.toPx()
                     val pitch = 14.dp.toPx(); val w = 6.dp.toPx(); val inset = 7.dp.toPx()
                     val tick = c.subtle.copy(alpha = 0.55f)
                     val tickPx = 1.5.dp.toPx()
@@ -277,7 +285,7 @@ fun MachinedSlider(
                             drawLine(tick, Offset(size.width - inset - w, y), Offset(size.width - inset, y), tickPx)
                             y += pitch
                         }
-                        val cy = size.height / 2
+                        val cy = (tickTop + tickBot) / 2
                         drawLine(centre, Offset(inset - 2.dp.toPx(), cy), Offset(size.width - inset + 2.dp.toPx(), cy), 2.dp.toPx())
                     }
                 },
@@ -285,7 +293,10 @@ fun MachinedSlider(
             Column(Modifier.fillMaxSize()) {
                 EndZone(endH, upDescription) { if (linked) { h(Haptic.TICK); notch(true) } else h(Haptic.REJECT) }
                     .let { m -> Box(m, contentAlignment = Alignment.Center) { upEnd() } }
-                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                BoxWithConstraints(
+                    (if (base != null) Modifier.height(slotHeight - endH - bottomInset) else Modifier.weight(1f)).fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
                     val density = LocalDensity.current
                     val travelPx = with(density) { ((maxHeight - 60.dp) / 2 + 8.dp).toPx().coerceAtLeast(1f) }
                     val deadPx = with(density) { 6.dp.toPx() }
@@ -334,6 +345,10 @@ fun MachinedSlider(
                 }
                 EndZone(endH, downDescription) { if (linked) { h(Haptic.TICK); notch(false) } else h(Haptic.REJECT) }
                     .let { m -> Box(m, contentAlignment = Alignment.Center) { downEnd() } }
+                if (base != null) {
+                    Spacer(Modifier.weight(1f))
+                    Box(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.Center) { base() }
+                }
             }
         }
         Spacer(Modifier.height(8.dp))
