@@ -31,13 +31,15 @@
         <package android:name="com.tailscale.ipn" />
     </queries>
 
+    <!-- supportsRtl=false: the remote maps physical Mac controls (mouse L/R, prev/next, vol -/+,
+         d-pad, Spaces slide) and the UI is English-only, so an RTL system locale must not mirror it. -->
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:supportsRtl="true"
         android:usesCleartextTraffic="true"
+        android:supportsRtl="false"
         android:theme="@style/Theme.Mote">
         <activity
             android:name=".MainActivity"
