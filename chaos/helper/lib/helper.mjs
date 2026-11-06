@@ -107,6 +107,12 @@ export async function startHelper(opts = {}) {
     for (const l of tcpLines) { const st = /\((\w+)\)\s*$/.exec(l)?.[1] ?? 'none'; states[st] = (states[st] || 0) + 1; }
     return { all, tcp: tcpLines.length, established: states.ESTABLISHED || 0, states };
   };
+  /** Live heap objects of a class, via heap(1) (e.g. 'dispatch_source_t'). */
+  h.heapCount = async (cls) => {
+    const out = await run('heap', [String(h.pid)]);
+    const m = new RegExp(`^\\s*(\\d+)\\s+\\d+\\s+[\\d.]+\\s+${cls}\\s`, 'm').exec(out);
+    return m ? parseInt(m[1], 10) : 0;
+  };
   /** True if the helper still holds a TCP socket whose remote port is `port` (our client's local port). */
   h.holdsPeerPort = async (port) => (await run('lsof', ['-n', '-P', '-a', '-p', String(h.pid), '-iTCP'])).split('\n').some((l) => l.includes(`:${port} (`) || l.includes(`:${port}->`) || new RegExp(`->\\S*:${port}\\b`).test(l));
   h.waitLine = (re, ms = 3000) => new Promise((res) => {

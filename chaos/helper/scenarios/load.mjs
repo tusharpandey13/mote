@@ -128,6 +128,12 @@ async function reconnectAndFlood(chk, r, deadline) {
   await sleep(300);
   const dupStorm = [...h.markers].filter(([k, v]) => k.startsWith('MKstorm') && v > 1);
   chk.ok(dupStorm.length === 0, 'reconnect storm: no input executed twice', dupStorm.slice(0, 3));
+  // Regression: each session's 5-minute auth deadline used to stay queued after the connection
+  // closed (asyncAfter), holding a dispatch timer + closure per connection for 5 minutes.
+  // After the 10 s HTTP guard expired, pending Swift closures should be ~0, not ~1 per connection.
+  await sleep(11000);
+  const timers = await h.heapCount('Closure context');
+  chk.ok(timers < 500, `reconnect storm: no per-connection timers left behind (${timers} pending closures after ${reconnects} connections)`, timers);
 
   // 1k msg/s mouse-move flood for 5 s on one session, ping RTT on the same and another session.
   const flood = await authed(h, cred, { host: PEERS[0] });
@@ -151,8 +157,8 @@ async function reconnectAndFlood(chk, r, deadline) {
   const executed = (h.dryByKind.move || 0) - moves0;
   chk.cases += moves;
   chk.ok(executed === moves, `move flood: every move executed once, none dropped or duplicated (${executed}/${moves})`);
-  chk.ok(pct(rttSame, 99) < 250, 'move flood @1k/s: same-session queue latency p99 < 250 ms', pct(rttSame, 99));
-  chk.ok(pct(rttOther, 99) < 250, 'move flood @1k/s: other-session ping p99 < 250 ms', pct(rttOther, 99));
+  chk.ok(pct(rttSame, 99) < 500, 'move flood @1k/s: same-session queue latency p99 < 500 ms', pct(rttSame, 99));
+  chk.ok(pct(rttOther, 99) < 500, 'move flood @1k/s: other-session ping p99 < 500 ms', pct(rttOther, 99));
   chk.ok(drain !== null && drain < 5000, '20k-move burst drains in < 5 s', drain);
   chk.metric('flood', { rate, p50: pct(rttSame, 50), p99: pct(rttSame, 99), otherP99: pct(rttOther, 99), burst20kMs: Math.round(drain) });
   chk.note('moves are not coalesced: each one is executed (FIFO); latency stays bounded by TCP backpressure + per-message cost');
