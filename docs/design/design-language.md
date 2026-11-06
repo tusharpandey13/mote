@@ -313,3 +313,12 @@ These override the sections above where they conflict. `design/mote-v1/mote.css`
   - **Placement:** spans 2 columns on Media favourites and in the Macros grid.
   - **Editing moves to the Edit button:** holding a tile no longer opens the editor, because hold is a gesture on gesture tiles.
 - **Default favourites:** Spaces, Spotlight, Lock (Lock still requires confirmation). Mission Control is reachable by tapping Spaces, so it isn't a separate default.
+
+## Revision 3 decisions (2026-11, third canvas review)
+
+- **Wordmark:** "MOTE" in all caps, set in **Unbounded Black** (OFL, from google/fonts `ofl/unbounded`). The variable font is pinned to wght 900 and subset to woff2. Size 19sp, tracking +2.5. Michroma is dropped because it has only one, light weight. Syncopate was rejected because google/fonts ships it under Apache 2.0, not the OFL. The deboss is retuned for the heavy weight: fill a touch darker than the chassis, a 1px dark top edge plus a 2px soft inner shade, and a 1px light bottom edge. Brand casing in running copy stays "Mote".
+- **Grain is part of the material.** The noise layer is stronger in both themes: feTurbulence baseFrequency 1.1, alpha 0.9, chassis opacity 26% (light) / 34% (dark), blended soft-light into caps and sheets. It should be visible at 1x without looking gritty. Text contrast is unaffected: the noise shifts luminance by about 2% at most.
+- **Bevels, not arcs.** Round caps (D-pad disc, OK cap) get a full-circle 1.5px bevel stroke with a vertical gradient: white at 90% at the top, fading to clear by 35%, then black at 22% at the bottom. This is the specular edge for light from the top. The old floating highlight arc is removed.
+- **Directional legends:** brightness caps show the sun plus a small arrow (↓ dim, ↑ bright), because the two sun shapes alone weren't distinct enough.
+- **Favourites default to Spaces only.** The rest of the strip is an empty dashed "+ Add favourite" slot, so the strip never looks broken. Lock is no longer a favourite, which settles the confirm-on-favourite question. The strip's Edit is a real control: a 40dp raised cap with an icon and a 14sp label, with a 48dp hit area.
+- **Selection language (one rule everywhere):** the selected item is a **raised cap**. Unselected items are **flat**, with a hairline outline and no shadow. **Recessed** is only for containers (tracks, wells, fields), never for an unselected item. This applies to the rail, device picker rows and segmented controls.

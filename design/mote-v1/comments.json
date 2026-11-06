@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextNumber": 38,
+  "nextNumber": 47,
   "comments": [
     {
       "id": "c-512cf5e39358",
@@ -889,6 +889,222 @@
       "sentAt": 1793971327005,
       "resolvedAt": 1793971580770,
       "resolution": "Debossed 'Mote' wordmark in Michroma (OFL, local woff2) at the right of the top bar, with ⋯ as an engraved glyph beside it."
+    },
+    {
+      "id": "c-ed9c7e192d4d",
+      "number": 38,
+      "body": "the light colored arc can be improved or removed?",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "dpad",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > svg:nth-of-type(1)",
+        "tag": "svg",
+        "text": "OK",
+        "html": "<svg class=\"dpad\" viewBox=\"0 0 208 208\" data-dc-id=\"dpad\">\n        <defs><linearGradient id=\"dpk\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" style=\"stop-color:var(--key-top)\"></stop><stop offset=\"1\" style=\"stop-color:var(--key-bot)\"></stop></linearGradient></defs>\n        <circle class=\"housing\" cx=\"104\" cy=\"104\" r=\"104\"></circle>\n        <circle class=\"disc\" cx=\"104\" cy=\"104\" r=\"96\" fill=\"url(#dpk)\"></circle>\n        <path class=\"rim\" d=\"M22 86A96 96 0 0 1 186 86\"></path>\n        <g data-dc-id=\"dpad-up\"><path class=\"arm\" d=\"M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z\"></path><path class=\"tri\" d=\"M104 27l7 9.5h-14z\"></path></g><g data-dc-id=\"dpad-right\" transform=\"rotate(90 104 104)\"><path class=\"arm\" d=\"M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z\"></path><path class=\"tri\" d=\"M104 27l7 9.5h-14z\"></path></g><g data-dc-id=\"dpad-down\" transform=\"rotate(180 104 104)\"><path class=\"arm\" d=\"M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z\"></path><path class=\"tri\" d=\"M104 27l7 9.5h-14z\"></path></g><g data-dc-id=\"dpad-left\" transform=\"rotate(270 104 104)\"><path class=\"arm\" d=\"M30.46 30.46A104",
+        "rect": {
+          "x": 101.99905395507812,
+          "y": 211.97146606445312,
+          "width": 207.99905395507812,
+          "height": 207.99905395507812
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971738575,
+      "sentAt": 1793971883502,
+      "resolvedAt": 1793972034299,
+      "resolution": "Floating arc removed; the disc and OK cap get a full-circle top-lit bevel instead (dpad-bevel)."
+    },
+    {
+      "id": "c-e4a26e811b31",
+      "number": 39,
+      "body": "add more grain to all textures",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "media-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "FAVOURITES EDIT Spaces hold & slide Spotlight Lock esc OK",
+        "html": "<main class=\"content media\" data-dc-id=\"media-content\">\n    <section class=\"fav-wrap\" data-dc-id=\"fav-strip\">\n      <div class=\"fav-head\"><span class=\"t-caps\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\" d=\"M12 4.2l2.3 4.7 5.2.75-3.75 3.65.88 5.15L12 16l-4.63 2.45.88-5.15L4.5 9.65l5.2-.75z\"></path></svg>Favourites</span><span class=\"t-caps\" data-dc-id=\"fav-edit\">Edit</span></div>\n      <div class=\"favs\"><div class=\"fav gesture raised\" data-dc-id=\"fav-next-space\">\n        <div class=\"slide\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"fav-next-space-prev\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14 7.5L9.5 12l4.5 4.5\"></path></svg>\n          <div class=\"mid\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M2.5 7.5A1.5 1.5 0 0 1 4 6h6.5A1.5 1.5 0 0 1 12 7.5v9a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5z\"></path><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" ",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 723.0079956054688
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971753312,
+      "sentAt": 1793971883502,
+      "resolvedAt": 1793972034299,
+      "resolution": "Grain strengthened on all textures in both themes, visible at 1x; text stays AA."
+    },
+    {
+      "id": "c-0965bfc32606",
+      "number": 40,
+      "body": "wider, bigger, all caps, better font, bolder",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "wordmark",
+        "path": "body > div:nth-of-type(1) > header:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(1)",
+        "tag": "span",
+        "text": "Mote",
+        "html": "<span class=\"wordmark\" data-dc-id=\"wordmark\">Mote</span>",
+        "rect": {
+          "x": 295.1996154785156,
+          "y": 51.49162292480469,
+          "width": 64.80670166015625,
+          "height": 16.995088577270508
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971769992,
+      "sentAt": 1793971883502,
+      "resolvedAt": 1793972034299,
+      "resolution": "Wordmark is 'MOTE' in caps, Unbounded Black 19sp with wider tracking (OFL); debossing retuned; Michroma removed."
+    },
+    {
+      "id": "c-e44d18ca1b73",
+      "number": 41,
+      "body": "up arrow beside icon",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "brightness-up",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"cap raised\" data-dc-id=\"brightness-up\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"4.4\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3M4.8 4.8l2.1 2.1M17.1 17.1l2.1 2.1M4.8 19.2l2.1-2.1M17.1 6.9l2.1-2.1\"></path></svg></div>",
+        "rect": {
+          "x": 208.9975128173828,
+          "y": 532.0325317382812,
+          "width": 182.00363159179688,
+          "height": 45.993003845214844
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971787942,
+      "sentAt": 1793971883502,
+      "resolvedAt": 1793972034299,
+      "resolution": "Small ↑ arrow added beside the brightness-up sun."
+    },
+    {
+      "id": "c-3814492f4c55",
+      "number": 42,
+      "body": "down arrow beside icon",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "brightness-down",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"cap raised\" data-dc-id=\"brightness-down\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12\" r=\"3\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 6v1M12 17v1M6 12h1M17 12h1M7.75 7.75l.7.7M15.55 15.55l.7.7M7.75 16.25l.7-.7M15.55 8.45l.7-.7\"></path></svg></div>",
+        "rect": {
+          "x": 20.996030807495117,
+          "y": 532.0325317382812,
+          "width": 182.00363159179688,
+          "height": 45.993003845214844
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971796024,
+      "sentAt": 1793971883502,
+      "resolvedAt": 1793972034299,
+      "resolution": "Small ↓ arrow added beside the brightness-down sun."
+    },
+    {
+      "id": "c-612d90da973f",
+      "number": 43,
+      "body": "not a default fav",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "fav-spotlight",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "Spotlight",
+        "html": "<div class=\"fav raised\" data-dc-id=\"fav-spotlight\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"10.5\" cy=\"10.5\" r=\"6\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 15l5 5\"></path></svg><span class=\"lb\">Spotlight</span></div>",
+        "rect": {
+          "x": 209.99595642089844,
+          "y": 125.98331451416016,
+          "width": 89.00491333007812,
+          "height": 63.993675231933594
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971813147,
+      "sentAt": 1793971883502,
+      "resolvedAt": 1793972034299,
+      "resolution": "Spotlight is no longer a default favourite; the only default is Spaces, plus a dashed '+ Add favourite' slot."
+    },
+    {
+      "id": "c-3f18f1339a29",
+      "number": 44,
+      "body": "not a default fav",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "fav-lock",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(3)",
+        "tag": "div",
+        "text": "Lock",
+        "html": "<div class=\"fav raised\" data-dc-id=\"fav-lock\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6 11.5A1.5 1.5 0 0 1 7.5 10h9a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 18.5zM8.75 10V7.75a3.25 3.25 0 0 1 6.5 0V10\"></path></svg><span class=\"lb\">Lock</span></div>",
+        "rect": {
+          "x": 306.9956359863281,
+          "y": 125.98331451416016,
+          "width": 89.00491333007812,
+          "height": 63.993675231933594
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971818158,
+      "sentAt": 1793971883502,
+      "resolvedAt": 1793972034299,
+      "resolution": "Lock is no longer a default favourite."
+    },
+    {
+      "id": "c-4d66d79b878b",
+      "number": 45,
+      "body": "too small",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "fav-edit",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(2)",
+        "tag": "span",
+        "text": "EDIT",
+        "html": "<span class=\"t-caps\" data-dc-id=\"fav-edit\">Edit</span>",
+        "rect": {
+          "x": 367.5802917480469,
+          "y": 99.9878921508789,
+          "width": 28.420238494873047,
+          "height": 15.996635437011719
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971824056,
+      "sentAt": 1793971883502,
+      "resolvedAt": 1793972034299,
+      "resolution": "Edit is now a raised 40dp button with icon and 14sp label (48dp touch target)."
+    },
+    {
+      "id": "c-e1ac9fd0909e",
+      "number": 46,
+      "body": "unselected dont need to be sunken",
+      "anchor": {
+        "artboardId": "device-picker",
+        "dcId": "known-macmini",
+        "path": "body > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "Mac mini Paired, not in range",
+        "html": "<div class=\"row-item well\" data-dc-id=\"known-macmini\">\n          <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M3.5 5.5A1.5 1.5 0 0 1 5 4h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 16H5a1.5 1.5 0 0 1-1.5-1.5zM9 20h6M12 16v4\"></path></svg>\n          <div class=\"tx\"><div class=\"t-label\">Mac mini</div><div class=\"sub\">Paired, not in range</div></div>\n          <span class=\"radio\"></span>\n          <div class=\"icon-btn\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"5.5\" r=\"1.6\"></circle><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"1.6\"></circle><circle fill=\"currentColor\" cx=\"12\" cy=\"18.5\" r=\"1.6\"></circle></svg></div>\n        </div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 609.0203857421875,
+          "width": 380.00390625,
+          "height": 59.9998664855957
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971871906,
+      "sentAt": 1793971883502,
+      "resolvedAt": 1793972034299,
+      "resolution": "Selected device row is raised; unselected rows are flat with a thin outline. Recessed is reserved for containers."
     }
   ]
 }

@@ -4,12 +4,12 @@
    <html class="dark"> = dark anodised titanium. Caps are soft-touch; the primary cap is
    dark anodised with a backlit LED legend; active state = the LED tint. */
 
-@font-face { font-family: "Michroma"; src: url("fonts/Michroma-Regular.woff2") format("woff2"); font-weight: 400; font-display: block; }
+@font-face { font-family: "Unbounded"; src: url("fonts/Unbounded-Black.woff2") format("woff2"); font-weight: 900; font-display: block; }
 
 :root {
   /* noise (inline SVG feTurbulence, no external image) */
-  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  --noise-a: .10;          /* noise strength on chassis */
+  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --noise-a: .26;          /* grain strength on chassis (rev 3: visible at 1x) */
 
   /* ---- Silver (light, default) ---- */
   --chassis-top: #EEEFF1;
@@ -58,11 +58,11 @@
   --pad-dot: rgba(0, 0, 0, .08);
   --dshadow: rgba(30, 38, 50, .26);
 
-  --engrave-fill: #BFC2C7; /* debossed wordmark */
-  --engrave-shadow: 0 -1px 0 rgba(20, 28, 40, .35), 0 1px 0 rgba(255, 255, 255, .95);
+  --engrave-fill: #C4C7CC; /* debossed wordmark */
+  --engrave-shadow: 0 -1px 0 rgba(20, 28, 40, .42), 0 -1px 2px rgba(20, 28, 40, .12), 0 1px 0 rgba(255, 255, 255, 1);
 
   --font-ui: "Inter", "Roboto Flex", Roboto, system-ui, -apple-system, "Helvetica Neue", sans-serif;
-  --font-mark: "Michroma", var(--font-ui);
+  --font-mark: "Unbounded", var(--font-ui);
 
   --r-xs: 6px; --r-s: 12px; --r-m: 20px; --r-l: 28px; --r-full: 999px;
   --margin: 16px;
@@ -71,7 +71,7 @@
 
 /* ---- Titanium (dark) ---- */
 .dark {
-  --noise-a: .16;
+  --noise-a: .34;
   --chassis-top: #2C2E33;
   --chassis-bot: #1C1D21;
   --bg: #222428;
@@ -110,7 +110,7 @@
   --pad-dot: rgba(255, 255, 255, .06);
   --dshadow: rgba(0, 0, 0, .55);
   --engrave-fill: #1C1D21;
-  --engrave-shadow: 0 -1px 0 rgba(0, 0, 0, .75), 0 1px 0 rgba(255, 255, 255, .09);
+  --engrave-shadow: 0 -1px 0 rgba(0, 0, 0, .85), 0 -1px 2px rgba(0, 0, 0, .4), 0 1px 0 rgba(255, 255, 255, .10);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -122,7 +122,7 @@ svg.i.i28 { width: 28px; height: 28px; }
 svg.i.i20 { width: 20px; height: 20px; }
 svg.i.i16 { width: 16px; height: 16px; }
 
-/* ---------- type (UI sans; Michroma only for the wordmark) ---------- */
+/* ---------- type (UI sans; Unbounded Black only for the wordmark) ---------- */
 .t-display { font: 650 36px/44px var(--font-ui); letter-spacing: -0.5px; }
 .t-headline { font: 650 24px/32px var(--font-ui); letter-spacing: -0.2px; }
 .t-title { font: 600 18px/24px var(--font-ui); }
@@ -156,7 +156,7 @@ svg.i.i16 { width: 16px; height: 16px; }
 
 /* ---------- wordmark: debossed into the chassis (light from top) ---------- */
 .brand { display: flex; align-items: center; gap: 2px; }
-.wordmark { font: 400 15px/1 var(--font-mark); letter-spacing: 3px; color: var(--engrave-fill); text-shadow: var(--engrave-shadow); user-select: none; padding-top: 2px; }
+.wordmark { font: 900 19px/1 var(--font-mark); letter-spacing: 2.5px; text-transform: uppercase; color: var(--engrave-fill); text-shadow: var(--engrave-shadow); user-select: none; padding-top: 2px; }
 .brand .icon-btn { color: var(--engrave-fill); filter: drop-shadow(0 -1px 0 rgba(0,0,0,.3)) drop-shadow(0 1px 0 var(--hi)); width: 44px; }
 .dark .brand .icon-btn { color: #5A5E66; filter: drop-shadow(0 -1px 0 rgba(0,0,0,.8)) drop-shadow(0 1px 0 rgba(255,255,255,.08)); }
 
@@ -299,7 +299,7 @@ svg.i.i16 { width: 16px; height: 16px; }
 .dpad { width: 208px; height: 208px; display: block; overflow: visible; }
 .dpad .housing { fill: var(--well); }
 .dpad .disc, .dpad .cap { filter: drop-shadow(0 1px 0 var(--key-edge)) drop-shadow(0 4px 6px var(--dshadow)); }
-.dpad .rim { fill: none; stroke: var(--hi); stroke-width: 1.2; }
+.dpad .bevel { fill: none; stroke-width: 1.5; }
 .dpad .arm { fill: transparent; }
 .dpad .div { stroke: var(--lo); stroke-width: 1.5; stroke-linecap: round; }
 .dpad .tri { fill: var(--on-surface-muted); stroke: var(--on-surface-muted); stroke-width: 3; stroke-linejoin: round; }
@@ -334,3 +334,10 @@ svg.i.i16 { width: 16px; height: 16px; }
 .gesture .slide { display: flex; align-items: center; justify-content: space-between; width: 100%; color: var(--on-surface-subtle); }
 .gesture .slide .mid { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--on-surface); }
 .gesture .hint { font: 500 11px/14px var(--font-ui); color: var(--on-surface-subtle); }
+
+/* ---------- rev 3 ---------- */
+.row-item.flat { box-shadow: inset 0 0 0 1px var(--outline); }
+.fav.add { background: none; box-shadow: none; border: 1.5px dashed var(--key-edge); color: var(--on-surface-subtle); flex-direction: row; gap: 6px; }
+.fav.add .lb { color: var(--on-surface-subtle); }
+.fav-edit-btn { height: 40px; margin-right: -2px; padding: 0 14px 0 10px; border-radius: 13px; display: inline-flex; align-items: center; gap: 6px; font: 600 14px/1 var(--font-ui); color: var(--on-surface); }
+.arrowed { display: flex; align-items: center; gap: 2px; }

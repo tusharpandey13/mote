@@ -27,6 +27,8 @@
     more: '<circle ' + F + ' cx="12" cy="5.5" r="1.6"/><circle ' + F + ' cx="12" cy="12" r="1.6"/><circle ' + F + ' cx="12" cy="18.5" r="1.6"/>',
     chevDown: s('M7.5 10l4.5 4.5 4.5-4.5'),
     chevUp: s('M7.5 14l4.5-4.5 4.5 4.5'),
+    arrowUp: s('M12 19V5.5M6.5 11L12 5.5 17.5 11'),
+    arrowDown: s('M12 5v13.5M6.5 13L12 18.5 17.5 13'),
     chevLeft: s('M14 7.5L9.5 12l4.5 4.5'),
     chevRight: s('M10 7.5l4.5 4.5-4.5 4.5'),
     close: s('M6.5 6.5l11 11M17.5 6.5l-11 11'),

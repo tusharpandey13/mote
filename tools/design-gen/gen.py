@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates design/mote-v1/*.html (rev 2: light default; media.html is the dark variant). Static HTML is the artifact; this only removes chrome duplication."""
+"""Generates design/mote-v1/*.html (rev 3: light default; media.html is the dark variant). Static HTML is the artifact; this only removes chrome duplication."""
 import sys, pathlib
 OUT = pathlib.Path(sys.argv[1])
 
@@ -24,9 +24,9 @@ def page(title, body, css="", dark=False):
 
 STATUS = '<div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>'
 
-# Wordmark (debossed Michroma) sits right; the menu is a small engraved glyph beside it.
+# Wordmark (debossed Unbounded Black) sits right; the menu is a small engraved glyph beside it.
 BRAND = """<div class="brand" data-dc-id="brand">
-      <span class="wordmark" data-dc-id="wordmark">Mote</span>
+      <span class="wordmark" data-dc-id="wordmark">MOTE</span>
       <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
     </div>"""
 
@@ -74,18 +74,18 @@ def dpad():
         % (n, (' transform="rotate(%d 104 104)"' % r) if r else "", DPAD_ARM, TRI)
         for n, r in [("up", 0), ("right", 90), ("down", 180), ("left", 270)])
     return f"""<svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
-        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--key-top)"/><stop offset="1" style="stop-color:var(--key-bot)"/></linearGradient></defs>
+        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--key-top)"/><stop offset="1" style="stop-color:var(--key-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient></defs>
         <circle class="housing" cx="104" cy="104" r="104"/>
         <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)"/>
-        <path class="rim" d="M22 86A96 96 0 0 1 186 86"/>
+        <circle class="bevel" cx="104" cy="104" r="95.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
         {arms}
         <g><line class="div" x1="73" y1="73" x2="47" y2="47"/><line class="div" x1="135" y1="73" x2="161" y2="47"/><line class="div" x1="73" y1="135" x2="47" y2="161"/><line class="div" x1="135" y1="135" x2="161" y2="161"/></g>
-        <g data-dc-id="dpad-center"><circle class="ring" cx="104" cy="104" r="42"/><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><path class="rim" d="M76 96A30 30 0 0 1 132 96"/><text class="ok" x="104" y="109.5" text-anchor="middle">OK</text></g>
+        <g data-dc-id="dpad-center"><circle class="ring" cx="104" cy="104" r="42"/><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#bev)"/><text class="ok" x="104" y="109.5" text-anchor="middle">OK</text></g>
       </svg>"""
 
 MEDIA_CSS = """
   .media { display: flex; flex-direction: column; height: 100%; }
-  .fav-head { display: flex; align-items: center; justify-content: space-between; height: 24px; color: var(--on-surface-subtle); }
+  .fav-head { display: flex; align-items: center; justify-content: space-between; height: 40px; color: var(--on-surface-subtle); }
   .fav-head span { display: inline-flex; align-items: center; gap: 6px; }
   .favs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
   .fav { height: 64px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative; color: var(--on-surface); }
@@ -108,11 +108,10 @@ def spaces_tile(dc, cls):
 
 def media_inner(offline=False):
     live = " live" if offline else ""
-    favs = [("fav-spotlight", "search", "Spotlight"), ("fav-lock", "lock", "Lock")]
-    fav_html = spaces_tile("fav-next-space", "fav") + "".join(f'<div class="fav raised" data-dc-id="{i}"><i data-i="{ic}" class="ic"></i><span class="lb">{lb}</span></div>' for i, ic, lb in favs)
+    fav_html = spaces_tile("fav-next-space", "fav") + '<div class="fav add" style="grid-column: span 2" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div>'
     return f"""<main class="content media{' offline' if offline else ''}" data-dc-id="media-content">
     <section class="fav-wrap{live}" data-dc-id="fav-strip">
-      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="t-caps" data-dc-id="fav-edit">Edit</span></div>
+      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="fav-edit-btn raised" data-dc-id="fav-edit"><i data-i="edit" class="i16"></i>Edit</span></div>
       <div class="favs">{fav_html}</div>
     </section>
 
@@ -128,8 +127,8 @@ def media_inner(offline=False):
 
     <div class="sec-row{live}" data-dc-id="brightness-row">
       <div class="pair small well" data-dc-id="brightness-group">
-        <div class="cap raised" data-dc-id="brightness-down"><i data-i="sunDown"></i></div>
-        <div class="cap raised" data-dc-id="brightness-up"><i data-i="sunUp"></i></div>
+        <div class="cap raised" data-dc-id="brightness-down"><span class="arrowed"><i data-i="sunDown"></i><i data-i="arrowDown" class="i16" data-dc-id="brightness-down-arrow"></i></span></div>
+        <div class="cap raised" data-dc-id="brightness-up"><span class="arrowed"><i data-i="sunUp"></i><i data-i="arrowUp" class="i16" data-dc-id="brightness-up-arrow"></i></span></div>
       </div>
     </div>
 
@@ -177,7 +176,7 @@ def device_sheet():
             ("known-ipad", "tablet", "iPad Air", "Paired, not in range", "", False),
             ("known-tv", "tv", "Living room TV", "Paired, not in range", "", False)]
     items = "".join(f"""
-        <div class="row-item {'raised' if on else 'well'}" data-dc-id="{i}">
+        <div class="row-item {'raised' if on else 'flat'}" data-dc-id="{i}">
           <i data-i="{ic}"></i>
           <div class="tx"><div class="t-label">{n}</div><div class="sub">{led and f'<span class="{led}" style="display:inline-block;margin-right:6px;vertical-align:1px;width:7px;height:7px"></span>'}{s}</div></div>
           <span class="radio{' on' if on else ''}"></span>
@@ -348,7 +347,7 @@ MACROS_CSS = """
   .edit-btn { height: 40px; padding: 0 14px 0 10px; border-radius: 13px; display: inline-flex; align-items: center; gap: 6px; font: 600 14px/1 var(--font-ui); color: var(--on-surface); }
   .grid { margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 """
-TILES = [("macro-spotlight", "search", "Spotlight", "⌘ space", "slate", True),
+TILES = [("macro-spotlight", "search", "Spotlight", "⌘ space", "slate", False),
          ("macro-mission", "windows", "Mission Control", "⌃↑", "indigo", False),
          ("macro-screenshot", "camera", "Screenshot area", "⌘⇧4", "blue", False),
          ("macro-open-safari", "apps", "Open Safari", "3 steps", "cyan", False)]

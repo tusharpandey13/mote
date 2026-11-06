@@ -2,7 +2,8 @@
 
 | File | Font | Source | License |
 |---|---|---|---|
-| Michroma-Regular.woff2 | Michroma Regular (Vernon Adams) | https://raw.githubusercontent.com/google/fonts/main/ofl/michroma/Michroma-Regular.ttf (google/fonts repo, `ofl/michroma`) | SIL Open Font License 1.1, see OFL.txt (from the same folder) |
+| Unbounded-Black.woff2 | Unbounded, Black (wght 900) | https://raw.githubusercontent.com/google/fonts/main/ofl/unbounded/Unbounded%5Bwght%5D.ttf (google/fonts repo, `ofl/unbounded`) | SIL Open Font License 1.1, see OFL.txt (from the same folder) |
 
-Michroma Regular is subset to Latin letters, digits and space, then converted to woff2 with fontTools `pyftsubset`. The OFL allows modified versions as long as they are not sold on their own.
-It is used only for the "Mote" wordmark: wide, square-shouldered letters that read like a machined hardware label.
+The variable font was pinned to wght=900 with `fonttools varLib.instancer`, subset to A-Z, 0-9 and space with `pyftsubset`, and converted to woff2. The OFL allows modified versions as long as they are not sold on their own.
+It is used only for the all-caps "MOTE" wordmark. Unbounded is wide and heavy with squared-off curves, so a debossed cut of it reads like a stamped hardware badge.
+Revision 3 replaced Michroma (one weight only, too light). Syncopate was considered and rejected: google/fonts ships it under Apache 2.0, not the OFL.
