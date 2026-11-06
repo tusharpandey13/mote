@@ -1,7 +1,9 @@
 package dev.mote.remote.data
 
 import android.content.Context
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -11,7 +13,9 @@ enum class ThemeChoice { LIGHT, DARK, SYSTEM }
 
 /** All persisted state lives in one Preferences DataStore. */
 object Prefs {
-    private val Context.store by preferencesDataStore("mote")
+    /** A corrupt file (bad flash, killed mid-write, tampering) resets to defaults instead of crashing every read. */
+    internal val corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }
+    private val Context.store by preferencesDataStore("mote", corruptionHandler = corruptionHandler)
     private val HOST = stringPreferencesKey("selected_host")
     private val THEME = stringPreferencesKey("theme")
     private val MACROS = stringPreferencesKey("macros_json")
