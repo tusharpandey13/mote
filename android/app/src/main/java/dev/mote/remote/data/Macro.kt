@@ -47,12 +47,17 @@ data class Macro(
 object Macros {
     private const val VERSION = 1
 
+    /** Revision 4 defaults: only Spaces is starred; esc left Media and lives here as "Escape". */
     val defaults: List<Macro> = listOf(
         Macro(id = "spaces", name = "Spaces", icon = "spaces", kind = Macro.Kind.SPACES, star = true),
-        Macro(id = "spotlight", name = "Spotlight", icon = "search", steps = listOf(Step.Chord(Mod.CMD, "space")), star = true),
-        Macro(id = "lock", name = "Lock", icon = "lock", steps = listOf(Step.Chord(Mod.CTRL or Mod.CMD, "q")), star = true, confirm = true),
-        Macro(id = "mission", name = "Mission Control", icon = "apps", steps = listOf(Step.Chord(Mod.CTRL, "up"))),
+        Macro(id = "spotlight", name = "Spotlight", icon = "search", steps = listOf(Step.Chord(Mod.CMD, "space"))),
+        Macro(id = "escape", name = "Escape", icon = "escape", steps = listOf(Step.Chord(0, "esc"))),
+        Macro(id = "mission", name = "Mission Control", icon = "windows", steps = listOf(Step.Chord(Mod.CTRL, "up"))),
         Macro(id = "shot", name = "Screenshot area", icon = "camera", steps = listOf(Step.Chord(Mod.CMD or Mod.SHIFT, "4")), pointer = true),
+        Macro(id = "safari", name = "Open Safari", icon = "apps", steps = listOf(Step.Chord(Mod.CMD, "space"), Step.Delay(250), Step.Text("Safari"), Step.Delay(150), Step.Chord(0, "return"))),
+        Macro(id = "lock", name = "Lock", icon = "lock", steps = listOf(Step.Chord(Mod.CTRL or Mod.CMD, "q")), confirm = true),
+        Macro(id = "forcequit", name = "Force quit", icon = "power", steps = listOf(Step.Chord(Mod.ALT or Mod.CMD, "esc"))),
+        Macro(id = "hideothers", name = "Hide others", icon = "windows", steps = listOf(Step.Chord(Mod.ALT or Mod.CMD, "h"))),
     )
 
     fun flow(c: Context): Flow<List<Macro>> = Prefs.macrosJson(c).map { it?.let(::decode) ?: defaults }

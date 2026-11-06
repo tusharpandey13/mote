@@ -1,7 +1,16 @@
 package dev.mote.remote.ui
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.Canvas
+import dev.mote.remote.net.Remote
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import dev.mote.remote.ui.theme.Rubber
+import dev.mote.remote.ui.theme.SoftShadow
+import dev.mote.remote.ui.theme.drawInnerShadow
+import dev.mote.remote.ui.theme.frameAround
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -16,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,85 +39,97 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.mote.remote.data.Macro
 import dev.mote.remote.hid.Consumer
-import dev.mote.remote.net.Remote
 import dev.mote.remote.ui.theme.LocalMote
 import dev.mote.remote.ui.theme.MIcon
 import dev.mote.remote.ui.theme.Tone
-import dev.mote.remote.ui.theme.raised
 import dev.mote.remote.ui.theme.well
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
-import kotlin.math.roundToInt
 
 @Composable
 fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites: () -> Unit) {
     val c = LocalMote.current
-    BoxWithConstraints(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)) {
-        // everything except the navigation row has a fixed height; the D-pad absorbs the rest
-        val dpad = (maxHeight - 420.dp).coerceIn(150.dp, 208.dp)
+    BoxWithConstraints(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 12.dp)) {
+        // fixed: favourites 110, brightness 54 + 24, transport 20 + 112; the control cluster absorbs the rest
+        val cluster = (maxHeight - 340.dp).coerceIn(196.dp, 256.dp)
+        val slot = cluster - 24.dp
+        val dpad = (cluster - 48.dp).coerceAtMost(208.dp)
         Column(Modifier.fillMaxSize()) {
-            SectionHead("★ Favourites") {
-                Text("EDIT", style = T.caps, color = c.subtle, modifier = Modifier.clickable(onClick = onEditFavourites).padding(4.dp))
+            Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                MIcon("starFill", c.subtle, size = 16.dp)
+                Spacer(Modifier.width(6.dp))
+                Text("FAVOURITES", style = T.caps, color = c.subtle, modifier = Modifier.weight(1f))
+                EditCap(onClick = onEditFavourites)
             }
             Spacer(Modifier.height(6.dp))
-            FavouriteStrip(favourites.take(4), run)
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                Box(Modifier.width(56.dp).height(dpad), contentAlignment = Alignment.BottomStart) {
-                    Cap(Modifier.size(52.dp, 40.dp), RoundedCornerShape(13.dp), haptic = Haptic.TICK, description = "Escape", onDown = { Remote.tap("esc") }) {
-                        Text("esc", style = T.keyS, color = c.muted)
-                    }
-                }
-                DPad(dpad)
-                ScrollLever(Modifier.width(56.dp).height(dpad))
-            }
+            FavouriteStrip(favourites, run, onAdd = onEditFavourites)
             Spacer(Modifier.weight(1f))
-            Pair(Modifier.height(60.dp)) {
+            Pair(Modifier.height(54.dp)) {
                 Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(14.dp), haptic = Haptic.TICK, description = "Brightness down",
-                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_DOWN) }) { MIcon("sunDown", c.ink) }
+                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_DOWN) }) { Arrowed("sunDown", "arrowDown") }
                 Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(14.dp), haptic = Haptic.TICK, description = "Brightness up",
-                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_UP) }) { MIcon("sunUp", c.ink) }
+                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_UP) }) { Arrowed("sunUp", "arrowUp") }
             }
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Cap(Modifier.size(64.dp), RoundedCornerShape(20.dp), description = "Previous track", onClick = { Remote.consumer(Consumer.PREV) }) {
-                    MIcon("prev", c.ink, size = 28.dp)
+            Spacer(Modifier.height(24.dp))
+            Box(Modifier.fillMaxWidth().height(cluster)) {
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    MachinedSlider(
+                        label = "SCROLL", slotHeight = slot,
+                        upEnd = { MIcon("triUp", c.muted, size = 14.dp) }, downEnd = { MIcon("triDown", c.muted, size = 14.dp) },
+                        upDescription = "Scroll up one notch", downDescription = "Scroll down one notch", thumbDescription = "Scroll lever",
+                        rates = intArrayOf(0, 4, 8, 16, 30), thumb = { GripLines() },
+                        // up = toward the top of the document with macOS natural scrolling (the default)
+                        onNotch = { up -> Remote.scroll(if (up) -1 else 1, 0) },
+                    )
+                    DPad(dpad)
+                    MachinedSlider(
+                        label = "VOLUME", slotHeight = slot,
+                        upEnd = { Text("+", style = T.title.copy(fontWeight = FontWeight.Bold), color = c.muted) },
+                        downEnd = { Text("−", style = T.title.copy(fontWeight = FontWeight.Bold), color = c.muted) },
+                        upDescription = "Volume up", downDescription = "Volume down", thumbDescription = "Volume lever",
+                        rates = intArrayOf(0, 3, 5, 8, 12), thumb = { MIcon("speaker", c.metalInk, size = 20.dp) },
+                        onNotch = { up -> Remote.consumer(if (up) Consumer.VOL_UP else Consumer.VOL_DOWN) },
+                    )
                 }
-                Box(Modifier.size(172.dp, 100.dp).well(RoundedCornerShape(30.dp)), contentAlignment = Alignment.Center) {
-                    Cap(Modifier.size(156.dp, 84.dp), RoundedCornerShape(22.dp), tone = Tone.PRIMARY, description = "Play or pause",
-                        onClick = { Remote.consumer(Consumer.PLAY_PAUSE) }) { MIcon("playPause", c.onPrim, size = 32.dp) }
-                }
-                Cap(Modifier.size(64.dp), RoundedCornerShape(20.dp), description = "Next track", onClick = { Remote.consumer(Consumer.NEXT) }) {
-                    MIcon("next", c.ink, size = 28.dp)
-                }
+                // round mute cap at the D-pad's lower right, beside the volume slider's minus end
+                Cap(Modifier.align(Alignment.BottomEnd).padding(end = 66.dp, bottom = 30.dp).size(48.dp), CircleShape,
+                    description = "Mute", onClick = { Remote.consumer(Consumer.MUTE) }) { MIcon("mute", c.ink, size = 22.dp) }
             }
-            Spacer(Modifier.height(16.dp))
-            Pair(Modifier.height(72.dp)) {
-                Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), haptic = Haptic.TICK, description = "Volume down",
-                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.VOL_DOWN) }) { MIcon("volDown", c.ink, size = 28.dp) }
-                Cap(Modifier.width(76.dp).fillMaxHeight(), RoundedCornerShape(16.dp), description = "Mute",
-                    onClick = { Remote.consumer(Consumer.MUTE) }) { MIcon("mute", c.ink) }
-                Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), haptic = Haptic.TICK, description = "Volume up",
-                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.VOL_UP) }) { MIcon("volUp", c.ink, size = 28.dp) }
+            Spacer(Modifier.height(20.dp))
+            // one family: three glass caps in one recessed channel; play is wider and taller
+            Row(
+                Modifier.fillMaxWidth().well(RoundedCornerShape(30.dp)).padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Cap(Modifier.size(72.dp), RoundedCornerShape(22.dp), tone = Tone.GLASS, description = "Previous track",
+                    onClick = { Remote.consumer(Consumer.PREV) }) { GlassIcon("prev", 28.dp) }
+                Cap(Modifier.weight(1f).height(96.dp), RoundedCornerShape(24.dp), tone = Tone.GLASS, description = "Play or pause",
+                    onClick = { Remote.consumer(Consumer.PLAY_PAUSE) }) { GlassIcon("playPause", 34.dp) }
+                Cap(Modifier.size(72.dp), RoundedCornerShape(22.dp), tone = Tone.GLASS, description = "Next track",
+                    onClick = { Remote.consumer(Consumer.NEXT) }) { GlassIcon("next", 28.dp) }
             }
         }
+    }
+}
+
+/** Brightness legend: sun 24dp + arrow 20dp at ink colour, one centred row. */
+@Composable
+private fun Arrowed(sun: String, arrow: String) {
+    val c = LocalMote.current
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        MIcon(sun, c.ink, size = 24.dp)
+        MIcon(arrow, c.ink, size = 20.dp)
     }
 }
 
@@ -124,23 +144,36 @@ private fun Pair(modifier: Modifier, content: @Composable androidx.compose.found
 }
 
 @Composable
-private fun FavouriteStrip(favs: List<Macro>, run: (Macro) -> Unit) {
+private fun FavouriteStrip(favs: List<Macro>, run: (Macro) -> Unit, onAdd: () -> Unit) {
+    val c = LocalMote.current
     Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        var used = 0f
+        var used = 0
         favs.forEach { m ->
-            val span = if (m.kind == Macro.Kind.SPACES) 2f else 1f
-            if (used + span > 4f) return@forEach
+            val span = if (m.kind == Macro.Kind.SPACES) 2 else 1
+            if (used + span > 4) return@forEach
             used += span
-            if (m.kind == Macro.Kind.SPACES) SpacesTile(Modifier.weight(span).fillMaxHeight(), compact = true)
-            else MacroTile(m, Modifier.weight(span).fillMaxHeight(), compact = true, onRun = run)
+            if (m.kind == Macro.Kind.SPACES) SpacesTile(Modifier.weight(span.toFloat()).fillMaxHeight(), compact = true)
+            else MacroTile(m, Modifier.weight(span.toFloat()).fillMaxHeight(), compact = true, onRun = run)
         }
-        if (used < 4f) Spacer(Modifier.weight(4f - used))
+        // the strip never looks broken: the free space is one dashed "+ Add favourite" slot
+        if (used < 4) {
+            Box(
+                Modifier.weight((4 - used).toFloat()).fillMaxHeight().dashedSlot(c.keyEdge, 16.dp)
+                    .clickable(onClickLabel = "Add favourite", onClick = onAdd),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MIcon("plus", c.subtle, size = 20.dp)
+                    if (4 - used >= 2) { Spacer(Modifier.width(6.dp)); Text("Add favourite", style = T.label.copy(fontWeight = FontWeight.Medium), color = c.subtle) }
+                }
+            }
+        }
     }
 }
 
 private enum class Arm(val key: String) { UP("up"), RIGHT("right"), DOWN("down"), LEFT("left"), CENTER("return") }
 
-/** Circular D-pad: arms send arrows (host repeats while held), center tap = Return, hold = Space. */
+/** Circular rubber D-pad: arms send arrows (host repeats while held), center tap = Return, hold = Space. */
 @Composable
 private fun DPad(size: androidx.compose.ui.unit.Dp) {
     val c = LocalMote.current
@@ -187,106 +220,45 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
                     if (arm == Arm.CENTER) { if (up != null && !longFired) Remote.tap("return") } else Remote.keyUp(arm.key)
                     pressed = null
                 }
+            }
+            .drawWithCache {
+                val k = this.size.width / 208f
+                val ctr = Offset(this.size.width / 2, this.size.height / 2)
+                val housing = Path().apply { addOval(Rect(ctr, 104 * k)) }
+                val housingFrame = frameAround(housing, 24 * k)
+                val housingShade = SoftShadow(c.wellShade, 8.dp.toPx(), dy = 3.dp.toPx())
+                val disc = Rubber(c, ctr, 96 * k, density)
+                val ring = Path().apply { addOval(Rect(ctr, 42 * k)) }
+                val ringFrame = frameAround(ring, 12 * k)
+                val ringShade = SoftShadow(c.wellShade, 4.dp.toPx(), dy = 2.dp.toPx())
+                val okCap = Rubber(c, ctr, 35 * k, density)
+                val okPressed = Rubber(c, ctr, 35 * k, density, pressed = true)
+                val armShade = Color.Black.copy(alpha = if (c.dark) 0.22f else 0.07f)
+                val divider = if (c.dark) Color.Black.copy(alpha = 0.45f) else c.rubWall.copy(alpha = 0.55f)
+                val tri = Path().apply {
+                    moveTo(ctr.x, ctr.y - 77 * k); lineTo(ctr.x + 7 * k, ctr.y - 67.5f * k); lineTo(ctr.x - 7 * k, ctr.y - 67.5f * k); close()
+                }
+                val armRect = Rect(ctr, 96 * k)
+                onDrawBehind {
+                    drawCircle(c.well, 104 * k, ctr)
+                    drawInnerShadow(housing, housingFrame, housingShade)
+                    with(disc) { draw() }
+                    Arm.entries.filter { it != Arm.CENTER }.forEachIndexed { i, arm ->
+                        rotate(i * 90f, ctr) {
+                            if (pressed == arm) drawArc(armShade, 225f, 90f, true, armRect.topLeft, armRect.size)
+                            drawPath(tri, if (pressed == arm) c.accent else c.muted)
+                        }
+                    }
+                    for (i in 0 until 4) rotate(45f + i * 90f, ctr) {
+                        drawLine(divider, Offset(ctr.x, ctr.y - 46 * k), Offset(ctr.x, ctr.y - 80 * k), 1.25f * k)
+                    }
+                    drawCircle(c.well, 42 * k, ctr)
+                    drawInnerShadow(ring, ringFrame, ringShade)
+                    with(if (pressed == Arm.CENTER) okPressed else okCap) { draw() }
+                }
             },
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val k = this.size.width / 208f
-            val ctr = Offset(this.size.width / 2, this.size.height / 2)
-            drawCircle(c.well, 104 * k, ctr)
-            drawCircle(Brush.verticalGradient(listOf(c.wellShade, c.well), startY = 0f, endY = 12 * k), 104 * k, ctr)
-            drawCircle(Brush.verticalGradient(listOf(c.keyTop, c.keyBot)), 96 * k, ctr)
-            drawArc(c.hi, 200f, 140f, false, Offset(ctr.x - 95 * k, ctr.y - 95 * k), Size(190 * k, 190 * k), style = Stroke(1.dp.toPx()))
-            Arm.entries.filter { it != Arm.CENTER }.forEachIndexed { i, arm ->
-                rotate(i * 90f, ctr) {
-                    if (pressed == arm) {
-                        drawArc(c.lo, 225f, 90f, true, Offset(ctr.x - 96 * k, ctr.y - 96 * k), Size(192 * k, 192 * k))
-                    }
-                    val tri = Path().apply {
-                        moveTo(ctr.x, ctr.y - 77 * k); lineTo(ctr.x + 7 * k, ctr.y - 67.5f * k); lineTo(ctr.x - 7 * k, ctr.y - 67.5f * k); close()
-                    }
-                    drawPath(tri, if (pressed == arm) c.accent else c.muted)
-                }
-            }
-            for (i in 0 until 4) rotate(45f + i * 90f, ctr) {
-                drawLine(c.outline, Offset(ctr.x, ctr.y - 44 * k), Offset(ctr.x, ctr.y - 80 * k), 1.5f * k)
-            }
-            drawCircle(c.well, 42 * k, ctr)
-            val cp = pressed == Arm.CENTER
-            drawCircle(Brush.verticalGradient(if (cp) listOf(c.keyBot, c.keyTop) else listOf(c.keyTop, c.keyBot), startY = ctr.y - 35 * k, endY = ctr.y + 35 * k), 35 * k, ctr)
-            if (!cp) drawArc(c.hi, 200f, 140f, false, Offset(ctr.x - 34 * k, ctr.y - 34 * k), Size(68 * k, 68 * k), style = Stroke(1.dp.toPx()))
-        }
-        Text("OK", style = T.label, color = if (pressed == Arm.CENTER) c.accent else c.ink)
-    }
-}
-
-/**
- * Spring-loaded scroll lever: drag the thumb; speed is proportional to displacement after a 6dp
- * deadzone (4 bands, TICK on band change). Chevrons send one notch. Up = toward the top of the
- * document with macOS natural scrolling (the default).
- */
-@Composable
-private fun ScrollLever(modifier: Modifier) {
-    val c = LocalMote.current
-    val h = haptics()
-    val linked by androidx.compose.runtime.rememberUpdatedState(LocalLinked.current)
-    val scope = rememberCoroutineScope()
-    val offset = remember { Animatable(0f) }
-    var dragging by remember { mutableStateOf(false) }
-    val rates = intArrayOf(0, 4, 8, 16, 30)
-    Column(modifier.well(RoundedCornerShape(18.dp)).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.fillMaxWidth().height(36.dp).semantics { contentDescription = "Scroll up one notch" }.pointerInput(Unit) {
-            awaitEachGesture { awaitFirstDown(); if (waitForUpOrCancellation() != null) { if (linked) { h(Haptic.TICK); Remote.scroll(-1, 0) } else h(Haptic.REJECT) } }
-        }, contentAlignment = Alignment.Center) { MIcon("chevUp", c.muted, size = 20.dp) }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            val travelPx = with(androidx.compose.ui.platform.LocalDensity.current) { ((maxHeight - 52.dp) / 2).toPx().coerceAtLeast(1f) }
-            val deadPx = with(androidx.compose.ui.platform.LocalDensity.current) { 6.dp.toPx() }
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .semantics { contentDescription = "Scroll lever" }
-                    .pointerInput(travelPx) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown()
-                            if (!linked) { h(Haptic.REJECT); waitForUpOrCancellation(); return@awaitEachGesture }
-                            dragging = true
-                            val loop = scope.launch {
-                                var band = 0
-                                while (isActive) {
-                                    val disp = offset.value
-                                    val mag = (abs(disp) - deadPx).coerceAtLeast(0f)
-                                    val nb = if (mag <= 0f) 0 else (1 + (mag / (travelPx - deadPx) * 4).toInt()).coerceAtMost(4)
-                                    if (nb != band) { band = nb; h(Haptic.TICK) }
-                                    if (band == 0) { delay(16); continue }
-                                    Remote.scroll(if (disp < 0) -1 else 1, 0)
-                                    delay(1000L / rates[band])
-                                }
-                            }
-                            val startY = down.position.y
-                            while (true) {
-                                val ev = awaitPointerEvent()
-                                val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
-                                if (!ch.pressed) break
-                                scope.launch { offset.snapTo((ch.position.y - startY).coerceIn(-travelPx, travelPx)) }
-                                ch.consume()
-                            }
-                            loop.cancel()
-                            dragging = false
-                            scope.launch { offset.animateTo(0f, Motion.spatialFast()) }
-                        }
-                    },
-            )
-            Column(
-                Modifier
-                    .offset { IntOffset(0, offset.value.roundToInt()) }
-                    .size(44.dp, 52.dp)
-                    .raised(RoundedCornerShape(12.dp), dragging),
-                verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) { repeat(3) { Box(Modifier.size(18.dp, 2.dp).well(RoundedCornerShape(1.dp))) } }
-        }
-        Box(Modifier.fillMaxWidth().height(36.dp).semantics { contentDescription = "Scroll down one notch" }.pointerInput(Unit) {
-            awaitEachGesture { awaitFirstDown(); if (waitForUpOrCancellation() != null) { if (linked) { h(Haptic.TICK); Remote.scroll(1, 0) } else h(Haptic.REJECT) } }
-        }, contentAlignment = Alignment.Center) { MIcon("chevDown", c.muted, size = 20.dp) }
+        Text("OK", style = T.label.copy(fontSize = 15.sp), color = if (pressed == Arm.CENTER) c.accent else c.ink)
     }
 }
