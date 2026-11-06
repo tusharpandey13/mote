@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import dev.mote.remote.ui.theme.Rubber
+import dev.mote.remote.ui.theme.MetalRing
 import dev.mote.remote.ui.theme.SoftShadow
 import dev.mote.remote.ui.theme.drawInnerShadow
 import dev.mote.remote.ui.theme.frameAround
@@ -109,7 +110,7 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
             Spacer(Modifier.height(20.dp))
             // one family: three glass caps in one recessed channel; play is wider and taller
             Row(
-                Modifier.fillMaxWidth().well(RoundedCornerShape(30.dp)).padding(8.dp),
+                Modifier.fillMaxWidth().well(RoundedCornerShape(30.dp), bezel = true).padding(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
             ) {
                 SeekCap("prev", "Previous track, hold to rewind", Consumer.PREV, Consumer.REWIND)
@@ -258,9 +259,7 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
             .drawWithCache {
                 val k = this.size.width / 208f
                 val ctr = Offset(this.size.width / 2, this.size.height / 2)
-                val housing = Path().apply { addOval(Rect(ctr, 104 * k)) }
-                val housingFrame = frameAround(housing, 24 * k)
-                val housingShade = SoftShadow(c.wellShade, 8.dp.toPx(), dy = 3.dp.toPx())
+                val bezel = MetalRing(c, ctr, 104 * k, 99 * k, density)
                 val disc = Rubber(c, ctr, 96 * k, density)
                 val ring = Path().apply { addOval(Rect(ctr, 42 * k)) }
                 val ringFrame = frameAround(ring, 12 * k)
@@ -274,8 +273,7 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
                 }
                 val armRect = Rect(ctr, 96 * k)
                 onDrawBehind {
-                    drawCircle(c.well, 104 * k, ctr)
-                    drawInnerShadow(housing, housingFrame, housingShade)
+                    with(bezel) { draw() }
                     with(disc) { draw() }
                     Arm.entries.filter { it != Arm.CENTER }.forEachIndexed { i, arm ->
                         rotate(i * 90f, ctr) {
