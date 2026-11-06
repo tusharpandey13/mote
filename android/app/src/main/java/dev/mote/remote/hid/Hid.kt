@@ -78,6 +78,8 @@ object Hid {
     private var adapter: BluetoothAdapter? = null
     private var proxy: BluetoothHidDevice? = null
     private var device: BluetoothDevice? = null
+    /** Host the stack reports as virtually plugged at registration; reconnect target when none is selected. */
+    private var plugged: String? = null
     private var reconnectJob: Job? = null
 
     // keyboard / mouse state, touched only on the HID thread
@@ -152,6 +154,7 @@ object Hid {
             Log.i(TAG, "registered=$registered plugged=${pluggedDevice?.address}")
             _state.update { it.copy(phase = if (registered) Phase.READY else Phase.BLOCKED) }
             if (registered) {
+                plugged = pluggedDevice?.address
                 if (pluggedDevice != null && proxy?.getConnectionState(pluggedDevice) == BluetoothProfile.STATE_CONNECTED) {
                     onConnected(pluggedDevice)
                 } else tryReconnect()
@@ -216,12 +219,18 @@ object Hid {
     private fun tryReconnect() {
         val s = _state.value
         val p = proxy ?: return
-        val target = s.selected ?: return
+        val target = reconnectTarget(s.selected?.address, plugged) ?: return
         if (!foreground || s.phase != Phase.READY || s.connected != null) return
-        val d = adapter?.getRemoteDevice(target.address) ?: return
+        val d = adapter?.getRemoteDevice(target) ?: return
         if (p.getConnectionState(d) == BluetoothProfile.STATE_CONNECTING) return
         runCatching { p.connect(d) }
     }
+
+    /**
+     * The selected host wins; otherwise the stack's plugged host. Without this, a Mac that holds a
+     * stale HID link from before Mote registered stays "connected" on the Mac and never on the phone.
+     */
+    internal fun reconnectTarget(selected: String?, plugged: String?): String? = selected ?: plugged
 
     private fun hostFor(address: String): Host? =
         runCatching { adapter?.getRemoteDevice(address)?.let(Bt::hostOf) }.getOrNull()
