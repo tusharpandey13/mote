@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
+import dev.mote.remote.ui.theme.MIcon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,19 +72,20 @@ fun MouseScreen(banner: Boolean, onBannerDone: () -> Unit) {
         }
         Touchpad(Modifier.weight(1f).fillMaxWidth(), dragLock)
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth().height(64.dp).well(RoundedCornerShape(20.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth().height(60.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), description = "Left button",
                 onDown = { Remote.setButton(Hid.BUTTON_LEFT, true) }, onClick = { if (!dragLock) Remote.setButton(Hid.BUTTON_LEFT, false) }) {
-                Text("L", style = T.label, color = c.muted)
+                Text("Left", style = T.label, color = c.ink)
             }
-            Cap(Modifier.width(96.dp).fillMaxHeight(), RoundedCornerShape(16.dp), haptic = Haptic.HEAVY, forcePressed = dragLock,
+            Cap(Modifier.width(72.dp).fillMaxHeight().then(if (dragLock) Modifier.border(2.dp, c.accent, RoundedCornerShape(16.dp)) else Modifier),
+                RoundedCornerShape(16.dp), haptic = Haptic.HEAVY, forcePressed = dragLock,
                 tone = Tone.NORMAL, description = if (dragLock) "Drag lock on" else "Drag lock off",
                 onClick = { dragLock = !dragLock; Remote.setButton(Hid.BUTTON_LEFT, dragLock) }) {
-                Text("Drag lock", style = T.small, color = if (dragLock) c.accent else c.muted)
+                MIcon("lock", if (dragLock) c.accent else c.ink, size = 22.dp)
             }
             Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), description = "Right button",
                 onDown = { Remote.setButton(Hid.BUTTON_RIGHT, true) }, onClick = { Remote.setButton(Hid.BUTTON_RIGHT, false) }) {
-                Text("R", style = T.label, color = c.muted)
+                Text("Right", style = T.label, color = c.ink)
             }
         }
     }
@@ -177,7 +179,7 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
             var y = pitch
             while (y < size.height) {
                 var x = pitch
-                while (x < size.width) { drawCircle(c.dot, 1.dp.toPx(), Offset(x, y)); x += pitch }
+                while (x < size.width) { drawCircle(c.dot, 1.25.dp.toPx(), Offset(x, y)); x += pitch }
                 y += pitch
             }
             glow?.let { drawCircle(c.accent.copy(alpha = 0.25f * glowAlpha.value), 28.dp.toPx(), it) }

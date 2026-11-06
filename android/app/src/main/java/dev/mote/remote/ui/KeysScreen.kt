@@ -3,6 +3,7 @@ package dev.mote.remote.ui
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.alpha
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.clickable
@@ -112,10 +113,12 @@ fun KeysScreen() {
                 KeyCap(ch('/', "?"), Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth().height(50.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                // fn can't be sent over HID: a disabled cap at 38%
+                Cap(Modifier.weight(1f).fillMaxHeight().alpha(0.38f), RoundedCornerShape(8.dp), needsLink = false, haptic = null,
+                    description = "fn, not sendable") {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("fn", style = T.keyS, color = c.subtle)
-                        Text("not sendable", style = T.caps.copy(letterSpacing = T.caps.letterSpacing * 0), color = c.subtle)
+                        Text("fn", style = T.key, color = c.ink)
+                        Text("not sendable", style = T.small.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Normal), color = c.ink)
                     }
                 }
                 ModKey(Mod.CTRL, "⌃", "control", Modifier.weight(1f))
@@ -252,7 +255,13 @@ private fun ChordStrip() {
                 contentAlignment = Alignment.Center,
             ) { Text(Mod.glyphs.getValue(bit), style = T.keyS, color = c.onMod) }
         }
-        Text(if (mods.active == 0) "Modifiers: tap once to arm, twice to lock" else "+ next key", style = T.small, color = c.muted, modifier = Modifier.weight(1f))
+        if (mods.active == 0) {
+            Text("Modifiers: tap once to arm, twice to lock", style = T.small, color = c.muted, modifier = Modifier.weight(1f))
+        } else {
+            Text("+", style = T.label, color = c.muted)
+            Box(Modifier.size(24.dp).dashedSlot(c.subtle, 6.dp))
+            Text("next key", style = T.small, color = c.muted, modifier = Modifier.weight(1f))
+        }
         if (mods.active != 0) {
             Cap(Modifier.height(32.dp).width(64.dp), RoundedCornerShape(10.dp), needsLink = false, haptic = null, description = "Clear modifiers",
                 onClick = { Remote.setMods(Hid.Mods()); h(Haptic.RELEASE) }) { Text("Clear", style = T.small, color = c.muted) }
