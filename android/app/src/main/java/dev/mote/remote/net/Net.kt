@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -22,6 +23,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -66,6 +69,13 @@ object Net {
 
     val discovery by lazy { Discovery(app) }
 
+    private val fgFlow = MutableStateFlow(false)
+    private val lowLatency by lazy {
+        @Suppress("DEPRECATION") // WIFI_MODE_FULL_HIGH_PERF is the pre-29 fallback
+        val mode = if (Build.VERSION.SDK_INT >= 29) WifiManager.WIFI_MODE_FULL_LOW_LATENCY else WifiManager.WIFI_MODE_FULL_HIGH_PERF
+        app.getSystemService(WifiManager::class.java).createWifiLock(mode, "mote-input").apply { setReferenceCounted(false) }
+    }
+
     private var loaded = false
     private var stopJob: Job? = null
 
@@ -79,6 +89,13 @@ object Net {
             _wifiChosen.value = p[WIFI_CHOSEN] ?: false
             Selection.decode(p[SELECTION])?.let { apply(it) }
         }
+        // Wi-Fi power save delayed 3 of 12 sparse taps by 140-530 ms (Nothing Phone 2, Android 16);
+        // hold a low-latency Wi-Fi lock only while a helper host is active and the app is on screen.
+        scope.launch {
+            combine(_active, fgFlow) { t, fg -> fg && t is WsTransport }.distinctUntilChanged().collect { on ->
+                lowLatency.run { if (on) runCatching { acquire() } else if (isHeld) release() }
+            }
+        }
         runCatching {
             app.getSystemService(ConnectivityManager::class.java)?.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) { (_active.value as? WsTransport)?.kick() }
@@ -90,6 +107,7 @@ object Net {
     var foreground = false
         set(v) {
             field = v
+            fgFlow.value = v
             stopJob?.cancel()
             val ws = _active.value as? WsTransport ?: return
             if (v) { ws.start(); ws.kick() } else stopJob = scope.launch { delay(30_000); ws.stop() }
