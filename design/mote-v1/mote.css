@@ -419,3 +419,80 @@ svg.i.i16 { width: 16px; height: 16px; }
 .slider .thumb .grip { display: block; width: 18px; height: 2px; border-radius: 1px; background: rgba(0,0,0,.35); box-shadow: 0 1px 0 rgba(255,255,255,.6); }
 .engrave { font: 900 9px/1 var(--font-mark); letter-spacing: 2px; text-transform: uppercase; color: var(--engrave-fill); text-shadow: var(--engrave-shadow); text-align: center; }
 .light-ink { color: var(--on-surface); }
+
+
+/* =====================================================================
+   Revision 5: grain on every control (#55), Mac brushed metal (#56),
+   and Compose parity (#57). Every layer here maps 1:1 to docs/design/tokens.json.
+   Texture URIs are stand-ins for the two runtime bitmaps described there.
+   ===================================================================== */
+:root {
+  --grain-08: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .08'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-12: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .12'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-16: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .16'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-22: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .22'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-24: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .24'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-30: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .30'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-36: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .36'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --brushed-30: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .30'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  --brushed-45: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .45'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  --brushed-60: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .60'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  /* per-material grain (Overlay) — light */
+  --g-plate: var(--grain-22); --g-plastic: var(--grain-16); --g-rubber: var(--grain-24); --g-metal: var(--grain-12); --g-glass: var(--grain-08);
+  --b-plate: var(--brushed-45); --b-metal: var(--brushed-60);
+  /* anisotropic sheen for horizontal brushing: soft vertical bands */
+  --sheen-plate: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.38) 30%, rgba(255,255,255,0) 52%, rgba(255,255,255,.18) 74%, rgba(255,255,255,0) 90%);
+  --sheen-metal: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 35%, rgba(255,255,255,0) 60%);
+  --ring-metal: conic-gradient(from 0deg, #F2F3F5 0deg, #B8BCC2 45deg, #F7F8F9 90deg, #AEB2B9 135deg, #EEF0F2 180deg, #B3B7BE 225deg, #F5F6F7 270deg, #ADB1B8 315deg, #F2F3F5 360deg);
+  --bezel-top: #B9BDC3; --bezel-bot: #D6D9DD;
+}
+.dark {
+  --g-plate: var(--grain-30); --g-plastic: var(--grain-22); --g-rubber: var(--grain-30); --g-metal: var(--grain-16); --g-glass: var(--grain-12);
+  --b-plate: var(--brushed-60); --b-metal: var(--brushed-60);
+  --sheen-plate: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.07) 30%, rgba(255,255,255,0) 52%, rgba(255,255,255,.04) 74%, rgba(255,255,255,0) 90%);
+  --sheen-metal: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 35%, rgba(255,255,255,0) 60%);
+  --ring-metal: conic-gradient(from 0deg, #8E939A 0deg, #4B4F56 45deg, #9A9FA6 90deg, #464A51 135deg, #8B9097 180deg, #484C53 225deg, #969BA2 270deg, #43474E 315deg, #8E939A 360deg);
+  --bezel-top: #08090A; --bezel-bot: #16171A;
+}
+
+/* backplate: base gradient -> brushed (Overlay) -> sheen -> speck grain (Overlay) -> vignette */
+.screen {
+  background: var(--vignette), var(--g-plate), var(--sheen-plate), var(--b-plate), linear-gradient(180deg, var(--chassis-top), var(--chassis-bot));
+  background-blend-mode: normal, overlay, normal, overlay, normal;
+}
+.screen::before { display: none; }
+
+/* plastic caps (raised, keys, mods, tiles, rail cap, pill, sheet) */
+.raised, .key, .mod:not(.armed):not(.locked), .tile:not(.confirm):not(.add) {
+  background: var(--g-plastic), linear-gradient(180deg, var(--key-top), var(--key-bot));
+  background-blend-mode: overlay, normal;
+}
+.rail { background: var(--g-plastic), var(--surface-1); background-blend-mode: overlay, normal; }
+.well { background: var(--g-rubber), var(--well); background-blend-mode: overlay, normal; }
+.sheet { background: var(--g-plastic), linear-gradient(180deg, var(--surface-1), var(--bg)); background-blend-mode: overlay, normal; }
+.accent-cap {
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 45%), var(--g-plastic), linear-gradient(180deg, var(--prim-top), var(--prim-bot));
+  background-blend-mode: normal, overlay, normal;
+}
+
+/* glass: gloss band -> grain -> body gradient */
+.glass { background: var(--gloss), var(--g-glass), linear-gradient(180deg, var(--glass-top), var(--glass-bot)); background-blend-mode: normal, overlay, normal; }
+
+/* metal thumbs: 4-stop body -> brushed (Overlay) -> sheen -> grain */
+.slider .thumb, .hslider .thumb {
+  background: var(--g-metal), var(--sheen-metal), var(--b-metal), var(--metal);
+  background-blend-mode: overlay, normal, overlay, normal;
+}
+
+/* D-pad: machined metal bezel ring (sweep sheen) around the rubber disc */
+.dpad-wrap { position: relative; width: 208px; height: 208px; border-radius: 50%;
+  background: var(--g-metal), var(--b-metal), var(--ring-metal); background-blend-mode: overlay, overlay, normal;
+  box-shadow: 0 1px 0 var(--hi), 0 -1px 0 var(--lo), 0 6px 10px -4px var(--dshadow); }
+.dpad .housing { fill: var(--well); }
+.dpad .grain { mix-blend-mode: overlay; }
+
+/* transport channel = recessed bezel: explicit stops (no color-mix) */
+.bezel, .channel.well { background: var(--g-rubber), linear-gradient(180deg, var(--bezel-top), var(--bezel-bot)); background-blend-mode: overlay, normal; }
+
+/* parity swaps: no CSS-only filters */
+.offline .live { opacity: .35; filter: none; }

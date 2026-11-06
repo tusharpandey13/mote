@@ -358,3 +358,30 @@ Every control family has its own material and keeps it in both themes. That give
   - **Haptics:** strength Off/Light/Standard/Strong; preview chips for Tick/Click/Heavy/Lock/Reject; toggles for key presses, slider detents and connect/disconnect; a note that Android's Touch feedback setting must be on.
   - **About:** version, open-source licences (incl. OFL fonts), source link.
 - The device-vs-design gap list for the Compose app is in `docs/design/device-vs-design.md`.
+
+## Revision 5 decisions (2026-11, parity pass)
+
+- **The mockup is the target, and the device must match it.** Every visual in `design/mote-v1` must be reproducible 1:1 in Compose. `docs/design/tokens.json` is the machine-readable source for colours (both themes), radii, shadows, textures and per-material layer stacks. Rules for keeping them in sync:
+  - The app reads the token values from `tokens.json` instead of retyping them.
+  - When a mockup changes, `mote.css` and `tokens.json` change in the same revision.
+  - A mockup effect that Compose can't match is swapped for one it can, keeping the look. The swaps are listed in `tokens.json` under `parity.swaps`: no saturate filter, no color-mix, text-shadow drawn as 3 text passes, inset shadows drawn as clipped blurred strokes, icon glow only on API 31+.
+- **Grain on every control (#55).** One shared 128px `grain` bitmap (value noise, seed 7, about 1dp cells, contrast-stretched grey) is tiled with `BlendMode.Overlay` over each material. Alpha per material:
+
+  | Material | Light | Dark |
+  |---|---|---|
+  | backplate | .22 | .30 |
+  | plastic | .16 | .22 |
+  | rubber and wells | .24 | .30 |
+  | metal | .12 | .16 |
+  | glass | .08 | .12 |
+
+  It must be visible at 1x on the phone. Check it by zooming a 1:1 screenshot.
+- **Mac brushed metal (#56).**
+  - **Backplate:** horizontally brushed aluminium in light (the primary look), graphite/titanium in dark.
+  - **Brushed texture:** the `brushed` bitmap (512x128, noise frequency X .004 / Y .9, seed 3) is generated at runtime, so there is no large asset. It's drawn Overlay at .45 light / .60 dark.
+  - **Sheen:** an anisotropic highlight from a 90° linear gradient with soft vertical bands (peaks of 38% at 30% across and 18% at 74% across in light; 7% and 4% in dark).
+  - **Metal parts** reuse the same texture:
+    - Slider thumbs: a 4-stop turned-edge gradient, brushed at .60, plus a single sheen band.
+    - D-pad: a new **machined bezel ring** (r 99-104) made from an 8-stop `sweepGradient` (radial brushed sheen) around the rubber disc.
+    - Transport channel: explicit dark-top bezel stops.
+- **Layer order is fixed for every material:** shadows, body gradient, textures (Overlay), sheen/gloss, inner lines. See `tokens.json` → `materials`.

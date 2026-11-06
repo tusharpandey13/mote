@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextNumber": 55,
+  "nextNumber": 58,
   "comments": [
     {
       "id": "c-512cf5e39358",
@@ -1297,6 +1297,78 @@
       "sentAt": 1793975404291,
       "resolvedAt": 1793975770201,
       "resolution": "Same material system in light; the D-pad is a rubber disc with full bevel, 3dp side wall and contact shadow. Device gaps listed in docs/design/device-vs-design.md."
+    },
+    {
+      "id": "c-1ed312764bee",
+      "number": 55,
+      "body": "more grain texture on every control, light and dark theme both",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "media-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "FAVOURITES Edit Spaces hold & slide Add favourite SCROLL OK + − VOLUME",
+        "html": "<main class=\"content media\" data-dc-id=\"media-content\">\n    <section class=\"fav-wrap\" data-dc-id=\"fav-strip\">\n      <div class=\"fav-head\"><span class=\"t-caps\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\" d=\"M12 4.2l2.3 4.7 5.2.75-3.75 3.65.88 5.15L12 16l-4.63 2.45.88-5.15L4.5 9.65l5.2-.75z\"></path></svg>Favourites</span><span class=\"fav-edit-btn raised\" data-dc-id=\"fav-edit\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14.5 5.5l4 4L9 19H5v-4z\"></path></svg>Edit</span></div>\n      <div class=\"favs\"><div class=\"fav gesture raised\" data-dc-id=\"fav-next-space\">\n        <div class=\"slide\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"fav-next-space-prev\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14 7.5L9.5 12l4.5 4.5\"></path></svg>\n          <div class=\"mid\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 723.0079956054688
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793977646064,
+      "sentAt": 1793979106692,
+      "resolvedAt": 1793979425282,
+      "resolution": "Visible grain on every control in both themes: one shared 128px noise texture with Overlay blend, at a per-material strength. Recipe in docs/design/tokens.json."
+    },
+    {
+      "id": "c-0c164dd38212",
+      "number": 56,
+      "body": "maybe we wanna get inspired from mac's brushed metal like feel?",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "media-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "FAVOURITES Edit Spaces hold & slide Add favourite SCROLL OK + − VOLUME",
+        "html": "<main class=\"content media\" data-dc-id=\"media-content\">\n    <section class=\"fav-wrap\" data-dc-id=\"fav-strip\">\n      <div class=\"fav-head\"><span class=\"t-caps\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\" d=\"M12 4.2l2.3 4.7 5.2.75-3.75 3.65.88 5.15L12 16l-4.63 2.45.88-5.15L4.5 9.65l5.2-.75z\"></path></svg>Favourites</span><span class=\"fav-edit-btn raised\" data-dc-id=\"fav-edit\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14.5 5.5l4 4L9 19H5v-4z\"></path></svg>Edit</span></div>\n      <div class=\"favs\"><div class=\"fav gesture raised\" data-dc-id=\"fav-next-space\">\n        <div class=\"slide\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"fav-next-space-prev\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14 7.5L9.5 12l4.5 4.5\"></path></svg>\n          <div class=\"mid\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 723.0079956054688
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793977674265,
+      "sentAt": 1793979106692,
+      "resolvedAt": 1793979425282,
+      "resolution": "Mac-style horizontally brushed aluminium (light) / graphite-titanium (dark) background with sheen bands; brushed slider thumbs; machined metal ring around the D-pad. The texture is generated on the phone at runtime."
+    },
+    {
+      "id": "c-63987fc8a504",
+      "number": 57,
+      "body": "mockups here dont look how things look on-device, on-device look needs to be reference for this",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "media-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "FAVOURITES Edit Spaces hold & slide Add favourite SCROLL OK + − VOLUME",
+        "html": "<main class=\"content media\" data-dc-id=\"media-content\">\n    <section class=\"fav-wrap\" data-dc-id=\"fav-strip\">\n      <div class=\"fav-head\"><span class=\"t-caps\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\" d=\"M12 4.2l2.3 4.7 5.2.75-3.75 3.65.88 5.15L12 16l-4.63 2.45.88-5.15L4.5 9.65l5.2-.75z\"></path></svg>Favourites</span><span class=\"fav-edit-btn raised\" data-dc-id=\"fav-edit\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14.5 5.5l4 4L9 19H5v-4z\"></path></svg>Edit</span></div>\n      <div class=\"favs\"><div class=\"fav gesture raised\" data-dc-id=\"fav-next-space\">\n        <div class=\"slide\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"fav-next-space-prev\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14 7.5L9.5 12l4.5 4.5\"></path></svg>\n          <div class=\"mid\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 723.0079956054688
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793979105438,
+      "sentAt": 1793979106692,
+      "resolvedAt": 1793979425282,
+      "resolution": "The mockup is the target. Every material and effect has an exact Compose recipe in docs/design/tokens.json, with CSS-only effects swapped for look-alikes Compose can do; the app agent is matching it via side-by-side screenshots."
     }
   ]
 }

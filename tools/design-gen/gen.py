@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates design/mote-v1/*.html (rev 4: light default; media.html is the dark variant). Static HTML is the artifact; this only removes chrome duplication."""
+"""Generates design/mote-v1/*.html (rev 5: light default; media.html is the dark variant). Static HTML is the artifact; this only removes chrome duplication."""
 import sys, pathlib
 OUT = pathlib.Path(sys.argv[1])
 
@@ -73,16 +73,20 @@ def dpad():
         '<g data-dc-id="dpad-%s"%s><path class="arm" d="%s"/><path class="tri" d="%s"/></g>'
         % (n, (' transform="rotate(%d 104 104)"' % r) if r else "", DPAD_ARM, TRI)
         for n, r in [("up", 0), ("right", 90), ("down", 180), ("left", 270)])
-    return f"""<svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
-        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient></defs>
-        <circle class="housing" cx="104" cy="104" r="104"/>
+    grain = ('<filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/>'
+             '<feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter>'
+             '<clipPath id="cdisc"><circle cx="104" cy="104" r="96"/></clipPath><clipPath id="ccap"><circle cx="104" cy="104" r="35"/></clipPath>')
+    return f"""<div class="dpad-wrap" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
+        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient>{grain}</defs>
+        <circle class="housing" cx="104" cy="104" r="99"/>
         <circle class="contact" cx="104" cy="110" r="92"/>
         <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
+        <rect class="grain" x="8" y="8" width="192" height="192" filter="url(#gr)" clip-path="url(#cdisc)" opacity=".5"/>
         <circle class="bevel" cx="104" cy="104" r="95.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
         {arms}
         <g><line class="div" x1="73" y1="73" x2="47" y2="47"/><line class="div" x1="135" y1="73" x2="161" y2="47"/><line class="div" x1="73" y1="135" x2="47" y2="161"/><line class="div" x1="135" y1="135" x2="161" y2="161"/></g>
-        <g data-dc-id="dpad-center"><circle class="ring" cx="104" cy="104" r="42"/><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#bev)"/><text class="ok" x="104" y="109.5" text-anchor="middle">OK</text></g>
-      </svg>"""
+        <g data-dc-id="dpad-center"><circle class="ring" cx="104" cy="104" r="42"/><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><rect class="grain" x="69" y="69" width="70" height="70" filter="url(#gr)" clip-path="url(#ccap)" opacity=".5"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#bev)"/><text class="ok" x="104" y="109.5" text-anchor="middle">OK</text></g>
+      </svg></div>"""
 
 MEDIA_CSS = """
   .media { display: flex; flex-direction: column; height: 100%; }
