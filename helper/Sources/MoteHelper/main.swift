@@ -28,6 +28,11 @@ if !config.headless {
 let refresh: () -> Void = { menu?.refresh() }
 hub.onChange = refresh
 web?.onChange = refresh
+hub.settings.onChange = {
+    if !hub.settings.allowTailscale { web?.dropTailnetPeers() }
+    refresh()
+}
+log("hostId \(hub.settings.hostId), tailscale connections \(hub.settings.allowTailscale ? "allowed" : "refused")")
 ble?.onChange = refresh
 
 if config.openPairing || (!config.headless && hub.store.devices.isEmpty) {

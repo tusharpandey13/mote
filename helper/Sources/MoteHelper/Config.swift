@@ -10,6 +10,7 @@ struct Config {
     var port: UInt16 = 8790
     var keychainService = "dev.mote.helper"
     var memoryStore = false   // keep paired devices in memory only (tests)
+    var allowTailscale: Bool? = nil   // --allow-tailscale: force the toggle on for this run (tests)
     var webRoot: URL? = nil
 
     static func parse(_ args: [String]) -> Config {
@@ -22,19 +23,95 @@ struct Config {
             case "--open-pairing": c.openPairing = true
             case "--no-ble": c.ble = false
             case "--memory-store": c.memoryStore = true
+            case "--allow-tailscale": c.allowTailscale = true
             case "--port": if let v = it.next(), let p = UInt16(v) { c.port = p }
             case "--keychain-service": if let v = it.next() { c.keychainService = v }
             case "--web-root": if let v = it.next() { c.webRoot = URL(fileURLWithPath: v) }
             case "-h", "--help":
                 print("""
                 MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
-                           [--memory-store] [--keychain-service NAME] [--web-root DIR]
+                           [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
                 """)
                 exit(0)
             default: break // ignore launch-services noise (-psn_..., -NS...)
             }
         }
         return c
+    }
+}
+
+/// Persisted helper settings (UserDefaults). With --memory-store nothing is read or written,
+/// so tests get a fresh random hostId and the defaults.
+final class Settings {
+    private let defaults: UserDefaults?
+    /// Stable per-Mac id (16 hex chars), sent in `hello.hostId` and the Bonjour TXT `id`. Lets
+    /// clients recognise this Mac across LAN IP, .local and tailnet addresses.
+    let hostId: String
+    var onChange: (() -> Void)?
+
+    /// "Allow Tailscale connections": accept tailnet peers (100.64/10, fd7a:115c:a1e0::/48) and
+    /// MagicDNS (*.ts.net) or tailnet-literal Host headers. Default off.
+    var allowTailscale: Bool {
+        didSet {
+            guard allowTailscale != oldValue else { return }
+            defaults?.set(allowTailscale, forKey: "allowTailscale")
+            log("tailscale connections \(allowTailscale ? "allowed" : "refused")")
+            onChange?()
+        }
+    }
+
+    init(config: Config) {
+        defaults = config.memoryStore ? nil : UserDefaults.standard
+        if let id = defaults?.string(forKey: "hostId"), id.count == 16 {
+            hostId = id
+        } else {
+            hostId = randomHex(8)
+            defaults?.set(hostId, forKey: "hostId")
+        }
+        allowTailscale = config.allowTailscale ?? defaults?.bool(forKey: "allowTailscale") ?? false
+    }
+}
+
+/// Best-effort MagicDNS name of this Mac ("mac.tailnet.ts.net"), read from the Tailscale CLI when
+/// it is installed. Detection runs off the main queue; `name` is the cached last result.
+enum Tailnet {
+    private(set) static var name: String?
+    private static var running = false
+    private static let candidates = [
+        "/Applications/Tailscale.app/Contents/MacOS/Tailscale", "/opt/homebrew/bin/tailscale", "/usr/local/bin/tailscale",
+    ]
+
+    /// Re-detects in the background; calls `done` on the main queue when the name changed.
+    static func refresh(_ done: @escaping () -> Void) {
+        guard !running else { return }
+        running = true
+        DispatchQueue.global(qos: .utility).async {
+            let found = detect()
+            DispatchQueue.main.async {
+                running = false
+                if found != name { name = found; done() }
+            }
+        }
+    }
+
+    private static func detect() -> String? {
+        guard let bin = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return nil }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: bin)
+        p.arguments = ["status", "--json", "--peers=false"]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = FileHandle.nullDevice
+        do { try p.run() } catch { return nil }
+        let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 3, execute: killer)
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        killer.cancel()
+        guard let j = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let me = j["Self"] as? [String: Any], let dns = me["DNSName"] as? String else { return nil }
+        let n = dns.hasSuffix(".") ? String(dns.dropLast()) : dns
+        return n.lowercased().hasSuffix(".ts.net") ? n : nil
     }
 }
 
@@ -48,7 +125,14 @@ enum Host {
         (SCDynamicStoreCopyComputerName(nil, nil) as String?) ?? localName
     }
     /// IPv4 addresses on up, non-loopback interfaces (en*, bridge*), for the IP fallback URL.
-    static var lanIPv4: [String] {
+    static var lanIPv4: [String] { ipv4 { name, _ in name.hasPrefix("en") || name.hasPrefix("bridge") } }
+
+    /// This Mac's Tailscale address: an IPv4 in 100.64/10 on a utun interface.
+    static var tailnetIPv4: String? {
+        ipv4 { name, b in name.hasPrefix("utun") && b.count == 4 && b[0] == 100 && (64...127).contains(b[1]) }.first
+    }
+
+    private static func ipv4(_ keep: (String, [UInt8]) -> Bool) -> [String] {
         var out: [String] = []
         var ifa: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifa) == 0, let first = ifa else { return out }
@@ -58,7 +142,10 @@ enum Host {
             guard let sa = i.ifa_addr, sa.pointee.sa_family == UInt8(AF_INET),
                   (i.ifa_flags & UInt32(IFF_UP)) != 0, (i.ifa_flags & UInt32(IFF_LOOPBACK)) == 0 else { continue }
             let name = String(cString: i.ifa_name)
-            guard name.hasPrefix("en") || name.hasPrefix("bridge") else { continue }
+            let bytes = sa.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { p in
+                withUnsafeBytes(of: p.pointee.sin_addr) { [UInt8]($0) }
+            }
+            guard keep(name, bytes) else { continue }
             var buf = [CChar](repeating: 0, count: Int(NI_MAXHOST))
             if getnameinfo(sa, socklen_t(sa.pointee.sa_len), &buf, socklen_t(buf.count), nil, 0, NI_NUMERICHOST) == 0 {
                 out.append(String(cString: buf))

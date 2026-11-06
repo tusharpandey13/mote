@@ -22,7 +22,9 @@ final class WebServer {
         params.allowLocalEndpointReuse = true
         params.prohibitedInterfaceTypes = [.cellular]
         let l = try NWListener(using: params, on: NWEndpoint.Port(rawValue: hub.config.port)!)
-        l.service = NWListener.Service(name: Host.computerName, type: "_mote._tcp")
+        // TXT: id = stable hostId (match saved hosts without connecting), v = protocol major.
+        l.service = NWListener.Service(name: Host.computerName, type: "_mote._tcp", domain: nil,
+                                       txtRecord: NWTXTRecord(["id": hub.settings.hostId, "v": "1"]))
         l.stateUpdateHandler = { [weak self] st in
             guard let self else { return }
             switch st {
@@ -39,7 +41,7 @@ final class WebServer {
     }
 
     private func accept(_ c: NWConnection) {
-        guard case .hostPort(let host, _) = c.endpoint, isLocalAddress(host) else {
+        guard case .hostPort(let host, _) = c.endpoint, isLocalAddress(host, tailnet: hub.settings.allowTailscale) else {
             log("wifi: refused non-LAN peer \(c.endpoint)")
             c.cancel(); return
         }
@@ -50,8 +52,14 @@ final class WebServer {
             c.cancel(); return
         }
         let h = HTTPConnection(conn: c, peer: peer, server: self)
+        h.tailnet = !isLocalAddress(host, tailnet: false)
         conns[ObjectIdentifier(h)] = h
         h.start()
+    }
+
+    /// Turning "Allow Tailscale connections" off also drops the tailnet peers already connected.
+    func dropTailnetPeers() {
+        for h in conns.values where h.tailnet { h.conn.cancel() }
     }
 
     fileprivate func finished(_ h: HTTPConnection) { conns[ObjectIdentifier(h)] = nil }
@@ -73,6 +81,7 @@ final class WebServer {
 private final class HTTPConnection {
     let conn: NWConnection
     let peer: String
+    var tailnet = false   // peer is in a Tailscale range (only accepted while the toggle is on)
     unowned let server: WebServer
     private var buf = Data()
     private var session: Session?
@@ -147,11 +156,7 @@ private final class HTTPConnection {
     }
 
     private func hostAllowed(_ hostHeader: String) -> Bool {
-        var h = hostHeader.lowercased()
-        if h.hasPrefix("[") { return h.contains("]") }                     // IPv6 literal
-        if let i = h.lastIndex(of: ":") { h = String(h[..<i]) }
-        if h == "localhost" || h.hasSuffix(".local") { return true }
-        return IPv4Address(h) != nil
+        hostHeaderAllowed(hostHeader, tailnet: server.hubRef.settings.allowTailscale)
     }
 
     private func respond(_ code: Int, _ reason: String, type: String = "text/plain; charset=utf-8", body: Data? = nil, length: Int? = nil, host: String = "") {
