@@ -13,6 +13,7 @@ struct Config {
     var allowTailscale: Bool? = nil   // --allow-tailscale: force the toggle on for this run (tests)
     var webRoot: URL? = nil
     var stdinControl = false  // tests: read pair/revoke/pause/resume commands from stdin (needs --dry-run)
+    var fakeSpaces: Int? = nil // tests: simulate N Spaces with generated thumbnails (needs --dry-run)
 
     static func parse(_ args: [String]) -> Config {
         var c = Config()
@@ -26,6 +27,7 @@ struct Config {
             case "--memory-store": c.memoryStore = true
             case "--allow-tailscale": c.allowTailscale = true
             case "--stdin-control": c.stdinControl = true
+            case "--fake-spaces": if let v = it.next(), let n = Int(v) { c.fakeSpaces = min(max(n, 1), Spaces.maxDesktops) }
             case "--port": if let v = it.next(), let p = UInt16(v) { c.port = p }
             case "--keychain-service": if let v = it.next() { c.keychainService = v }
             case "--web-root": if let v = it.next() { c.webRoot = URL(fileURLWithPath: v) }
@@ -33,7 +35,7 @@ struct Config {
                 print("""
                 MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
-                           [--stdin-control]   (tests, needs --dry-run; port 0 = any free port)
+                           [--stdin-control] [--fake-spaces N]   (tests, need --dry-run; port 0 = any free port)
                 """)
                 exit(0)
             default: break // ignore launch-services noise (-psn_..., -NS...)
@@ -63,6 +65,17 @@ final class Settings {
         }
     }
 
+    /// "Share Space thumbnails": capture and serve Space thumbnails (protocol 1.3). Default on;
+    /// it only has an effect once Screen Recording is granted.
+    var shareSpaceThumbnails: Bool {
+        didSet {
+            guard shareSpaceThumbnails != oldValue else { return }
+            defaults?.set(shareSpaceThumbnails, forKey: "shareSpaceThumbnails")
+            log("space thumbnails \(shareSpaceThumbnails ? "shared" : "not shared")")
+            onChange?()
+        }
+    }
+
     init(config: Config) {
         defaults = config.memoryStore ? nil : UserDefaults.standard
         if let id = defaults?.string(forKey: "hostId"), id.count == 16 {
@@ -72,6 +85,7 @@ final class Settings {
             defaults?.set(hostId, forKey: "hostId")
         }
         allowTailscale = config.allowTailscale ?? defaults?.bool(forKey: "allowTailscale") ?? false
+        shareSpaceThumbnails = (defaults?.object(forKey: "shareSpaceThumbnails") as? Bool) ?? true
     }
 }
 

@@ -4,6 +4,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
+import { spacesChecks } from './spaces.mjs';
 
 const [port, code, credFile = '/tmp/mote-cred.json'] = process.argv.slice(2);
 const url = `ws://127.0.0.1:${port}/ws`;
@@ -103,6 +104,9 @@ ok(e2.code === 'bad', 'oversized macro rejected');
 const pong = await b.req({ t: 'ping', n: 7 });
 ok(pong.t === 'pong' && pong.n === 7, 'ping/pong');
 b.close();
+
+// --- Spaces (1.3): own helper with --dry-run --fake-spaces 4 (no permission, no real screen)
+await spacesChecks(ok, { tailnet });
 
 // --- rate limit (last: it blocks this peer for 60 s)
 const d = await open(); await d.next();
