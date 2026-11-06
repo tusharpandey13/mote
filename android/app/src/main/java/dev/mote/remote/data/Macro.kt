@@ -118,7 +118,7 @@ object Macros {
                 kind = if (o.optString("kind") == "spaces") Macro.Kind.SPACES else Macro.Kind.STEPS,
                 steps = (0 until steps.length()).mapNotNull { decodeStep(steps.getJSONObject(it)) },
             )
-        }
+        }.distinctBy { it.id } // ids are lazy-grid keys: a duplicate crashes composition
     }.getOrNull()
 
     private fun decodeStep(o: JSONObject): Step? = when (o.optString("t")) {
