@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mote demo: try the interface</title>
+<meta name="description" content="An interactive mock of the Mote Android app. Press the controls to see feedback. Nothing is sent over Bluetooth.">
+<link rel="preload" href="design/fonts/Unbounded-Black.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header class="bar">
+  <a class="wordmark" href="./" aria-label="Mote home">MOTE</a>
+  <nav aria-label="Site">
+    <a href="demo.html" aria-current="page">Demo</a>
+    <a href="remote/">Web remote</a>
+    <a href="./#install">Install</a>
+    <a href="https://github.com/tusharpandey13/mote/releases/latest">Download</a>
+  </nav>
+</header>
+
+<main class="demo">
+  <aside>
+    <h1>Try the interface</h1>
+    <p>Press anything. Tap the rail at the bottom of the phone to switch modes, the device pill to pick a computer, and the menu beside the wordmark for settings. A web page can't act as a Bluetooth keyboard, so nothing leaves your browser. To control a Mac from a browser, use the <a href="./#web">web remote with the Mote Helper</a>.</p>
+    <div class="theme well" role="group" aria-label="Finish">
+      <button type="button" data-theme="light" aria-pressed="true">Silver</button>
+      <button type="button" data-theme="dark" aria-pressed="false">Titanium</button>
+    </div>
+    <div class="screens well" id="screens">
+      <h2>Modes</h2>
+      <button type="button" data-s="media-light">Media</button>
+      <button type="button" data-s="pad">Mouse</button>
+      <button type="button" data-s="pad-landscape">Mouse, landscape</button>
+      <button type="button" data-s="keys">Keys</button>
+      <button type="button" data-s="macros">Macros</button>
+      <h2>Sheets and states</h2>
+      <button type="button" data-s="macro-editor">Macro editor</button>
+      <button type="button" data-s="macro-running">Macro running</button>
+      <button type="button" data-s="menu-sheet">Menu</button>
+      <button type="button" data-s="device-picker">Device picker</button>
+      <button type="button" data-s="pairing">Pairing</button>
+      <button type="button" data-s="disconnected">Disconnected</button>
+    </div>
+  </aside>
+  <section class="stage" aria-label="Phone">
+    <div class="phone" id="phone"><div class="glass"><iframe id="screen" src="design/media-light.html" title="Mote app screen"></iframe></div></div>
+    <div class="readout well" id="readout" aria-live="polite"><span class="led"></span><span id="readout-t">Press a control. Nothing is sent.</span></div>
+    <p class="note">These are the design artboards with press feedback added. Want the real thing? <a href="https://github.com/tusharpandey13/mote/releases/latest">Download the APK</a>.</p>
+  </section>
+</main>
+<script src="demo.js"></script>
+</body>
+</html>

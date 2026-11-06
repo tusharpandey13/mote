@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mote: your Android phone as a Bluetooth remote, keyboard and mouse</title>
+<meta name="description" content="Mote turns an Android phone into a Bluetooth keyboard, mouse and media remote for a Mac or any Bluetooth host. Nothing to install on the computer.">
+<link rel="preload" href="design/fonts/Unbounded-Black.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header class="bar">
+  <a class="wordmark" href="./" aria-label="Mote home">MOTE</a>
+  <nav aria-label="Site">
+    <a href="demo.html">Demo</a>
+    <a href="remote/">Web remote</a>
+    <a class="opt" href="#how">How it works</a>
+    <a href="#install">Install</a>
+    <a class="opt" href="#limits">Limits</a>
+    <a class="opt" href="https://github.com/tusharpandey13/mote">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <span class="wordmark" aria-hidden="true">MOTE</span>
+      <h1>Your Android phone, as a Bluetooth remote for your Mac.</h1>
+      <p class="lede">Media keys, a D-pad, a touchpad mouse and a full keyboard in one hand. Mote pairs as an ordinary Bluetooth keyboard and mouse, so there is nothing to install on the computer.</p>
+      <div class="ctas">
+        <a class="btn prim" href="https://github.com/tusharpandey13/mote/releases/latest"><i data-i="arrowDown" class="i20"></i>Download the APK</a>
+        <a class="btn raised" href="demo.html"><i data-i="click" class="i20"></i>Try the demo</a>
+      </div>
+      <p class="fine">Android 9 or later, with Bluetooth. Works with macOS, Windows, Linux, iPadOS and smart TVs.</p>
+    </div>
+    <div class="phone" aria-hidden="true"><div class="glass"><iframe src="design/media-light.html" title="Mote media screen" tabindex="-1" loading="eager"></iframe></div></div>
+  </section>
+
+  <section class="band split" id="web" aria-labelledby="web-h">
+    <div>
+      <h2 id="web-h">Use it from the browser</h2>
+      <p class="side-note">The web remote needs the Mote Helper on your Mac. A web page can't pretend to be a Bluetooth keyboard, so the helper receives your presses and performs them.</p>
+    </div>
+    <div class="web">
+      <div class="cmd well">
+        <code id="install-cmd">curl -fsSL https://tusharpandey13.github.io/mote/install.sh | bash</code>
+        <button type="button" class="btn raised copy" data-copy="install-cmd">Copy</button>
+      </div>
+      <p class="cmd-note">Run it in Terminal on your Mac. It downloads the helper from GitHub Releases into <code>~/Applications</code>, opens it, and asks for Accessibility permission so it can press keys for you. <a href="install.sh">Read the script first</a>.</p>
+      <div class="ways">
+        <div><h3>Over Wi-Fi</h3><p>Open the address shown in the helper's menu bar, such as <code>http://your-mac.local:8790</code>, in any phone browser on the same network.</p></div>
+        <div><h3>Over Bluetooth</h3><p>Open <a href="remote/">tusharpandey13.github.io/mote/remote/</a> in Chrome on Android and pick your Mac. This uses Web Bluetooth, so no Wi-Fi is needed.</p></div>
+      </div>
+      <table class="compare">
+        <caption>Android app or web remote</caption>
+        <thead><tr><th scope="col"></th><th scope="col">Android app</th><th scope="col">Web remote + helper</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">On the computer</th><td>Nothing to install</td><td>Mote Helper, with Accessibility permission</td></tr>
+          <tr><th scope="row">Computers</th><td>Anything that pairs a Bluetooth keyboard</td><td>Mac only</td></tr>
+          <tr><th scope="row">Login window and lock screen</th><td>Works</td><td>Doesn't work until you log in</td></tr>
+          <tr><th scope="row">Brightness</th><td>Standard brightness keys, host may ignore them</td><td>Sets brightness directly</td></tr>
+          <tr><th scope="row">Typing text</th><td>Follows the Mac's keyboard layout</td><td>Any character, any layout, including emoji</td></tr>
+          <tr><th scope="row">Click at point</th><td>Approximate</td><td>Exact</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="band split" id="features" aria-labelledby="features-h">
+    <h2 id="features-h">Four modes on one rail, under your thumb</h2>
+    <ul class="features">
+      <li><span class="key raised"><i data-i="modeMedia"></i></span><div><h3>Media and brightness</h3><p>Play, pause, skip, volume, mute and screen brightness, laid out to be found by feel in a dark room.</p></div></li>
+      <li><span class="key raised"><i data-i="chevUp"></i></span><div><h3>D-pad and scroll lever</h3><p>Arrow keys with OK and esc for slides and menus. Push the spring-loaded lever further to scroll faster.</p></div></li>
+      <li><span class="key raised"><i data-i="modeMouse"></i></span><div><h3>Touchpad mouse</h3><p>Drag to move, tap to click, two fingers to scroll, long-press to right-click. Drag lock for selecting text.</p></div></li>
+      <li><span class="key raised"><i data-i="modeKeys"></i></span><div><h3>Full keyboard</h3><p>A laptop-style deck with function keys, arrows and sticky modifiers: tap command once for one shortcut, twice to lock it.</p></div></li>
+      <li><span class="key raised"><i data-i="spaces"></i></span><div><h3>Spaces tile</h3><p>Hold and slide to move between desktops one step at a time. Tap it for Mission Control.</p></div></li>
+      <li><span class="key raised"><i data-i="modeMacros"></i></span><div><h3>Macros</h3><p>Shortcuts, typed text, sequences and click-at-point. Star the ones you use most and they appear on the Media screen.</p></div></li>
+    </ul>
+  </section>
+
+  <section class="band split" id="how" aria-labelledby="how-h">
+    <h2 id="how-h">It shows up as a keyboard and mouse</h2>
+    <div class="facts">
+      <div class="chain well" aria-label="Phone to Bluetooth HID to computer"><span class="raised">Phone</span><span class="link"></span><span class="raised">Bluetooth HID</span><span class="link"></span><span class="raised">Mac or PC</span></div>
+      <p><strong>Standard Bluetooth HID.</strong> Android 9 added a way for apps to act as a Bluetooth keyboard and mouse. Mote uses it, so your computer sees the same kind of device as any wireless keyboard.</p>
+      <p><strong>No software on the computer.</strong> No helper app, no accessibility permission, no Wi-Fi. Pair once from the computer's Bluetooth settings and it reconnects by itself.</p>
+      <p><strong>Works before you log in.</strong> Because the operating system handles HID input directly, Mote can type your password at the login window and the lock screen. It isn't reliable at the FileVault prompt before startup, so keep a real keyboard nearby for that.</p>
+    </div>
+  </section>
+
+  <section class="band split" id="install" aria-labelledby="install-h">
+    <h2 id="install-h">Install and pair</h2>
+    <ol class="steps">
+      <li><div><h3>Download the APK on your phone</h3><p>Open the <a href="https://github.com/tusharpandey13/mote/releases/latest">latest release</a> and tap the <code>.apk</code> file under Assets.</p></div></li>
+      <li><div><h3>Allow installs from your browser</h3><p>Android asks for permission the first time. Go to Settings, then Apps, then Special app access, then Install unknown apps, and turn it on for the browser you used. You can turn it off again afterwards.</p></div></li>
+      <li><div><h3>Open Mote and make the phone visible</h3><p>Tap the device pill, then Pair new device. Grant the Bluetooth permission. The phone stays discoverable for a couple of minutes.</p></div></li>
+      <li><div><h3>Pair from the computer</h3><p>On a Mac, open System Settings, then Bluetooth, and click Connect next to your phone. Confirm the same code on both screens. On Windows, use Settings, then Bluetooth &amp; devices, then Add device.</p></div></li>
+      <li><div><h3>Press a key on your first Mac connection</h3><p>macOS may open Keyboard Setup Assistant to identify the keyboard type. Follow it once, or close it if you use a US layout.</p></div></li>
+    </ol>
+  </section>
+
+  <section class="band split" id="limits" aria-labelledby="limits-h">
+    <div>
+      <h2 id="limits-h">Limits worth knowing</h2>
+      <p class="muted" style="color:var(--ink-muted);margin-top:12px;max-width:34ch">Mote only sends what a standard Bluetooth keyboard and mouse can send. That sets a few hard edges.</p>
+    </div>
+    <div class="faq">
+      <details class="raised"><summary>Why is the fn key greyed out?</summary><p>Apple's fn (Globe) key is a private Apple signal, not a standard HID key, so no third-party keyboard can send it. Mote gives you a real F1 to F12 row instead, and shortcuts that need fn have to be remapped to another key.</p></details>
+      <details class="raised"><summary>I don't use a US keyboard layout. Will typing work?</summary><p>Bluetooth keyboards send key positions, not letters. The computer turns positions into characters using its own input source. Shortcuts like command-C always land on the right key. For typed text and macros, set the computer's layout to match, or expect AZERTY, QWERTZ and Dvorak characters to come out shifted. Emoji and accented characters can't be typed directly.</p></details>
+      <details class="raised"><summary>Does the touchpad support Mac trackpad gestures?</summary><p>No. Apple's multi-touch trackpad protocol is proprietary, so Mote is a mouse to the computer. Mote reads your fingers on the phone and turns them into mouse moves, clicks and scroll-wheel events. For switching Spaces and opening Mission Control, use the Spaces tile.</p></details>
+      <details class="raised"><summary>Do the brightness keys work?</summary><p>Mote sends the standard display-brightness keys. Most Macs accept them for the built-in display. External monitors and some other hosts ignore them. Nothing on the phone can confirm the change, so check the screen.</p></details>
+      <details class="raised"><summary>Can I use Mote from this website?</summary><p>Only with the <a href="#web">Mote Helper</a> on a Mac. Browsers can connect to Bluetooth devices but can't act as one, so a web page can't be a keyboard by itself. The helper takes its place. The <a href="demo.html">demo</a> shows the interface only and sends nothing.</p></details>
+      <details class="raised"><summary>Which phones work?</summary><p>Android 9 or later with the Bluetooth HID device profile enabled. Most phones have it, but a few manufacturers have shipped it disabled or unreliable. If pairing never completes, that is the likely cause.</p></details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span class="wordmark">MOTE</span>
+  <span><a href="remote/">Web remote</a>, <a href="install.sh">helper install script</a>, source and releases on <a href="https://github.com/tusharpandey13/mote">GitHub</a>.</span>
+</footer>
+<script src="design/icons.js"></script>
+<script>
+document.querySelectorAll('[data-copy]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var t = document.getElementById(b.dataset.copy).textContent;
+    var done = function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1600); };
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () {});
+    else { var r = document.createRange(); r.selectNodeContents(document.getElementById(b.dataset.copy)); getSelection().removeAllRanges(); getSelection().addRange(r); }
+  });
+});
+</script>
+</body>
+</html>
