@@ -199,7 +199,7 @@ private final class HTTPConnection {
         let accept = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
         let resp = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: \(accept)\r\n\r\n"
         conn.send(content: Data(resp.utf8), completion: .contentProcessed { _ in })
-        let s = Session(hub: server.hubRef, transport: "Wi-Fi", peer: peer,
+        let s = Session(hub: server.hubRef, transport: tailnet ? "Tailscale" : "Wi-Fi", peer: peer,
                         send: { [weak self] d in self?.sendFrame(opcode: 1, payload: d) },
                         close: { [weak self] in self?.sendFrame(opcode: 8, payload: Data([0x03, 0xE8])); self?.conn.cancel() })
         session = s
