@@ -27,6 +27,7 @@ object Remote {
     suspend fun tapAwait(key: String, mods: Int) = t.tapAwait(key, mods)
     suspend fun typeText(text: String): Int = t.typeText(text)
     fun consumer(usage: Int) = t.consumer(usage)
+    fun consumerHold(usage: Int, down: Boolean) = t.consumerHold(usage, down)
     fun move(dx: Float, dy: Float) = t.move(dx, dy)
     fun setButton(mask: Int, down: Boolean) = t.setButton(mask, down)
     fun click(mask: Int) = t.click(mask)

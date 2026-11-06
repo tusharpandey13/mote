@@ -199,6 +199,10 @@ class WsTransport(
 
     override fun consumer(usage: Int) { Proto.consumerKey(usage)?.let { sendNow(Proto.consumer(it)) } }
 
+    override fun consumerHold(usage: Int, down: Boolean) {
+        Proto.consumerKey(usage)?.let { sendNow(Proto.consumer(it, if (down) "down" else "up")) }
+    }
+
     override fun move(dx: Float, dy: Float) {
         synchronized(sendLock) { mx += dx * POINT_GAIN; my += dy * POINT_GAIN }
         scheduleFlush()

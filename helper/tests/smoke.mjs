@@ -86,6 +86,8 @@ ok(au2.t === 'authed', 'reconnect auth via HMAC challenge (token from ' + (code 
 for (const m of [
   { t: 'move', dx: 1, dy: 0 },
   { t: 'consumer', key: 'volup' },
+  { t: 'consumer', key: 'fast', action: 'down' },
+  { t: 'consumer', key: 'fast', action: 'up' },
   { t: 'key', usage: 80, mods: 1 },
   { t: 'text', s: 'Grüße 東京 👋' },
   { t: 'scroll', dx: 0, dy: 40 },
@@ -94,6 +96,8 @@ for (const m of [
 ]) b.send(JSON.stringify(m));
 const e1 = await b.req({ t: 'consumer', key: 'nope' });
 ok(e1.code === 'bad', 'invalid consumer key rejected');
+const e3 = await b.req({ t: 'consumer', key: 'rewind', action: 'sideways' });
+ok(e3.code === 'bad', 'invalid consumer action rejected');
 const e2 = await b.req({ t: 'macro', steps: Array(65).fill({ t: 'wait', ms: 1 }) });
 ok(e2.code === 'bad', 'oversized macro rejected');
 const pong = await b.req({ t: 'ping', n: 7 });

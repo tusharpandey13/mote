@@ -48,7 +48,9 @@ object Proto {
         obj("clickAt").put("x", x.coerceIn(0.0, 1.0)).put("y", y.coerceIn(0.0, 1.0)).put("unit", "norm")
             .put("display", 0).put("b", b).put("count", count).toString()
 
-    fun consumer(key: String): String = obj("consumer").put("key", key).toString()
+    /** [action]: null = tap (protocol default); "down" / "up" hold a key (hold-to-seek, protocol 1.x). */
+    fun consumer(key: String, action: String? = null): String =
+        obj("consumer").put("key", key).apply { if (action != null) put("action", action) }.toString()
 
     /** One or more `text` messages, each at most [TEXT_MAX] UTF-16 units, never splitting a surrogate pair. */
     fun text(s: String): List<String> {
@@ -73,6 +75,8 @@ object Proto {
         Consumer.VOL_DOWN -> "voldown"
         Consumer.BRIGHTNESS_UP -> "brightup"
         Consumer.BRIGHTNESS_DOWN -> "brightdown"
+        Consumer.FAST_FORWARD -> "fast"
+        Consumer.REWIND -> "rewind"
         else -> null
     }
 

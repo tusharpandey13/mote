@@ -112,15 +112,49 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
                 Modifier.fillMaxWidth().well(RoundedCornerShape(30.dp)).padding(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
             ) {
-                Cap(Modifier.size(72.dp), RoundedCornerShape(22.dp), tone = Tone.GLASS, description = "Previous track",
-                    onClick = { Remote.consumer(Consumer.PREV) }) { GlassIcon("prev", 28.dp) }
+                SeekCap("prev", "Previous track, hold to rewind", Consumer.PREV, Consumer.REWIND)
                 Cap(Modifier.weight(1f).height(96.dp), RoundedCornerShape(24.dp), tone = Tone.GLASS, description = "Play or pause",
                     onClick = { Remote.consumer(Consumer.PLAY_PAUSE) }) { GlassIcon("playPause", 34.dp) }
-                Cap(Modifier.size(72.dp), RoundedCornerShape(22.dp), tone = Tone.GLASS, description = "Next track",
-                    onClick = { Remote.consumer(Consumer.NEXT) }) { GlassIcon("next", 28.dp) }
+                SeekCap("next", "Next track, hold to fast-forward", Consumer.NEXT, Consumer.FAST_FORWARD)
             }
         }
     }
+}
+
+/**
+ * Prev/next glass cap: tap = [skip]; hold past 400 ms = [seek] held down until lift (fast-forward or
+ * rewind), with a tick when seeking starts and a pressed, lit cap while it lasts. See [SeekHold].
+ */
+@Composable
+private fun SeekCap(icon: String, description: String, skip: Int, seek: Int) {
+    val h = haptics()
+    val scope = rememberCoroutineScope()
+    val hold = remember { SeekHold() }
+    var seeking by remember { mutableStateOf(false) }
+    var timer by remember { mutableStateOf<Job?>(null) }
+    fun now() = android.os.SystemClock.uptimeMillis()
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { if (hold.cancel() == SeekHold.Out.SEEK_STOP) Remote.consumerHold(seek, false) }
+    }
+    Cap(
+        Modifier.size(72.dp), RoundedCornerShape(22.dp), tone = Tone.GLASS, description = description, forcePressed = seeking,
+        onDown = {
+            hold.down(now())
+            timer = scope.launch {
+                delay(SeekHold.THRESHOLD_MS)
+                if (hold.tick(now()) == SeekHold.Out.SEEK_START) { seeking = true; h(Haptic.TICK); Remote.consumerHold(seek, true) }
+            }
+        },
+        onUp = { lifted ->
+            timer?.cancel()
+            when (if (lifted) hold.up(now()) else hold.cancel()) {
+                SeekHold.Out.SKIP -> Remote.consumer(skip)
+                SeekHold.Out.SEEK_STOP -> { seeking = false; Remote.consumerHold(seek, false) }
+                else -> {}
+            }
+        },
+        a11yClick = { Remote.consumer(skip) },
+    ) { GlassIcon(icon, 28.dp, lit = seeking) }
 }
 
 /** Brightness legend: sun 24dp + arrow 20dp at ink colour, one centred row. */

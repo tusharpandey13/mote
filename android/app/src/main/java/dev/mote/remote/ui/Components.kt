@@ -113,6 +113,10 @@ fun Cap(
     onLongPress: (() -> Unit)? = null,
     onRelease: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
+    /** Called once per press with true on lift, false on cancel (after [onRelease]). */
+    onUp: ((lifted: Boolean) -> Unit)? = null,
+    /** Accessibility click when the visual gesture isn't a plain click (defaults to [onClick] or [onDown]). */
+    a11yClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val c = LocalMote.current
@@ -125,6 +129,8 @@ fun Cap(
     val click by rememberUpdatedState(onClick)
     val long by rememberUpdatedState(onLongPress)
     val release by rememberUpdatedState(onRelease)
+    val upCb by rememberUpdatedState(onUp)
+    val a11y by rememberUpdatedState(a11yClick)
     val en by rememberUpdatedState(enabled)
     val rep by rememberUpdatedState(repeat)
     val hap by rememberUpdatedState(haptic)
@@ -159,13 +165,14 @@ fun Cap(
                     job?.cancel()
                     pressed = false
                     release?.invoke()
+                    upCb?.invoke(up != null)
                     if (up != null && !longFired) click?.invoke()
                 }
             }
             .semantics {
                 role = Role.Button
                 description?.let { contentDescription = it }
-                onClick { (click ?: down)?.invoke(); true }
+                onClick { (a11y ?: click ?: down)?.invoke(); true }
             },
         contentAlignment = Alignment.Center,
     ) {

@@ -96,7 +96,9 @@ Typed with `CGEventKeyboardSetUnicodeString`, so it is layout-independent and ha
 {"t": "consumer", "key": "play"}
 ```
 
-`key`: `play` (play/pause), `next`, `prev`, `volup`, `voldown`, `mute`, `brightup`, `brightdown`. Posted as `NSEvent` `systemDefined` subtype 8 `NX_KEYTYPE_*` key down/up (shows the system HUD). Brightness falls back to the private `DisplayServices` framework for the built-in display if the NX key didn't change it (checked 150 ms later); if neither is available, `err` code `unsupported`.
+`key`: `play` (play/pause), `next`, `prev`, `volup`, `voldown`, `mute`, `brightup`, `brightdown`, and (protocol 1.1) `fast`, `rewind`.
+
+`action` (protocol 1.1, optional): `tap` (default: key down then up), `down` (press and hold; the helper re-posts it with the key-repeat bit every 100 ms after 300 ms, like a held media key), `up` (release the held key). Only one key is held at a time; a new `down` releases the previous one, and pausing or the last session closing releases it. The app sends `fast` / `rewind` `down` when prev/next is held past 400 ms (hold-to-seek) and `up` on lift. Older helpers reject `fast` / `rewind` with `err` `bad`; taps are unchanged. Posted as `NSEvent` `systemDefined` subtype 8 `NX_KEYTYPE_*` key down/up (shows the system HUD). Brightness falls back to the private `DisplayServices` framework for the built-in display if the NX key didn't change it (checked 150 ms later); if neither is available, `err` code `unsupported`.
 
 ### macro
 

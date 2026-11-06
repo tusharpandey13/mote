@@ -83,7 +83,7 @@ fun EngravedText(text: String, size: TextUnit, tracking: TextUnit, fill: Color, 
 
 /** Glass legend: ink in light; in dark an LED tint with a soft glow (blurred copy behind, API 31+). */
 @Composable
-fun GlassIcon(name: String, size: Dp) {
+fun GlassIcon(name: String, size: Dp, lit: Boolean = false) {
     val c = LocalMote.current
     Box(contentAlignment = Alignment.Center) {
         if (c.dark && Build.VERSION.SDK_INT >= 31) {
@@ -91,7 +91,7 @@ fun GlassIcon(name: String, size: Dp) {
                 renderEffect = BlurEffect(6.dp.toPx(), 6.dp.toPx(), TileMode.Decal)
             })
         }
-        MIcon(name, c.glassInk, size = size)
+        MIcon(name, if (lit) c.accent else c.glassInk, size = size)
     }
 }
 
