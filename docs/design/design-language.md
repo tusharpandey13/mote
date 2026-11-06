@@ -385,3 +385,29 @@ Every control family has its own material and keeps it in both themes. That give
     - D-pad: a new **machined bezel ring** (r 99-104) made from an 8-stop `sweepGradient` (radial brushed sheen) around the rubber disc.
     - Transport channel: explicit dark-top bezel stops.
 - **Layer order is fixed for every material:** shadows, body gradient, textures (Overlay), sheen/gloss, inner lines. See `tokens.json` → `materials`.
+
+## Revision 6 decisions (2026-11)
+
+All values below are also in `docs/design/tokens.json` → `components`. Every layout was checked for overlap at 412x915dp (Nothing Phone 2 class).
+
+- **Volume stays a spring-back rate control (#65 supersedes #58).** It is the same component as the SCROLL lever: hold and drag to change volume at a rate proportional to displacement, release to spring back, tap an end to step once. There is no absolute level, fill track or sync indicator.
+- **Mute lives in the volume slider's base (#62).** It is a 44dp plastic cap inside the bottom of the volume well, below the − end. Nothing overlaps the D-pad any more.
+- **Brightness caps are 64dp tall (#59).**
+- **Transport: one height (#67).** Prev, play/pause and next are all 96dp tall on one baseline. Prev and next are 76dp wide; play fills the rest.
+- **Favourites Edit is a compact chip (#63):** 32dp visual, 48dp touch target via padding, 16dp icon plus 13sp label. It sits in the 32dp favourites header row, clear of the MOTE header and the strip.
+- **Spaces carousel (#60)** replaces the hold-and-slide tile.
+  - **Placement:** a full-width row of its own at the top of Favourites, with the caption "Spaces / swipe or tap a desktop". Other favourites follow in their own row; it shows a "+ Add favourite" slot when empty.
+  - **Row and cards:** the row is an 84dp well holding 104x68dp plastic cards with an 8dp gap. It snaps start-aligned one card per fling and fades 24dp at the trailing edge. In the sheet the cards are 112dp wide.
+  - **Current desktop:** a 2dp accent ring with a 12dp LED glow, an accent dot, and an accent label.
+  - **Bluetooth fidelity:** numbered cards ("Desktop N"). Tapping or settling on a card sends ⌃N if the user enabled "Switch to Desktop N" in macOS Keyboard Shortcuts › Mission Control. Otherwise Mote steps with ⌃←/⌃→. A one-time hint card explains how to enable the shortcuts, with Done / Remind me later.
+  - **Helper fidelity:** cards show cached thumbnails that the helper captures on each Space visit (needs Screen Recording permission). Spaces never visited show a dashed placeholder, "Desktop N / Not visited yet".
+  - **Macros grid:** the Spaces tile opens the same carousel in a bottom sheet (`spaces-carousel` artboard, showing both fidelities).
+- **MOTE wordmark is an LED (#61, #64).**
+  - **Connected:** lit, with fill `#2F8BE0` in light / `#A8DEFF` in dark and three stacked blue glows (4/12/22dp light, 3/10/24dp dark). It is strong enough to read on both themes, and every Media artboard shows it lit.
+  - **Disconnected:** unlit grey deboss.
+  - **Connecting/searching:** the unlit mark pulses towards a dim blue (1600ms, ease-in-out, reversing).
+  - **Transition:** lit ⇄ unlit is a 400ms fade of colour and glow on `cubic-bezier(0.2,0,0,1)`.
+- **The legend is part of the cap (#66).** Every cap's legend (text or glyph) is drawn inside the cap's own graphics layer, so the press transform (translate 1-1.5dp, scale 0.96) and the pressed shading apply to it too.
+  - **D-pad OK when pressed:** the cap and its "OK" move down 1.5dp and scale to 0.96, the bevel inverts (dark top, light bottom), the side wall shrinks to 1dp, and the legend dims to `onSurfaceMuted`.
+  - The `dpad-press` artboard shows rest vs pressed. Tokens: `components.cap.press` and `components.dpad.press` (`legendFollowsCap: true`).
+- **Grain:** this revision keeps the halved grain and brushed alphas (plate .11/.15, plastic .08/.11, rubber .12/.15, metal .06/.08, glass .04/.06; brushed .32/.42) merged from the parallel tuning pass.

@@ -25,10 +25,13 @@ def page(title, body, css="", dark=False):
 STATUS = '<div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>'
 
 # Wordmark (debossed Unbounded Black) sits right; the menu is a small engraved glyph beside it.
-BRAND = """<div class="brand" data-dc-id="brand">
-      <span class="wordmark" data-dc-id="wordmark">MOTE</span>
+def brand(state="connected"):
+    mark = {"connected": "lit", "searching": "pulse", "pairing": "", "off": ""}[state]
+    return f"""<div class="brand" data-dc-id="brand">
+      <span class="wordmark {mark}" data-dc-id="wordmark">MOTE</span>
       <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
     </div>"""
+BRAND = brand("connected")
 
 def topbar(state="connected"):
     led = {"connected": "led", "searching": "led amber", "pairing": "led amber"}[state]
@@ -39,7 +42,7 @@ def topbar(state="connected"):
       <span class="name" data-dc-id="pill-name">{DEVICE}</span>{extra}
       <i data-i="chevDown" class="i20 chev" data-dc-id="pill-chevron"></i>
     </div>
-    {BRAND}
+    {brand(state)}
   </header>"""
 
 MODES = [("media", "rail-media", "modeMedia", "Media"), ("mouse", "rail-pad", "modeMouse", "Mouse"),
@@ -68,7 +71,7 @@ def screen(inner, on, state="connected", overlay=""):
 # ---------------------------------------------------------------- media
 DPAD_ARM = 'M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z'
 TRI = 'M104 27l7 9.5h-14z'
-def dpad():
+def dpad(pressed=False):
     arms = "".join(
         '<g data-dc-id="dpad-%s"%s><path class="arm" d="%s"/><path class="tri" d="%s"/></g>'
         % (n, (' transform="rotate(%d 104 104)"' % r) if r else "", DPAD_ARM, TRI)
@@ -77,7 +80,7 @@ def dpad():
              '<feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter>'
              '<clipPath id="cdisc"><circle cx="104" cy="104" r="96"/></clipPath><clipPath id="ccap"><circle cx="104" cy="104" r="35"/></clipPath>')
     return f"""<div class="dpad-wrap" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
-        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient>{grain}</defs>
+        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient><linearGradient id="bevp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.30"/><stop offset=".4" style="stop-color:#000;stop-opacity:0"/><stop offset=".75" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.55"/></linearGradient>{grain}</defs>
         <circle class="housing" cx="104" cy="104" r="99"/>
         <circle class="contact" cx="104" cy="110" r="92"/>
         <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
@@ -85,29 +88,50 @@ def dpad():
         <circle class="bevel" cx="104" cy="104" r="95.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
         {arms}
         <g><line class="div" x1="73" y1="73" x2="47" y2="47"/><line class="div" x1="135" y1="73" x2="161" y2="47"/><line class="div" x1="73" y1="135" x2="47" y2="161"/><line class="div" x1="135" y1="135" x2="161" y2="161"/></g>
-        <g data-dc-id="dpad-center"><circle class="ring" cx="104" cy="104" r="42"/><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><rect class="grain" x="69" y="69" width="70" height="70" filter="url(#gr)" clip-path="url(#ccap)" opacity=".5"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#bev)"/><text class="ok" x="104" y="109.5" text-anchor="middle">OK</text></g>
+        <circle class="ring" cx="104" cy="104" r="42"/><g data-dc-id="dpad-center" class="okcap{' is-pressed' if pressed else ''}"><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><rect class="grain" x="69" y="69" width="70" height="70" filter="url(#gr)" clip-path="url(#ccap)" opacity=".5"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#{'bevp' if pressed else 'bev'})"/><text class="ok" x="104" y="109.5" text-anchor="middle" data-dc-id="dpad-center-legend">OK</text></g>
       </svg></div>"""
 
 MEDIA_CSS = """
   .media { display: flex; flex-direction: column; height: 100%; }
-  .fav-head { display: flex; align-items: center; justify-content: space-between; height: 40px; color: var(--on-surface-subtle); }
+  .fav-head { display: flex; align-items: center; justify-content: space-between; height: 32px; color: var(--on-surface-subtle); }
   .fav-head span { display: inline-flex; align-items: center; gap: 6px; }
-  .favs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
-  .fav { height: 64px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative; color: var(--on-surface); }
-  .fav .lb { font: 600 12px/14px var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
-  .fav.gesture { grid-column: span 2; flex-direction: row; padding: 0 8px; }
-  .sec-row { margin-top: auto; }
-  .sec-row .cap { color: var(--on-surface) !important; }
-  .cluster { position: relative; height: 256px; margin-top: 24px; align-items: center; display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; }
+  .cap-row { display: flex; justify-content: space-between; align-items: center; height: 16px; margin-top: 4px; color: var(--on-surface-subtle); font: 500 11px/1 var(--font-ui); }
+  .carousel { margin-top: 4px; }
+  .favs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+  .fav { height: 52px; border-radius: 16px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; position: relative; color: var(--on-surface); }
+  .fav .lb { font: 600 13px/16px var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
+  .sec-row { margin-top: auto; padding-top: 12px; }
+  .sec-row .pair.small .cap { height: 64px; border-radius: 17px; color: var(--on-surface) !important; }
+  .sec-row .pair.small { border-radius: 22px; }
+  .cluster { position: relative; height: 252px; margin-top: 14px; align-items: start; display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; }
   .cluster .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .cluster .dpad { margin-top: 0; }
-  .cluster .mute { position: absolute; right: 66px; bottom: 6px; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: var(--on-surface); }
-  .transport { margin-top: 20px; }
-  .transport .glass.sm { height: 72px; }
-  .transport .glass.play { height: 96px; border-radius: 24px; }
+  .cluster .dpad-wrap { margin-top: 12px; }
+  .transport { margin-top: 14px; grid-template-columns: 76px 1fr 76px !important; }
+  .transport .glass.sm, .transport .glass.play { height: 96px; border-radius: 24px; }
   .cluster .slider { height: 232px; }
   .dark .engrave { color: #4F535B; }
 """
+
+DESKS = ["desk-a", "desk-b", "desk-c"]
+WINS = [[(10, 10, 46, 30), (40, 22, 52, 34)], [(8, 8, 86, 40)], [(12, 14, 34, 26), (50, 8, 44, 40)]]
+def carousel(dc, mode="bt", current=2, n=6):
+    cards = []
+    for k in range(1, n + 1):
+        cur = k == current
+        cls = "scard" + (" current" if cur else "")
+        dot = '<span class="cur-dot"></span>' if cur else ""
+        if mode == "bt" or k > 3:
+            if mode != "bt":
+                cards.append(f'<div class="scard empty" data-dc-id="{dc}-card-{k}"><span class="nm">Desktop {k}<br>Not visited yet</span></div>')
+                continue
+            cards.append(f'<div class="{cls} raised" data-dc-id="{dc}-card-{k}">{dot}<span class="num">{k}</span><span class="nm">Desktop {k}</span></div>')
+        else:
+            wins = "".join(f'<span class="win" style="left:{x}px;top:{y}px;width:{w}px;height:{h}px"></span>' for x, y, w, h in WINS[k - 1])
+            cards.append(f'<div class="{cls} thumb" data-dc-id="{dc}-card-{k}"><span class="shot {DESKS[k-1]}">{wins}</span>{dot}<span class="cap">Desktop {k}</span></div>')
+    return f"""<div class="carousel well" data-dc-id="{dc}">
+        <div class="rowc">{''.join(cards)}</div>
+        <span class="fade-r"></span>
+      </div>"""
 
 def spaces_tile(dc, cls):
     return f"""<div class="{cls} gesture raised" data-dc-id="{dc}">
@@ -116,26 +140,29 @@ def spaces_tile(dc, cls):
           <i data-i="chevRight" class="i20" data-dc-id="{dc}-next"></i></div>
       </div>"""
 
-def slider(dc, label, top, bottom, thumb):
+def slider(dc, label, top, bottom, thumb, base=""):
     return f"""<div class="col">
-        <div class="slider well" data-dc-id="{dc}">
+        <div class="slider well{' vol' if base else ''}" data-dc-id="{dc}">
           <span class="end" data-dc-id="{dc}-top">{top}</span>
           <span class="ticks"></span>
           <div class="thumb" data-dc-id="{dc}-thumb">{thumb}</div>
-          <span class="end" data-dc-id="{dc}-bottom">{bottom}</span>
+          <span class="end{' bot' if base else ''}" data-dc-id="{dc}-bottom">{bottom}</span>{base}
         </div>
         <span class="engrave" data-dc-id="{dc}-label">{label}</span>
       </div>"""
 
 def media_inner(offline=False):
     live = " live" if offline else ""
-    fav_html = spaces_tile("fav-next-space", "fav") + '<div class="fav add" style="grid-column: span 2" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div>'
+    fav_html = '<div class="fav add" style="grid-column: span 4" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div>'
     grip = '<span class="grip"></span><span class="grip"></span><span class="grip"></span>'
     scroll = slider("scroll-lever", "Scroll", '<i data-i="triUp" class="i16"></i>', '<i data-i="triDown" class="i16"></i>', grip)
-    volume = slider("volume-group", "Volume", "+", "−", '<i data-i="speaker" class="i20"></i>')
+    volume = slider("volume-group", "Volume", "+", "−", '<i data-i="speaker" class="i20"></i>',
+                    base='<div class="mutecap raised" data-dc-id="mute"><i data-i="mute" class="i20"></i></div>')
     return f"""<main class="content media{' offline' if offline else ''}" data-dc-id="media-content">
     <section class="fav-wrap{live}" data-dc-id="fav-strip">
-      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="fav-edit-btn raised" data-dc-id="fav-edit"><i data-i="edit" class="i16"></i>Edit</span></div>
+      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="edit-chip raised" data-dc-id="fav-edit"><i data-i="edit" class="i16"></i>Edit</span></div>
+      <div class="cap-row"><span>Spaces</span><span>swipe or tap a desktop</span></div>
+      {carousel("fav-next-space", "bt")}
       <div class="favs">{fav_html}</div>
     </section>
 
@@ -150,7 +177,6 @@ def media_inner(offline=False):
       {scroll}
       {dpad()}
       {volume}
-      <div class="mute raised" data-dc-id="mute"><i data-i="mute" class="i20"></i></div>
     </div>
 
     <div class="channel well transport{live}" data-dc-id="transport">
@@ -377,11 +403,11 @@ def macros_inner():
       <div class="tile gesture" data-tint="indigo" data-dc-id="macro-next-space" style="grid-column: span 2">
         <i data-i="starFill" class="i16 star on" data-dc-id="macro-next-space-star"></i>
         <i data-i="spaces" class="ic"></i>
-        <div class="slide"><i data-i="chevLeft" class="i20"></i><div style="flex:1;padding-left:4px"><div class="nm">Spaces</div><div class="ch">hold &amp; slide ⌃← ⌃→, tap ⌃↑</div></div><i data-i="chevRight" class="i20"></i></div>
+        <div class="slide"><div style="flex:1"><div class="nm">Spaces</div><div class="ch">tap to pick a desktop</div></div><i data-i="chevRight" class="i20"></i></div>
       </div>"""
     return f"""<main class="content macros live" data-dc-id="macros-content">
     <div class="mhead" data-dc-id="macros-header"><h1 class="t-headline">Macros</h1><div class="edit-btn raised" data-dc-id="macros-edit"><i data-i="edit" class="i20"></i>Edit</div></div>
-    <p class="t-body-s subtle hint" data-dc-id="macros-hint">Tap to run. Spaces is a gesture tile: hold and slide. Use Edit to change, star or reorder. Shortcuts are set for {DEVICE}.</p>
+    <p class="t-body-s subtle hint" data-dc-id="macros-hint">Tap to run. Spaces opens the desktop picker. Use Edit to change, star or reorder. Shortcuts are set for {DEVICE}.</p>
     <div class="grid" data-dc-id="macro-grid">{spaces}{_tiles(TILES)}
       <div class="tile confirm" data-dc-id="macro-lock-confirm"><i data-i="lock" class="ic"></i><div><div class="nm">Tap again</div><div class="ch">Lock screen</div></div></div>{_tiles(TILES2)}
       <div class="tile add" data-dc-id="macro-add"><i data-i="plus" class="i28"></i><span class="t-label" style="margin-top:6px">New macro</span></div>
@@ -600,6 +626,44 @@ def haptics_page():
     <div class="warn well" data-dc-id="haptic-warning"><i data-i="info" class="i20"></i><span>Haptics follow Android's touch feedback setting. If you feel nothing, turn on Settings, then Sound &amp; vibration, then Touch feedback.</span></div>"""
     return sub_page("Haptics", "haptics-content", inner)
 
+# ---------------------------------------------------------------- rev 6 artboards
+SPACES_CSS = """
+  .sheet { padding: 0 16px 28px; }
+  .sh-head { display: flex; align-items: center; justify-content: space-between; height: 56px; margin-top: 2px; }
+  .lvl { display: flex; align-items: center; justify-content: space-between; margin: 14px 2px 6px; color: var(--on-surface-subtle); }
+  .hintcard { margin-top: 10px; border-radius: 16px; padding: 12px 14px; display: flex; gap: 10px; color: var(--on-surface-muted); font: 400 13px/18px var(--font-ui); }
+  .hintcard b { color: var(--on-surface); font-weight: 600; }
+  .hintcard .acts { display: flex; gap: 8px; margin-top: 8px; }
+  .hintcard .acts span { height: 32px; padding: 0 12px; border-radius: 10px; display: inline-flex; align-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface); }
+  .scard { width: 112px; }
+"""
+def spaces_sheet():
+    return f"""  <div class="scrim" data-dc-id="scrim"></div>
+  <section class="sheet" data-dc-id="spaces-sheet">
+    <div class="handle"></div>
+    <div class="sh-head"><h2 class="t-headline">Spaces</h2><div class="icon-btn"><i data-i="close"></i></div></div>
+    <p class="t-body-s muted">Swipe the row or tap a desktop to jump to it. The lit card is the desktop you are on.</p>
+
+    <div class="lvl"><span class="t-caps">Over Bluetooth</span><span class="t-caps">numbered</span></div>
+    {carousel("spaces-bt", "bt")}
+    <div class="hintcard well" data-dc-id="spaces-shortcut-hint"><i data-i="info" class="i20"></i>
+      <div><b>Jump straight to a desktop.</b> On the Mac, turn on Switch to Desktop 1-9 in System Settings, Keyboard Shortcuts, Mission Control. Until then Mote steps with ⌃← and ⌃→.
+        <div class="acts"><span class="raised">Done</span><span>Remind me later</span></div></div></div>
+
+    <div class="lvl"><span class="t-caps">With the Mote helper</span><span class="t-caps">thumbnails</span></div>
+    {carousel("spaces-helper", "helper")}
+    <p class="t-body-s subtle" style="margin-top:8px" data-dc-id="spaces-helper-note">The helper saves a picture of each desktop when you visit it. It needs Screen Recording permission on the Mac.</p>
+  </section>"""
+
+def dpad_press_page():
+    body = f"""<div class="screen" style="height:300px;grid-template-rows:1fr;padding:20px 0" data-dc-id="screen">
+  <div style="display:flex;justify-content:space-around;align-items:center" data-dc-id="dpad-press-compare">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;transform:scale(.88)"><div data-dc-id="dpad-rest">{dpad()}</div><span class="t-caps subtle">Rest</span></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;transform:scale(.88)"><div data-dc-id="dpad-pressed">{dpad(pressed=True)}</div><span class="t-caps subtle">OK pressed: legend moves with cap</span></div>
+  </div>
+</div>"""
+    return page("D-pad press", body)
+
 # ---------------------------------------------------------------- write
 files = {
     "media.html": page("Media (dark)", screen(media_inner(), "media"), MEDIA_CSS, dark=True),
@@ -615,6 +679,8 @@ files = {
     "device-picker.html": page("Device picker", screen(disconnected_inner(), "media", state="searching", overlay=device_sheet()), MEDIA_CSS + LOST_CSS + SHEET_CSS),
     "pairing.html": pairing_page(),
     "settings.html": settings_page(),
+    "spaces-carousel.html": page("Spaces carousel", screen(media_inner(), "media", overlay=spaces_sheet()), MEDIA_CSS + SPACES_CSS),
+    "dpad-press.html": dpad_press_page(),
     "haptics.html": haptics_page(),
 }
 for name, html in files.items():

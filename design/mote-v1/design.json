@@ -45,6 +45,22 @@
       "group": "media"
     },
     {
+      "id": "spaces-carousel",
+      "title": "1 Spaces carousel (Bluetooth + helper)",
+      "file": "spaces-carousel.html",
+      "width": 412,
+      "height": 915,
+      "group": "media"
+    },
+    {
+      "id": "dpad-press",
+      "title": "1 D-pad OK press (legend follows cap)",
+      "file": "dpad-press.html",
+      "width": 412,
+      "height": 300,
+      "group": "media"
+    },
+    {
       "id": "pad",
       "title": "2 Mouse",
       "file": "pad.html",

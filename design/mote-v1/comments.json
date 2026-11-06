@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextNumber": 58,
+  "nextNumber": 68,
   "comments": [
     {
       "id": "c-512cf5e39358",
@@ -1369,6 +1369,246 @@
       "sentAt": 1793979106692,
       "resolvedAt": 1793979425282,
       "resolution": "The mockup is the target. Every material and effect has an exact Compose recipe in docs/design/tokens.json, with CSS-only effects swapped for look-alikes Compose can do; the app agent is matching it via side-by-side screenshots."
+    },
+    {
+      "id": "c-3f0da2969d3d",
+      "number": 58,
+      "body": "vol slider should not be relative/bounceback, should be absolute",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "volume-group",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(3) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "+ −",
+        "html": "<div class=\"slider well\" data-dc-id=\"volume-group\">\n          <span class=\"end\" data-dc-id=\"volume-group-top\">+</span>\n          <span class=\"ticks\"></span>\n          <div class=\"thumb\" data-dc-id=\"volume-group-thumb\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5z\"></path><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 9.2a4 4 0 0 1 0 5.6M17.6 6.8a7.5 7.5 0 0 1 0 10.4\"></path></svg></div>\n          <span class=\"end\" data-dc-id=\"volume-group-bottom\">−</span>\n        </div>",
+        "rect": {
+          "x": 340.0016174316406,
+          "y": 410.52801513671875,
+          "width": 55.998924255371094,
+          "height": 231.99757385253906
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793979935023,
+      "sentAt": 1793982675363,
+      "resolvedAt": 1793982985857,
+      "resolution": "Superseded by #65: volume stays a spring-back rate control, and no absolute-volume content remains."
+    },
+    {
+      "id": "c-cd4e874f9592",
+      "number": 59,
+      "body": "increase height",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "brightness-group",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"pair small well\" data-dc-id=\"brightness-group\">\n        <div class=\"cap raised\" data-dc-id=\"brightness-down\"><span class=\"arrowed\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12\" r=\"3\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 6v1M12 17v1M6 12h1M17 12h1M7.75 7.75l.7.7M15.55 15.55l.7.7M7.75 16.25l.7-.7M15.55 8.45l.7-.7\"></path></svg><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"brightness-down-arrow\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 5v13.5M6.5 13L12 18.5 17.5 13\"></path></svg></span></div>\n        <div class=\"cap raised\" data-dc-id=\"brightness-up\"><span class=\"arrowed\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"4.4\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3M4.8 4.8l2.1 2.1M17.1 17.1l2.1 ",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 327.0359802246094,
+          "width": 380.00390625,
+          "height": 55.991790771484375
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793979949638,
+      "sentAt": 1793982675363,
+      "resolvedAt": 1793982985857,
+      "resolution": "Brightness caps are now 64dp tall."
+    },
+    {
+      "id": "c-794aa06f4327",
+      "number": 60,
+      "body": "we Want carousel behavior",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "fav-next-space",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "Spaces hold & slide",
+        "html": "<div class=\"fav gesture raised\" data-dc-id=\"fav-next-space\">\n        <div class=\"slide\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"fav-next-space-prev\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14 7.5L9.5 12l4.5 4.5\"></path></svg>\n          <div class=\"mid\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M2.5 7.5A1.5 1.5 0 0 1 4 6h6.5A1.5 1.5 0 0 1 12 7.5v9a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5z\"></path><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 6h5a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 18h-5\"></path><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 9.5v5\"></path></svg><span class=\"lb\" style=\"color:var(--on-surface)\">Spaces</span><span class=\"hint\" data-dc-id=\"fav-next-space-hint\">hold &amp; slide</span></div>\n          <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"fav-next-space-next\"><path fill=\"none\" st",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 141.97994995117188,
+          "width": 186.00457763671875,
+          "height": 63.993675231933594
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793979983822,
+      "sentAt": 1793982675363,
+      "resolvedAt": 1793982985857,
+      "resolution": "Spaces is a full-width snap carousel of desktop cards: numbered with ⌃N jumps over Bluetooth (one-time shortcut hint), thumbnails with the helper. The Macros tile opens the same carousel (spaces-carousel artboard)."
+    },
+    {
+      "id": "c-e29a70a1e33d",
+      "number": 61,
+      "body": "mote logo should be glowing blue like the other elements when connection is established and gray when not",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "wordmark",
+        "path": "body > div:nth-of-type(1) > header:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(1)",
+        "tag": "span",
+        "text": "MOTE",
+        "html": "<span class=\"wordmark\" data-dc-id=\"wordmark\">MOTE</span>",
+        "rect": {
+          "x": 276.33599853515625,
+          "y": 49.49471664428711,
+          "width": 83.67031860351562,
+          "height": 20.996030807495117
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793980022428,
+      "sentAt": 1793982675363,
+      "resolvedAt": 1793982985857,
+      "resolution": "Wordmark is an LED: lit blue when connected, grey and debossed when disconnected, pulsing while connecting, 400ms fade."
+    },
+    {
+      "id": "c-2b65d3ca135b",
+      "number": 62,
+      "body": "this overlaps the d -pad on device, move it away or smth else",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "mute",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"mute raised\" data-dc-id=\"mute\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5z\"></path><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.5 9.5l5 5M20.5 9.5l-5 5\"></path></svg></div>",
+        "rect": {
+          "x": 282.00579833984375,
+          "y": 609.0275268554688,
+          "width": 47.997039794921875,
+          "height": 47.997039794921875
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793982656010,
+      "sentAt": 1793982675363,
+      "resolvedAt": 1793982985857,
+      "resolution": "Mute is a 44dp cap in the base of the volume slider's well, so it no longer overlaps the D-pad."
+    },
+    {
+      "id": "c-4568f0b075e7",
+      "number": 63,
+      "body": "this also overlaps, is too big",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "fav-edit",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(2)",
+        "tag": "span",
+        "text": "Edit",
+        "html": "<span class=\"fav-edit-btn raised\" data-dc-id=\"fav-edit\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14.5 5.5l4 4L9 19H5v-4z\"></path></svg>Edit</span>",
+        "rect": {
+          "x": 325.6880798339844,
+          "y": 95.98694610595703,
+          "width": 72.30935668945312,
+          "height": 39.995155334472656
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793982673526,
+      "sentAt": 1793982675363,
+      "resolvedAt": 1793982985857,
+      "resolution": "Edit is a compact 32dp chip (48dp touch target) in its own header row, clear of the MOTE header."
+    },
+    {
+      "id": "c-cca169d9148f",
+      "number": 64,
+      "body": "logo is not glowing blue when connection is established",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "wordmark",
+        "path": "body > div:nth-of-type(1) > header:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(1)",
+        "tag": "span",
+        "text": "MOTE",
+        "html": "<span class=\"wordmark\" data-dc-id=\"wordmark\">MOTE</span>",
+        "rect": {
+          "x": 276.33599853515625,
+          "y": 49.49471664428711,
+          "width": 83.67031860351562,
+          "height": 20.996030807495117
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793982695053,
+      "sentAt": 1793982742259,
+      "resolvedAt": 1793982985857,
+      "resolution": "Connected wordmark glows strongly in both themes (three stacked blue glows); the disconnected artboard shows it grey."
+    },
+    {
+      "id": "c-5f197b2be983",
+      "number": 65,
+      "body": "actually, the relative bounceback operation of the sound slider , like the scoll slider works really well and we dont want absolute value behaviour",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "volume-group",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(3) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "+ −",
+        "html": "<div class=\"slider well\" data-dc-id=\"volume-group\">\n          <span class=\"end\" data-dc-id=\"volume-group-top\">+</span>\n          <span class=\"ticks\"></span>\n          <div class=\"thumb\" data-dc-id=\"volume-group-thumb\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5z\"></path><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 9.2a4 4 0 0 1 0 5.6M17.6 6.8a7.5 7.5 0 0 1 0 10.4\"></path></svg></div>\n          <span class=\"end\" data-dc-id=\"volume-group-bottom\">−</span>\n        </div>",
+        "rect": {
+          "x": 340.0016174316406,
+          "y": 410.52801513671875,
+          "width": 55.998924255371094,
+          "height": 231.99757385253906
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793982740734,
+      "sentAt": 1793982742259,
+      "resolvedAt": 1793982985857,
+      "resolution": "Volume stays spring-back like Scroll, with ± ends that step once on tap. No fill track or sync indicator."
+    },
+    {
+      "id": "c-6645e528b20c",
+      "number": 66,
+      "body": "ok text doesnt move with texture when button is pressed",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "dpad-center",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > svg:nth-of-type(1) > g:nth-of-type(6)",
+        "tag": "g",
+        "text": "OK",
+        "html": "<g data-dc-id=\"dpad-center\"><circle class=\"ring\" cx=\"104\" cy=\"104\" r=\"42\"></circle><circle class=\"cap\" cx=\"104\" cy=\"104\" r=\"35\" fill=\"url(#dpk)\"></circle><rect class=\"grain\" x=\"69\" y=\"69\" width=\"70\" height=\"70\" filter=\"url(#gr)\" clip-path=\"url(#ccap)\" opacity=\".5\"></rect><circle class=\"bevel\" cx=\"104\" cy=\"104\" r=\"34.25\" stroke=\"url(#bev)\"></circle><text class=\"ok\" x=\"104\" y=\"109.5\" text-anchor=\"middle\">OK</text></g>",
+        "rect": {
+          "x": 163.998779296875,
+          "y": 493.0245361328125,
+          "width": 83.9996109008789,
+          "height": 83.9996109008789
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793982764180,
+      "sentAt": 1793982810156,
+      "resolvedAt": 1793982985857,
+      "resolution": "A cap's legend is drawn as part of the cap and moves, scales and shades with it on press (tokens: cap.press / dpad.press legendFollowsCap); see the dpad-press artboard."
+    },
+    {
+      "id": "c-24d39a13b6a7",
+      "number": 67,
+      "body": "can these buttons' height be made same as middle one too",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "prev",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"glass sm\" data-dc-id=\"prev\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"currentColor\" d=\"M19 7v10c0 .8-.9 1.27-1.56.82L10.3 12.8a1 1 0 0 1 0-1.64l7.14-5c.66-.45 1.56.03 1.56.83z\"></path><rect fill=\"currentColor\" x=\"5.2\" y=\"6\" width=\"2.4\" height=\"12\" rx=\"1.2\"></rect></svg></div>",
+        "rect": {
+          "x": 23.99138832092285,
+          "y": 703.0104370117188,
+          "width": 71.99555969238281,
+          "height": 71.99555969238281
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793982792838,
+      "sentAt": 1793982810156,
+      "resolvedAt": 1793982985857,
+      "resolution": "Prev, play/pause and next are all 96dp tall on one baseline; prev/next 76dp wide, play fills the rest."
     }
   ]
 }

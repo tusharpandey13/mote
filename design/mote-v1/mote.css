@@ -437,9 +437,15 @@ svg.i.i16 { width: 16px; height: 16px; }
   --brushed-30: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .30'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
   --brushed-45: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .45'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
   --brushed-60: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .60'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  --grain-04: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .04'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-06: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .06'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-11: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .11'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-15: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .15'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --brushed-32: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .32'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  --brushed-42: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .42'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
   /* per-material grain (Overlay) — light */
-  --g-plate: var(--grain-22); --g-plastic: var(--grain-16); --g-rubber: var(--grain-24); --g-metal: var(--grain-12); --g-glass: var(--grain-08);
-  --b-plate: var(--brushed-45); --b-metal: var(--brushed-60);
+  --g-plate: var(--grain-11); --g-plastic: var(--grain-08); --g-rubber: var(--grain-12); --g-metal: var(--grain-06); --g-glass: var(--grain-04);
+  --b-plate: var(--brushed-32); --b-metal: var(--brushed-42);
   /* anisotropic sheen for horizontal brushing: soft vertical bands */
   --sheen-plate: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.38) 30%, rgba(255,255,255,0) 52%, rgba(255,255,255,.18) 74%, rgba(255,255,255,0) 90%);
   --sheen-metal: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 35%, rgba(255,255,255,0) 60%);
@@ -447,8 +453,8 @@ svg.i.i16 { width: 16px; height: 16px; }
   --bezel-top: #B9BDC3; --bezel-bot: #D6D9DD;
 }
 .dark {
-  --g-plate: var(--grain-30); --g-plastic: var(--grain-22); --g-rubber: var(--grain-30); --g-metal: var(--grain-16); --g-glass: var(--grain-12);
-  --b-plate: var(--brushed-60); --b-metal: var(--brushed-60);
+  --g-plate: var(--grain-15); --g-plastic: var(--grain-11); --g-rubber: var(--grain-15); --g-metal: var(--grain-08); --g-glass: var(--grain-06);
+  --b-plate: var(--brushed-42); --b-metal: var(--brushed-42);
   --sheen-plate: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.07) 30%, rgba(255,255,255,0) 52%, rgba(255,255,255,.04) 74%, rgba(255,255,255,0) 90%);
   --sheen-metal: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 35%, rgba(255,255,255,0) 60%);
   --ring-metal: conic-gradient(from 0deg, #8E939A 0deg, #4B4F56 45deg, #9A9FA6 90deg, #464A51 135deg, #8B9097 180deg, #484C53 225deg, #969BA2 270deg, #43474E 315deg, #8E939A 360deg);
@@ -496,3 +502,61 @@ svg.i.i16 { width: 16px; height: 16px; }
 
 /* parity swaps: no CSS-only filters */
 .offline .live { opacity: .35; filter: none; }
+
+/* =====================================================================
+   Revision 6: absolute volume fader, Spaces carousel, lit wordmark,
+   compact Edit chip, taller brightness. Mirrors tokens.json "components".
+   ===================================================================== */
+
+/* wordmark: backlit LED when connected, unlit deboss when not, pulse while connecting */
+.wordmark { transition: color 400ms cubic-bezier(.2,0,0,1), text-shadow 400ms cubic-bezier(.2,0,0,1); }
+.wordmark.lit { color: #2F8BE0; text-shadow: 0 -1px 0 rgba(20,28,40,.30), 0 0 4px rgba(64,160,255,.75), 0 0 12px rgba(64,160,255,.55), 0 0 22px rgba(64,160,255,.35); }
+.dark .wordmark.lit { color: #A8DEFF; text-shadow: 0 -1px 0 rgba(0,0,0,.8), 0 0 3px rgba(108,196,255,.95), 0 0 10px rgba(108,196,255,.8), 0 0 24px rgba(108,196,255,.55); }
+.wordmark.pulse { animation: markpulse 1600ms ease-in-out infinite alternate; }
+@keyframes markpulse { from { color: var(--engrave-fill); } to { color: var(--mark-pulse); } }
+:root { --mark-pulse: #8FB3D6; } .dark { --mark-pulse: #35556F; }
+@media (prefers-reduced-motion: reduce) { .wordmark.pulse { animation: none; } }
+
+/* compact Edit chip: 32dp visual, 48dp touch via padding */
+.edit-chip { height: 32px; padding: 0 12px 0 9px; border-radius: 10px; display: inline-flex; align-items: center; gap: 5px; font: 600 13px/1 var(--font-ui); color: var(--on-surface); margin-right: 2px; }
+
+/* Spaces carousel */
+.carousel { position: relative; height: 84px; border-radius: 22px; padding: 8px; overflow: hidden; }
+.carousel .rowc { display: flex; gap: 8px; height: 68px; }
+.scard { position: relative; flex: none; width: 104px; height: 68px; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 7px 9px; }
+.scard .num { position: absolute; top: 6px; left: 9px; font: 650 22px/1 var(--font-ui); color: var(--on-surface); }
+.scard .nm { font: 600 11px/13px var(--font-ui); color: var(--on-surface-muted); }
+.scard.current { box-shadow: inset 0 1px 0 var(--hi), 0 0 0 2px var(--accent), 0 0 12px var(--accent-glow), var(--drop); }
+.scard.current .nm { color: var(--accent); }
+.scard .cur-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+.scard.thumb { padding: 0; }
+.scard.thumb .shot { position: absolute; inset: 0; }
+.scard.thumb .cap { position: absolute; left: 0; right: 0; bottom: 0; height: 20px; padding: 0 8px; display: flex; align-items: center; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.55)); font: 600 11px/1 var(--font-ui); color: #fff; }
+.scard.empty { background: none; box-shadow: none; border: 1.5px dashed var(--key-edge); align-items: center; justify-content: center; text-align: center; padding: 6px; }
+.scard.empty .nm { color: var(--on-surface-subtle); }
+.carousel .fade-l, .carousel .fade-r { position: absolute; top: 0; bottom: 0; width: 24px; pointer-events: none; }
+.carousel .fade-l { left: 0; background: linear-gradient(90deg, var(--well), rgba(0,0,0,0)); }
+.carousel .fade-r { right: 0; background: linear-gradient(270deg, var(--well), rgba(0,0,0,0)); }
+.carousel .label { position: absolute; right: 12px; top: -1px; }
+/* fake desktop thumbnails (helper fidelity) */
+.desk-a { background: linear-gradient(160deg, #6D8FB8, #2D4466); }
+.desk-b { background: linear-gradient(160deg, #B98D6A, #5A3B2A); }
+.desk-c { background: linear-gradient(160deg, #6FA88D, #24473A); }
+.shot .win { position: absolute; border-radius: 3px; background: rgba(255,255,255,.88); box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.shot .win::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; border-radius: 3px 3px 0 0; background: rgba(0,0,0,.12); }
+
+/* volume = spring lever (same as scroll) with mute integrated in its base (#62, #65) */
+.slider.vol { height: 232px; justify-content: flex-start; }
+.slider.vol .ticks { top: 36px; bottom: 92px; }
+.slider.vol .thumb { top: 42%; }
+.slider.vol .end.bot { position: absolute; top: 140px; left: 12px; }
+.slider.vol .mutecap { position: absolute; left: 6px; bottom: 6px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--on-surface); }
+
+/* cap press: the legend is part of the cap and moves/scales/shades with it (#66) */
+.okcap { transform-box: view-box; transform-origin: 104px 104px; }
+.okcap.is-pressed { transform: translateY(1.5px) scale(.96); }
+.okcap.is-pressed .cap { filter: drop-shadow(0 1px 0 var(--rub-wall)) drop-shadow(0 1px 2px var(--dshadow)); }
+.okcap .ok { paint-order: stroke; }
+.okcap.is-pressed .ok { fill: var(--on-surface-muted); }
+.screen:not(.land) { grid-template-columns: minmax(0, 1fr); }
+.content, .carousel { min-width: 0; }
