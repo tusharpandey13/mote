@@ -51,21 +51,18 @@ class MacrosTest(@Suppress("unused") private val name: String, private val caps:
 
     private fun toggleFavourite(macro: String) {
         val before = saved().single { it.name == macro }.star
-        c.onNodeWithText("EDIT").performClick()
+        c.desc("Edit").performClick()
         c.desc("Edit $macro").performClick()
         c.desc("★ Favourite").performClick()
         c.desc("Save").performClick()
         c.waitUntil(5_000) { saved().single { it.name == macro }.star != before }
-        c.onNodeWithText("DONE").performClick()
+        c.desc("Done").performClick()
         c.waitForIdle()
     }
 
     @Test
     fun recordChordRunAndFavouriteIntoMediaStrip() {
         c.mode("Macros")
-        // the strip holds 4 slots and the defaults fill them (Spaces = 2); free one first
-        toggleFavourite("Lock")
-
         c.desc("New macro").performClick()
         val fields = c.onAllNodes(hasSetTextAction())
         fields[0].performTextInput("Find")
@@ -88,7 +85,6 @@ class MacrosTest(@Suppress("unused") private val name: String, private val caps:
         t.clear()
         c.desc("Find").press()
         assertEquals("runs from the Media favourites strip", ran("f", CMD), rule.awaitCalls(2))
-        c.desc("Lock").assertDoesNotExist()
     }
 
     @Test
@@ -96,7 +92,7 @@ class MacrosTest(@Suppress("unused") private val name: String, private val caps:
         c.mode("Macros")
         c.desc("New macro").performClick()
         c.desc("Add a name and a key").performClick()
-        c.onNodeWithText("New macro").assertExists() // still open
+        c.desc("Add a name and a key").assertExists() // still open, still invalid
         c.onAllNodes(hasSetTextAction())[0].performTextInput("Mission")
         c.desc("⌃ ctrl").a11yClick()
         c.desc("↑").a11yClick() // special key row (keyboard is up)
@@ -130,28 +126,56 @@ class MacrosTest(@Suppress("unused") private val name: String, private val caps:
         assertEquals(listOf(Call.SetMods(0, 0), Call.ClickAt(0.5f, 0.5f)), rule.awaitCalls(2))
     }
 
-    @Test
-    fun spacesTileHoldAndSlideSwitchesSpaces() {
-        val tile = c.desc(spaces)
-        val step = with(c.density) { 32.dp.toPx() }
-        t.clear()
-        tile.performTouchInput {
-            down(Offset(width * 0.25f, centerY))
-            repeat(10) { moveBy(Offset(step * 0.25f, 0f)) } // +2.5 steps right
-            repeat(7) { moveBy(Offset(-step * 0.25f, 0f)) } // back 1.75 steps: one step left of the anchor
-            up()
-        }
-        val expected = listOf(Call.Tap("right", CTRL), Call.Tap("right", CTRL), Call.Tap("left", CTRL))
-        assertEquals("slide only, no Mission Control on release", expected, t.awaitAtLeast(3))
+    /** Slides [dx] (fraction of the tile width) in small steps, without lifting. */
+    private fun androidx.compose.ui.test.TouchInjectionScope.slide(dx: Float) {
+        val n = 12
+        repeat(n) { moveBy(Offset(width * dx / n, 0f)) }
+    }
 
+    /** One deliberate slide = exactly one step, however far it goes; lift releases all keys. */
+    @Test
+    fun spacesSlideIsOneStep() {
         t.clear()
-        tile.press()
-        assertEquals("tap = ⌃↑ (Mission Control)", listOf(Call.Tap("up", CTRL)), t.awaitAtLeast(1))
+        c.desc(spaces).performTouchInput { down(Offset(width * 0.05f, centerY)); slide(0.9f); up() } // > 2 thresholds
+        assertEquals(listOf(Call.Tap("right", CTRL), Call.SetMods(0, 0)), t.awaitAtLeast(2))
+    }
+
+    /** A slide inside the 450 ms cooldown is queued (at most one) and sent when the cooldown ends. */
+    @Test
+    fun spacesSecondSlideWaitsForCooldown() {
+        t.clear()
+        c.desc(spaces).performTouchInput {
+            down(Offset(width * 0.1f, centerY)); slide(0.6f); up()
+            down(Offset(width * 0.9f, centerY)); slide(-0.6f); up() // left, right away
+        }
+        val r = rule.awaitCalls(4)
+        assertEquals(
+            "second step only after the first slide's cooldown, after its own lift",
+            listOf(Call.Tap("right", CTRL), Call.SetMods(0, 0), Call.SetMods(0, 0), Call.Tap("left", CTRL)), r,
+        )
+    }
+
+    @Test
+    fun spacesTapIsMissionControl() {
+        t.clear()
+        c.desc(spaces).press()
+        assertEquals(listOf(Call.Tap("up", CTRL), Call.SetMods(0, 0)), t.awaitAtLeast(2))
+    }
+
+    @Test
+    fun escapeIsAMacroNow() {
+        c.mode("Macros")
+        c.awaitDesc("Escape")
+        t.clear()
+        c.desc("Escape").press()
+        assertEquals(ran("esc", 0), rule.awaitCalls(2))
     }
 
     /** Lock (⌃⌘Q) needs a second tap within 2 s. */
     @Test
     fun lockAsksForConfirmation() {
+        c.mode("Macros")
+        c.awaitDesc("Lock")
         val lock = c.desc("Lock")
         t.clear()
         lock.press()
@@ -174,11 +198,11 @@ class MacrosTest(@Suppress("unused") private val name: String, private val caps:
     @Test
     fun deleteMacro() {
         c.mode("Macros")
-        c.onNodeWithText("EDIT").performClick()
+        c.desc("Edit").performClick()
         c.desc("Edit Mission Control").performClick()
         c.onNodeWithText("Delete macro").performClick()
         c.waitUntil(5_000) { saved().none { it.name == "Mission Control" } }
-        c.onNodeWithText("DONE").performClick()
+        c.desc("Done").performClick()
         c.onAllNodes(hasContentDescription("Mission Control")).fetchSemanticsNodes().let { assertTrue(it.isEmpty()) }
     }
 }

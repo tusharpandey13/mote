@@ -90,6 +90,9 @@ class WsTransport(
                     if (e is HelperError && e.code == "version") { _status.value = WsStatus.Failed(e.code, e.message ?: ""); return }
                     null
                 }
+                // A different Mac now answers at this address (DHCP reuse, another helper): never
+                // auth against it, that would burn its rate limit and look like a revoked pairing.
+                if (s != null && !isSameHost(s.hello)) { s.close(); s = null }
                 if (s != null) break
             }
             if (s != null) {
@@ -123,6 +126,9 @@ class WsTransport(
             backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF)
         }
     }
+
+    /** Pre-1.1 helpers send no hostId (saved as "addr:…"), so only a present, different id is a mismatch. */
+    private fun isSameHost(h: Msg.Hello) = h.hostId == null || hostId.startsWith("addr:") || h.hostId == hostId
 
     // ---- send pipe ----
 
@@ -192,6 +198,10 @@ class WsTransport(
     }
 
     override fun consumer(usage: Int) { Proto.consumerKey(usage)?.let { sendNow(Proto.consumer(it)) } }
+
+    override fun consumerHold(usage: Int, down: Boolean) {
+        Proto.consumerKey(usage)?.let { sendNow(Proto.consumer(it, if (down) "down" else "up")) }
+    }
 
     override fun move(dx: Float, dy: Float) {
         synchronized(sendLock) { mx += dx * POINT_GAIN; my += dy * POINT_GAIN }

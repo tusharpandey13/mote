@@ -45,7 +45,7 @@ final class Injector {
         case "clickAt":
             try clickAt(x: m.dbl("x"), y: m.dbl("y"), unit: m.str("unit", "norm"), display: m.int("display", 0),
                         b: m.str("b", "left"), count: m.int("count", 1))
-        case "consumer": try consumer(m.str("key"))
+        case "consumer": try consumer(m.str("key"), action: m.str("action", "tap"))
         case let t: throw ProtoError("unknown", "unknown message '\(t)'")
         }
     }
@@ -203,10 +203,23 @@ final class Injector {
 
     private static let nx: [String: Int32] = [
         "volup": 0, "voldown": 1, "brightup": 2, "brightdown": 3, "mute": 7, "play": 16, "next": 17, "prev": 18,
+        "fast": 19, "rewind": 20,
     ]
 
-    func consumer(_ k: String) throws {
+    /// The consumer key held by `action: down` (hold-to-seek), re-posted as key repeat until `up`.
+    private var heldNX: (code: Int32, timer: DispatchSourceTimer)?
+
+    func consumer(_ k: String, action: String = "tap") throws {
         guard let code = Injector.nx[k] else { throw ProtoError("bad", "unknown consumer key '\(k)'") }
+        switch action {
+        case "tap": break
+        case "down", "up":
+            if dryRun { log("DRY consumer \(k) \(action)"); return }
+            releaseNX()
+            if action == "down" { holdNX(code) }
+            return
+        default: throw ProtoError("bad", "unknown consumer action '\(action)'")
+        }
         if dryRun { log("DRY consumer \(k)"); return }
         let before = k.hasPrefix("bright") ? Brightness.get() : nil
         postNX(code)
@@ -221,19 +234,40 @@ final class Injector {
     }
 
     private func postNX(_ code: Int32) {
-        for down in [true, false] {
-            let flags = NSEvent.ModifierFlags(rawValue: down ? 0xa00 : 0xb00)
-            let data1 = Int((code << 16) | ((down ? 0xa : 0xb) << 8))
-            let e = NSEvent.otherEvent(with: .systemDefined, location: .zero, modifierFlags: flags, timestamp: 0,
-                                       windowNumber: 0, context: nil, subtype: 8, data1: data1, data2: -1)
-            post(e?.cgEvent)
-        }
+        postNX(code, down: true)
+        postNX(code, down: false)
+    }
+
+    /// One NX key event; `repeating` sets the key-repeat bit like a held hardware media key.
+    private func postNX(_ code: Int32, down: Bool, repeating: Bool = false) {
+        let flags = NSEvent.ModifierFlags(rawValue: down ? 0xa00 : 0xb00)
+        let data1 = Int((code << 16) | ((down ? 0xa : 0xb) << 8) | (repeating ? 1 : 0))
+        let e = NSEvent.otherEvent(with: .systemDefined, location: .zero, modifierFlags: flags, timestamp: 0,
+                                   windowNumber: 0, context: nil, subtype: 8, data1: data1, data2: -1)
+        post(e?.cgEvent)
+    }
+
+    private func holdNX(_ code: Int32) {
+        postNX(code, down: true)
+        let t = DispatchSource.makeTimerSource(queue: .main)
+        t.schedule(deadline: .now() + 0.3, repeating: 0.1)
+        t.setEventHandler { [weak self] in self?.postNX(code, down: true, repeating: true) }
+        t.resume()
+        heldNX = (code, t)
+    }
+
+    private func releaseNX() {
+        guard let h = heldNX else { return }
+        h.timer.cancel()
+        postNX(h.code, down: false)
+        heldNX = nil
     }
 
     private func post(_ e: CGEvent?) { e?.post(tap: .cghidEventTap) }
 
     /// Releases any mouse buttons we left down (pause, disconnect).
     func releaseAll() {
+        releaseNX()
         for b in held { try? button(b, action: "up", count: 1) }
         held.removeAll()
     }

@@ -125,6 +125,7 @@ final class Session {
     private(set) var deviceName = ""
     private var unauthStrikes = 0
     private var closed = false
+    private var authDeadline: Timer?
 
     init(hub: Hub, transport: String, peer: String, send: @escaping (Data) -> Void, close: @escaping () -> Void) {
         self.hub = hub; self.transport = transport; self.peer = peer
@@ -136,19 +137,22 @@ final class Session {
         send(["t": "hello", "v": 1, "app": "mote-helper", "host": Host.computerName, "hostId": hub.settings.hostId, "local": Host.localName,
                    "nonce": nonce, "pairing": hub.pairing.isOpen])
         // Unauthenticated connections get the pairing window's length to finish, then are dropped.
-        DispatchQueue.main.asyncAfter(deadline: .now() + Pairing.window) { [weak self] in
+        // A Timer (not asyncAfter) so a closed session's deadline is removed now, not 5 min later.
+        authDeadline = Timer.scheduledTimer(withTimeInterval: Pairing.window, repeats: false) { [weak self] _ in
             if let self, !self.authed { self.close() }
         }
     }
 
     func send(_ m: [String: Any]) {
-        guard !closed, let d = try? JSONSerialization.data(withJSONObject: m) else { return }
+        // isValidJSONObject first: writing NaN/inf raises an ObjC exception that `try?` can't catch.
+        guard !closed, JSONSerialization.isValidJSONObject(m), let d = try? JSONSerialization.data(withJSONObject: m) else { return }
         sendRaw(d)
     }
 
     func close() {
         guard !closed else { return }
         closed = true
+        authDeadline?.invalidate()
         hub.remove(self)
         closeRaw()
     }
@@ -157,6 +161,7 @@ final class Session {
     func ended() {
         guard !closed else { return }
         closed = true
+        authDeadline?.invalidate()
         hub.remove(self)
     }
 
@@ -178,7 +183,10 @@ final class Session {
         guard data.count <= 65536, let m = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let t = m["t"] as? String else { err("bad", "malformed message"); return }
         switch t {
-        case "ping": send(["t": "pong", "n": m["n"] ?? 0])
+        case "ping":
+            // Echo `n` only if it can be written back (e.g. -1e400 parses to -inf).
+            let n = m["n"] ?? 0
+            send(["t": "pong", "n": JSONSerialization.isValidJSONObject([n]) ? n : 0])
         case "pong": break
         case "pair": pair(m)
         case "auth": auth(m)
@@ -224,6 +232,7 @@ final class Session {
             return
         }
         authed = true
+        authDeadline?.invalidate()
         deviceName = d.name
         hub.store.touch(d.id)
         log("authed \(d.name) via \(transport) from \(peer)")

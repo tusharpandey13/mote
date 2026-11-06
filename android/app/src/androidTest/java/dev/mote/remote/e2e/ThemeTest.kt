@@ -40,7 +40,7 @@ class ThemeTest {
 
     private fun pick(t: ThemeChoice) {
         c.desc("Menu").performClick()
-        c.desc(t.name).performClick()
+        c.desc(t.name.lowercase().replaceFirstChar { it.uppercase() }).performClick() // segmented: Dark / Light / System
         c.waitUntil(5_000) { runBlocking { Prefs.theme(ctx).first() } == t }
         rule.device.pressBack() // close the sheet
         c.waitForIdle()

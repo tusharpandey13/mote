@@ -12,7 +12,10 @@ import dev.mote.remote.net.Selection
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
+import dev.mote.remote.net.Route
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -67,6 +70,24 @@ class HostsTest {
         c.desc("Device: Studio iMac via BT. Tap to choose").performClick()
         c.onNodeWithText("Searching…").assertExists()
         c.onNodeWithText("Paired").assertExists() // the other host
+    }
+
+    /**
+     * The "Tailscale is off" prompt (0.2.1). Driven through Net.promptForTailscale with the phone's real
+     * networks: the emulator has no Tailscale VPN, so a tailnet-only host needs the prompt.
+     */
+    @Test
+    fun tailscaleOffPromptForTailnetOnlyHost() {
+        assertFalse("a host without a tailnet route never prompts", Net.promptForTailscale("Studio Mac", listOf(Route.WIFI), seenOnLan = true))
+        var ok = false
+        c.runOnUiThread { ok = Net.promptForTailscale("Studio Mac", listOf(Route.TAILNET), seenOnLan = false) }
+        assertTrue(ok)
+        c.waitUntil(5_000) { shown("Tailscale is off") }
+        c.onNodeWithText("Turn it on to reach Studio Mac.").assertExists()
+        c.onNodeWithText("Tailscale isn't installed on this phone.").assertExists()
+        c.desc("Get Tailscale").assertExists()
+        c.desc("Not now").performClick()
+        c.waitUntil(5_000) { Net.tsPrompt.value == null && !shown("Tailscale is off") }
     }
 
     @Test

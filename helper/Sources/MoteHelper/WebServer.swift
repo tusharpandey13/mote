@@ -87,13 +87,17 @@ private final class HTTPConnection {
     private var session: Session?
     private var wsMessage = Data()
     private var done = false
+    private var unsent = 0                 // WebSocket bytes queued on the connection, not yet taken by the kernel
+    static let maxUnsent = 1 << 20
 
     init(conn: NWConnection, peer: String, server: WebServer) { self.conn = conn; self.peer = peer; self.server = server }
 
     func start() {
         conn.stateUpdateHandler = { [weak self] st in
             switch st {
-            case .failed, .cancelled: self?.finish()
+            // A failed connection (e.g. peer RST) still holds its socket until it is cancelled.
+            case .failed: self?.conn.cancel()
+            case .cancelled: self?.finish()
             default: break
             }
         }
@@ -199,7 +203,7 @@ private final class HTTPConnection {
         let accept = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
         let resp = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: \(accept)\r\n\r\n"
         conn.send(content: Data(resp.utf8), completion: .contentProcessed { _ in })
-        let s = Session(hub: server.hubRef, transport: "Wi-Fi", peer: peer,
+        let s = Session(hub: server.hubRef, transport: tailnet ? "Tailscale" : "Wi-Fi", peer: peer,
                         send: { [weak self] d in self?.sendFrame(opcode: 1, payload: d) },
                         close: { [weak self] in self?.sendFrame(opcode: 8, payload: Data([0x03, 0xE8])); self?.conn.cancel() })
         session = s
@@ -243,10 +247,18 @@ private final class HTTPConnection {
     }
 
     private func sendFrame(opcode: UInt8, payload: Data) {
+        guard !done else { return }
         var h = Data([0x80 | opcode])
         if payload.count < 126 { h.append(UInt8(payload.count)) }
         else if payload.count <= 0xffff { h.append(126); h.append(UInt8(payload.count >> 8)); h.append(UInt8(payload.count & 0xff)) }
         else { h.append(127); for i in (0..<8).reversed() { h.append(UInt8((UInt64(payload.count) >> (UInt64(i) * 8)) & 0xff)) } }
-        conn.send(content: h + payload, completion: .contentProcessed { _ in })
+        // A peer that doesn't read (e.g. floods pings) would make NWConnection queue replies without bound.
+        let n = h.count + payload.count
+        unsent += n
+        guard unsent <= HTTPConnection.maxUnsent else {
+            log("wifi: \(peer) isn't reading replies, closing")
+            conn.cancel(); return
+        }
+        conn.send(content: h + payload, completion: .contentProcessed { [weak self] _ in self?.unsent -= n })
     }
 }

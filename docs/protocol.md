@@ -1,4 +1,4 @@
-# Mote helper protocol, v1.1
+# Mote helper protocol, v1.2
 
 One JSON message protocol shared by both transports of the Mote Helper (macOS menu-bar app):
 
@@ -6,6 +6,8 @@ One JSON message protocol shared by both transports of the Mote Helper (macOS me
 - **BLE**: GATT service on the Mac (the helper is the peripheral, the phone is the central). Same JSON, fragmented (see [BLE framing](#ble-framing)).
 
 All messages are JSON objects with a type field `t`. Unknown fields are ignored. Unknown `t` gets an `err`. The protocol version is announced in `hello` (`"v": 1`); a peer that sees a different major version closes the connection. Minor versions only add optional fields, so `v` stays 1.
+
+Changes in 1.2 (backward compatible): `consumer` gains `action` (`down` / `up`) and the keys `fast` / `rewind`, for hold-to-seek (section 2, consumer).
 
 Changes in 1.1 (backward compatible): `hello.hostId` and `hello.local`, Bonjour TXT record, extra fields in the pairing link (section 1.1), and the opt-in [Tailscale](#tailscale) access rules (section 4).
 
@@ -96,7 +98,9 @@ Typed with `CGEventKeyboardSetUnicodeString`, so it is layout-independent and ha
 {"t": "consumer", "key": "play"}
 ```
 
-`key`: `play` (play/pause), `next`, `prev`, `volup`, `voldown`, `mute`, `brightup`, `brightdown`. Posted as `NSEvent` `systemDefined` subtype 8 `NX_KEYTYPE_*` key down/up (shows the system HUD). Brightness falls back to the private `DisplayServices` framework for the built-in display if the NX key didn't change it (checked 150 ms later); if neither is available, `err` code `unsupported`.
+`key`: `play` (play/pause), `next`, `prev`, `volup`, `voldown`, `mute`, `brightup`, `brightdown`, and (protocol 1.2) `fast`, `rewind`. Posted as `NSEvent` `systemDefined` subtype 8 `NX_KEYTYPE_*` key down/up (shows the system HUD). Brightness falls back to the private `DisplayServices` framework for the built-in display if the NX key didn't change it (checked 150 ms later); if neither is available, `err` code `unsupported`.
+
+`action` (protocol 1.2, optional): `tap` (default: key down then up), `down` (press and hold; the helper re-posts it with the key-repeat bit every 100 ms after 300 ms, like a held media key), `up` (release the held key). Only one key is held at a time; a new `down` releases the previous one, and pausing or the last session closing releases it. The app sends `fast` / `rewind` `down` when prev/next is held past 400 ms (hold-to-seek) and `up` on lift. Older helpers reject `fast` / `rewind` with `err` `bad`; taps are unchanged.
 
 ### macro
 
@@ -150,7 +154,7 @@ The helper turns network messages into keystrokes and clicks on the Mac, so an u
 | "Something is typing on my Mac" | Menu > "Pause input" (kill switch) drops all input at once and cancels a running macro. The menu lists connected clients. |
 | Exposure beyond the LAN | The listener refuses cellular interfaces, and every connection whose remote address isn't loopback, RFC 1918, link-local or IPv6 ULA/link-local is closed before any byte is read. Tailscale's ranges (100.64/10, which carriers also use for CGNAT, and `fd7a:115c:a1e0::/48`) are refused unless "Allow Tailscale connections" is on. Nothing is forwarded or exposed via UPnP. |
 | A web page in the phone's (or Mac's) browser driving the helper (cross-site WebSocket hijacking, DNS rebinding) | The WebSocket upgrade needs an `Origin` equal to the page's own `http://<Host>` (native clients send none) and a `Host` that is `<name>.local`, an IP literal or `localhost`; with Tailscale allowed, also `*.ts.net`. Tailnet IP literals in `Host` are refused while Tailscale is off. A foreign page has neither the token (stored per origin) nor the code. |
-| Resource exhaustion | ≤ 32 concurrent connections (8 per address), 10 s to send the HTTP request, 5 min to authenticate, 8 KiB HTTP headers, 64 KiB messages, macro limits above, static files only (no directory listing, no path traversal). |
+| Resource exhaustion | ≤ 32 concurrent connections (8 per address), 10 s to send the HTTP request, 5 min to authenticate, 8 KiB HTTP headers, 64 KiB messages, 1 MiB of unread replies (a peer that doesn't read is dropped), macro limits above, static files only (no directory listing, no path traversal). |
 
 ### Tailscale
 

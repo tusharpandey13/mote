@@ -49,7 +49,7 @@ class Discovery(context: Context) {
                 Log.w(TAG, "discovery failed: $errorCode"); main.post { stop() }
             }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
-            override fun onServiceFound(info: NsdServiceInfo) { main.post { resolve(info) } }
+            override fun onServiceFound(info: NsdServiceInfo) { Log.i(TAG, "found ${info.serviceName}"); main.post { resolve(info) } }
             override fun onServiceLost(info: NsdServiceInfo) { main.post { lost(info.serviceName) } }
         }
         listener = l
@@ -111,6 +111,7 @@ class Discovery(context: Context) {
     private fun update(si: NsdServiceInfo, addrs: List<InetAddress>) {
         if (listener == null) return
         // Prefer IPv4: it survives in saved hosts and avoids link-local scope ids.
+        Log.i(TAG, "resolved ${si.serviceName} ${addrs.size} addrs port ${si.port}")
         val a = addrs.firstOrNull { it is Inet4Address } ?: addrs.firstOrNull() ?: return
         val id = si.attributes["id"]?.toString(Charsets.UTF_8)?.takeIf { it.isNotBlank() }
         val f = Found(si.serviceName, id, a.hostAddress?.substringBefore('%') ?: return, si.port)

@@ -87,9 +87,12 @@ Bluetooth HID doesn't exist on the emulator, so `MoteRule` installs fakes throug
 
 Tests assert the exact transport calls (key names, modifier bits, consumer usages, wheel/pan).
 The HID byte encoding is covered by `EncoderTest`, and the helper wire protocol by `ProtoTest` and
-`HelperIntegrationTest` (JVM). Timing tests
-(auto-repeat, long-press, the scroll lever, macro confirm) pause the Compose clock
-(`mainClock.autoAdvance = false`) and advance it explicitly, so they're deterministic.
+`HelperIntegrationTest` (JVM). Timing tests (brightness auto-repeat, long-press, the SCROLL / VOLUME
+sliders, macro confirm) pause the Compose clock (`mainClock.autoAdvance = false`) and advance it
+explicitly, so they're deterministic. Hold-to-seek and the Spaces cooldown measure real time
+(`SystemClock`), so those tests wait in real time.
+
+On a busy Mac the emulator can crash with a host GL error. If that happens, boot it with `-gpu guest`.
 
 ### Process death
 

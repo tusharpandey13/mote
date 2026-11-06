@@ -38,6 +38,11 @@ interface Transport {
     /** Returns the number of characters it couldn't type. */
     suspend fun typeText(text: String): Int
     fun consumer(usage: Int)
+    /**
+     * Press ([down] = true) or release a held consumer key: [dev.mote.remote.hid.Consumer.FAST_FORWARD] /
+     * [dev.mote.remote.hid.Consumer.REWIND] for hold-to-seek. No-op by default.
+     */
+    fun consumerHold(usage: Int, down: Boolean) {}
 
     fun move(dx: Float, dy: Float)
     fun setButton(mask: Int, down: Boolean)
@@ -60,6 +65,7 @@ class BtHidTransport(scope: CoroutineScope) : Transport {
     override suspend fun tapAwait(key: String, mods: Int) = Hid.tapAwait(key, mods)
     override suspend fun typeText(text: String): Int = Hid.typeText(text)
     override fun consumer(usage: Int) = Hid.consumer(usage)
+    override fun consumerHold(usage: Int, down: Boolean) = Hid.consumerHold(usage, down)
     override fun move(dx: Float, dy: Float) = Hid.move(dx, dy)
     override fun setButton(mask: Int, down: Boolean) = Hid.setButton(mask, down)
     override fun click(mask: Int) = Hid.click(mask)

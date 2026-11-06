@@ -18,6 +18,7 @@ sealed interface Call {
     data class TapAwait(val key: String, val mods: Int = 0) : Call
     data class TypeText(val text: String) : Call
     data class Consumer(val usage: Int) : Call
+    data class ConsumerHold(val usage: Int, val down: Boolean) : Call
     data class Move(val dx: Float, val dy: Float) : Call
     data class SetButton(val mask: Int, val down: Boolean) : Call
     data class Click(val mask: Int) : Call
@@ -52,6 +53,7 @@ class FakeTransport(override val caps: Caps = Caps.HID) : Transport {
         return if (caps.unicodeText) 0 else text.count { Key.forChar(it) == null }
     }
     override fun consumer(usage: Int) = record(Call.Consumer(usage))
+    override fun consumerHold(usage: Int, down: Boolean) = record(Call.ConsumerHold(usage, down))
     override fun move(dx: Float, dy: Float) = record(Call.Move(dx, dy))
     override fun setButton(mask: Int, down: Boolean) = record(Call.SetButton(mask, down))
     override fun click(mask: Int) = record(Call.Click(mask))
@@ -92,6 +94,8 @@ object Usage {
     const val PLAY_PAUSE = 0xCD
     const val NEXT = 0xB5
     const val PREV = 0xB6
+    const val FAST_FORWARD = 0xB3
+    const val REWIND = 0xB4
     const val MUTE = 0xE2
     const val VOL_UP = 0xE9
     const val VOL_DOWN = 0xEA

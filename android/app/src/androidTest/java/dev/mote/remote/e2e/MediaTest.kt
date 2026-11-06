@@ -1,11 +1,15 @@
 package dev.mote.remote.e2e
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import dev.mote.remote.net.Caps
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,13 +26,15 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
     private val t get() = rule.transport
 
     // clock-paused tests need the controls enabled before the clock stops
-    @org.junit.Before fun linked() = rule.awaitLinkState()
+    @Before fun linked() = rule.awaitLinkState()
 
     @Test
-    fun everyConsumerButtonSendsItsUsage() {
+    fun everyMediaControlSendsItsUsage() {
         val cases = listOf(
-            "Play or pause" to Usage.PLAY_PAUSE, "Next track" to Usage.NEXT, "Previous track" to Usage.PREV, "Mute" to Usage.MUTE,
-            "Volume up" to Usage.VOL_UP, "Volume down" to Usage.VOL_DOWN, "Brightness up" to Usage.BRIGHT_UP, "Brightness down" to Usage.BRIGHT_DOWN,
+            "Play or pause" to Usage.PLAY_PAUSE, "Mute" to Usage.MUTE,
+            "Next track, hold to fast-forward" to Usage.NEXT, "Previous track, hold to rewind" to Usage.PREV,
+            "Volume up" to Usage.VOL_UP, "Volume down" to Usage.VOL_DOWN, // slider end zones: one step per tap
+            "Brightness up" to Usage.BRIGHT_UP, "Brightness down" to Usage.BRIGHT_DOWN,
         )
         for ((label, usage) in cases) {
             t.clear()
@@ -37,17 +43,10 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
         }
     }
 
+    /** Design 5.5: brightness hold -> after 350 ms repeat at 8/s, 16/s after 1.2 s; release stops instantly. */
     @Test
-    fun escapeTapsEsc() {
-        t.clear()
-        c.desc("Escape").press()
-        assertEquals(listOf(Call.Tap("esc")), t.awaitAtLeast(1))
-    }
-
-    /** Design 5.5: hold -> after 350 ms repeat at 8/s, 16/s after 1.2 s; release stops instantly. */
-    @Test
-    fun volumeAndBrightnessRepeatAtDocumentedRates() {
-        for ((label, usage) in listOf("Volume up" to Usage.VOL_UP, "Volume down" to Usage.VOL_DOWN, "Brightness up" to Usage.BRIGHT_UP)) {
+    fun brightnessRepeatsAtDocumentedRates() {
+        for ((label, usage) in listOf("Brightness up" to Usage.BRIGHT_UP, "Brightness down" to Usage.BRIGHT_DOWN)) {
             c.mainClock.autoAdvance = false
             t.clear()
             fun presses() = t.settle(quietMs = 100).count { it == Call.Consumer(usage) }
@@ -73,15 +72,33 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
     }
 
     @Test
-    fun muteAndTrackButtonsNeverRepeat() {
-        for (label in listOf("Mute", "Play or pause", "Next track")) {
+    fun muteAndPlayNeverRepeat() {
+        for (label in listOf("Mute", "Play or pause")) {
             c.mainClock.autoAdvance = false
             t.clear()
             c.desc(label).performTouchInput { down(center) }
             c.mainClock.advanceTimeBy(2000, ignoreFrameDuration = true)
             c.desc(label).performTouchInput { up() }
             c.mainClock.autoAdvance = true
-            assertEquals(label, 1, t.awaitAtLeast(1).size)
+            assertEquals(label, listOf(Call.Consumer(usage(label))), t.awaitAtLeast(1))
+        }
+    }
+
+    private fun usage(label: String) = if (label == "Mute") Usage.MUTE else Usage.PLAY_PAUSE
+
+    /** Prev/next: tap skips; holding past 400 ms holds fast-forward / rewind down until lift, no skip. */
+    @Test
+    fun holdToSeekVersusTapToSkip() {
+        for ((label, seek) in listOf("Next track, hold to fast-forward" to Usage.FAST_FORWARD, "Previous track, hold to rewind" to Usage.REWIND)) {
+            t.clear()
+            val cap = c.desc(label)
+            cap.performTouchInput { down(center) }
+            // SeekHold measures real time; the timer runs on the Compose clock, which waitUntil advances
+            c.waitUntil(5_000) { t.calls.contains(Call.ConsumerHold(seek, true)) }
+            assertEquals("$label: seek held, no skip yet", listOf(Call.ConsumerHold(seek, true)), t.settle())
+            cap.performTouchInput { up() }
+            assertEquals("$label: lift releases the seek and never skips",
+                listOf(Call.ConsumerHold(seek, true), Call.ConsumerHold(seek, false)), t.awaitAtLeast(2))
         }
     }
 
@@ -119,7 +136,7 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
     }
 
     @Test
-    fun scrollChevronsSendOneNotch() {
+    fun scrollEndsSendOneNotch() {
         t.clear()
         c.desc("Scroll up one notch").press()
         assertEquals(listOf(Call.Scroll(-1, 0)), t.awaitAtLeast(1))
@@ -128,37 +145,58 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
         assertEquals(listOf(Call.Scroll(1, 0)), t.awaitAtLeast(1))
     }
 
-    /** Full deflection = band 4 = 30 notches/s; direction follows the thumb; release stops. */
-    @Test
-    fun scrollLeverScrollsProportionallyAndStopsOnRelease() {
-        val lever = c.desc("Scroll lever")
-        val thumbHalf = with(c.density) { 26.dp.toPx() }
-        for (sign in listOf(-1, 1)) {
-            c.mainClock.autoAdvance = false
-            t.clear()
-            lever.performTouchInput {
-                down(center)
-                moveTo(center + Offset(0f, sign * (height / 2f - thumbHalf + 4f)))
-            }
-            c.mainClock.advanceTimeBy(1000, ignoreFrameDuration = true)
-            lever.performTouchInput { up() }
-            val n = t.settle().size
-            c.mainClock.advanceTimeBy(1000, ignoreFrameDuration = true)
-            c.mainClock.autoAdvance = true
-            val r = t.settle()
-            assertEquals("release stops scrolling", n, r.size)
-            assertTrue("only wheel=$sign notches: $r", r.all { it == Call.Scroll(sign, 0) })
-            assertTrue("~30 notches/s at full deflection, got ${r.size}", r.size in 26..32)
-        }
-
-        // small deflection inside the 6 dp dead zone sends nothing
+    /** Holds [lever] at full deflection ([sign] -1 = up) for 1 s on the paused clock; returns the calls. */
+    private fun deflect(lever: String, sign: Int): List<Call> {
+        val node = c.desc(lever)
         c.mainClock.autoAdvance = false
         t.clear()
-        lever.performTouchInput { down(center); moveBy(Offset(0f, with(c.density) { 3.dp.toPx() })) }
+        node.performTouchInput { down(center); moveTo(center + Offset(0f, sign * height / 2f)) } // clamps to full travel
         c.mainClock.advanceTimeBy(1000, ignoreFrameDuration = true)
-        lever.performTouchInput { up() }
+        node.performTouchInput { up() }
+        val n = t.settle().size
+        c.mainClock.advanceTimeBy(1000, ignoreFrameDuration = true)
+        c.mainClock.autoAdvance = true
+        val r = t.settle()
+        assertEquals("$lever: release stops", n, r.size)
+        return r
+    }
+
+    /** SCROLL slider: full deflection = band 4 = 30 notches/s; direction follows the thumb. */
+    @Test
+    fun scrollSliderScrollsProportionally() {
+        for (sign in listOf(-1, 1)) {
+            val r = deflect("Scroll lever", sign)
+            assertTrue("only wheel=$sign: $r", r.all { it == Call.Scroll(sign, 0) })
+            assertTrue("~30 notches/s at full deflection, got ${r.size}", r.size in 26..32)
+        }
+        // inside the 6 dp dead zone nothing is sent
+        c.mainClock.autoAdvance = false
+        t.clear()
+        c.desc("Scroll lever").performTouchInput { down(center); moveBy(Offset(0f, with(c.density) { 3.dp.toPx() })) }
+        c.mainClock.advanceTimeBy(1000, ignoreFrameDuration = true)
+        c.desc("Scroll lever").performTouchInput { up() }
         c.mainClock.autoAdvance = true
         assertEquals(emptyList<Call>(), t.settle())
+    }
+
+    /** VOLUME slider: full deflection = band 4 = 12 steps/s; up = volume up. */
+    @Test
+    fun volumeSliderStepsProportionally() {
+        for ((sign, usage) in listOf(-1 to Usage.VOL_UP, 1 to Usage.VOL_DOWN)) {
+            val r = deflect("Volume lever", sign)
+            assertTrue("only $usage: $r", r.all { it == Call.Consumer(usage) })
+            assertTrue("~12 steps/s at full deflection, got ${r.size}", r.size in 10..14)
+        }
+    }
+
+    /** Defaults (rev 3+): only Spaces is a favourite; the rest of the strip is one "Add favourite" slot. */
+    @Test
+    fun defaultFavouritesAreSpacesAndAddSlot() {
+        c.desc("Spaces: slide to switch, tap for Mission Control").assertExists()
+        c.desc("Escape").assertDoesNotExist() // esc moved to Macros
+        c.desc("Lock").assertDoesNotExist()
+        c.onNode(hasText("Add favourite") and hasClickAction()).performClick()
+        c.awaitDesc("New macro") // jumps to Macros
     }
 
     @Test
@@ -166,7 +204,7 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
         rule.transport.linked.value = false
         rule.awaitLinkState()
         t.clear()
-        for (label in listOf("Play or pause", "Volume up", "Escape")) c.desc(label).press()
+        for (label in listOf("Play or pause", "Brightness up", "Mute", "Volume up")) c.desc(label).press()
         c.desc("Direction pad").press()
         assertEquals(emptyList<Call>(), t.settle())
     }

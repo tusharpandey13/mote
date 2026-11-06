@@ -95,7 +95,7 @@ class KeysTest(@Suppress("unused") private val name: String, caps: Caps) {
         Thread.sleep(350)
         c.desc("shift, off").performClick()
         c.awaitDesc("shift, armed")
-        c.onNode(hasText("+ next key")).assertExists()
+        c.onNode(hasText("next key")).assertExists()
         assertEquals(listOf(Call.SetMods(CMD, 0), Call.SetMods(CMD or SHIFT, 0)), t.awaitAtLeast(2))
         t.clear()
         c.desc("4").press()

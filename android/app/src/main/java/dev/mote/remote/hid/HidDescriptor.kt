@@ -109,6 +109,9 @@ object Consumer {
     const val PLAY_PAUSE = 0xCD
     const val NEXT = 0xB5
     const val PREV = 0xB6
+    /** Held for hold-to-seek. macOS maps them to NX_KEYTYPE_FAST / NX_KEYTYPE_REWIND. */
+    const val FAST_FORWARD = 0xB3
+    const val REWIND = 0xB4
     const val MUTE = 0xE2
     const val VOL_UP = 0xE9
     const val VOL_DOWN = 0xEA

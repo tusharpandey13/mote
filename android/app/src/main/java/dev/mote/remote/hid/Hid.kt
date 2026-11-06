@@ -298,6 +298,11 @@ object Hid {
         send(HidDescriptor.ID_CONSUMER, HidDescriptor.consumerReport(0))
     }
 
+    /** Holds a consumer usage down ([down] = true) until released with [down] = false (hold-to-seek). */
+    fun consumerHold(usage: Int, down: Boolean) = exec.execute {
+        send(HidDescriptor.ID_CONSUMER, HidDescriptor.consumerReport(if (down) usage else 0))
+    }
+
     /** Sticky modifiers are sent as real modifier-down so touchpad clicks become cmd-click etc. */
     fun setMods(m: Mods) {
         _mods.value = m

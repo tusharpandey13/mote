@@ -76,6 +76,9 @@ import kotlinx.coroutines.launch
 /** Whether a host is connected; controls that need it are dimmed and reject taps otherwise. */
 val LocalLinked = compositionLocalOf { false }
 
+/** Persisted Settings / Haptics choices (menu sheet). */
+val LocalSettings = compositionLocalOf { dev.mote.remote.data.UiSettings() }
+
 object T {
     val caps = TextStyle(fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp)
     val label = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
@@ -83,6 +86,7 @@ object T {
     val key = TextStyle(fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)
     val keyS = TextStyle(fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
     val title = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
+    val headline = TextStyle(fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
     val body = TextStyle(fontSize = 15.sp, lineHeight = 22.sp)
 }
 
@@ -109,6 +113,10 @@ fun Cap(
     onLongPress: (() -> Unit)? = null,
     onRelease: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
+    /** Called once per press with true on lift, false on cancel (after [onRelease]). */
+    onUp: ((lifted: Boolean) -> Unit)? = null,
+    /** Accessibility click when the visual gesture isn't a plain click (defaults to [onClick] or [onDown]). */
+    a11yClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val c = LocalMote.current
@@ -121,6 +129,8 @@ fun Cap(
     val click by rememberUpdatedState(onClick)
     val long by rememberUpdatedState(onLongPress)
     val release by rememberUpdatedState(onRelease)
+    val upCb by rememberUpdatedState(onUp)
+    val a11y by rememberUpdatedState(a11yClick)
     val en by rememberUpdatedState(enabled)
     val rep by rememberUpdatedState(repeat)
     val hap by rememberUpdatedState(haptic)
@@ -154,13 +164,14 @@ fun Cap(
                     job?.cancel()
                     pressed = false
                     release?.invoke()
+                    upCb?.invoke(up != null)
                     if (up != null && !longFired) click?.invoke()
                 }
             }
             .semantics {
                 role = Role.Button
                 description?.let { contentDescription = it }
-                onClick { (click ?: down)?.invoke(); true }
+                onClick { (a11y ?: click ?: down)?.invoke(); true }
             }
             .then(if (flat && depth == 0f) Modifier.clip(shape) else Modifier.raised(shape, down0, tone, depth))
             .then(if (fill > 0f) Modifier.drawBehind { drawRect(Brush.verticalGradient(listOf(c.modTop, c.modBot)), alpha = fill) } else Modifier),
@@ -201,16 +212,11 @@ fun Led(color: Color, pulse: Boolean) {
     }
 }
 
-/** "MOTE" debossed into the chassis: dark edge above, light highlight below. */
+/** "MOTE" debossed into the chassis (Unbounded Black 19sp, tracking 2.5): dark edge above, light below. */
 @Composable
 fun WordmarkText() {
     val c = LocalMote.current
-    val style = TextStyle(fontFamily = Wordmark, fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 3.sp)
-    Box {
-        Text("MOTE", style = style, color = if (c.dark) Color.Black.copy(alpha = 0.75f) else Color(0x5914202A), modifier = Modifier.offset(y = (-1).dp))
-        Text("MOTE", style = style, color = c.hi, modifier = Modifier.offset(y = 1.dp))
-        Text("MOTE", style = style, color = c.engrave)
-    }
+    EngravedText("MOTE", 19.sp, 2.5.sp, c.engrave)
 }
 
 enum class Mode(val label: String, val icon: String) {

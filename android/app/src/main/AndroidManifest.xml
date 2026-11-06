@@ -23,6 +23,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- WifiLock (low-latency mode) while a helper host is on screen -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Package visibility (API 30+): detect Tailscale and send its CONNECT_VPN broadcast / launch it. -->
+    <queries>
+        <package android:name="com.tailscale.ipn" />
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -35,6 +42,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>

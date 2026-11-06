@@ -34,6 +34,12 @@ class HostsTest {
         assertEquals("10.1.2.3", h.withAddress("10.1.2.3").lan)
         assertEquals("Mac", h.withAddress("Mac.local").local)
         assertEquals("nas.home.arpa", h.withAddress("nas.home.arpa").manual)
+        // A 100.x typed for a host that has a MagicDNS name keeps the name (stable) and adds the IP.
+        val named = h.withAddress("mac.tail.ts.net").withAddress("100.83.11.75")
+        assertEquals("mac.tail.ts.net", named.tailnet)
+        assertEquals("100.83.11.75", named.manual)
+        assertEquals(listOf("mac.tail.ts.net", "100.83.11.75"), named.candidates())
+        assertEquals(listOf(Route.TAILNET), named.routes)
     }
 
     @Test fun routeClassification() {

@@ -44,6 +44,8 @@ internal object MoteIcons {
             "lock" to lock, "bluetooth" to bluetooth, "laptop" to laptop, "backspace" to backspace, "ret" to ret,
             "camera" to camera, "search" to search, "spaces" to spaces, "power" to power, "edit" to edit, "trash" to trash,
             "theme" to theme, "apps" to apps, "hold" to hold, "desktop" to desktop, "refresh" to refresh,
+            "arrowUp" to arrowUp, "arrowDown" to arrowDown, "triUp" to triUp, "triDown" to triDown, "speaker" to speaker,
+            "escape" to escape, "windows" to windows, "gear" to gear, "haptic" to haptic, "info" to info, "devices" to devices,
         ) + extra
     }
     // Not in design/mote-v1/icons.js yet (transport badges). Same 24 grid, 1.75 stroke.
@@ -56,7 +58,7 @@ internal object MoteIcons {
         "pointer" to listOf(P("M12 3v4M12 17v4M3 12h4M17 12h4M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0z", false, true)),
     )
     /** Icons offered in the macro editor. */
-    val macroChoices = listOf("apps", "search", "lock", "camera", "power", "spaces", "star", "refresh")
+    val macroChoices = listOf("apps", "search", "lock", "camera", "power", "spaces", "windows", "escape", "star", "refresh")
 
     fun get(name: String): ImageVector = vectorOf(byName[name] ?: IconData.apps)
 }

@@ -60,7 +60,7 @@ class AccessibilityTest {
         c.desc("Clear modifiers").performClick()
 
         c.mode("Macros"); problems += audit("Macros")
-        c.onNodeWithText("EDIT").performClick(); problems += audit("Macros edit")
+        c.desc("Edit").performClick(); problems += audit("Macros edit")
         c.desc("New macro").performClick(); problems += audit("Macro editor")
         c.desc("⌘ cmd").performClick(); c.desc("★ Favourite").performClick() // selected (pressed-look) toggles
         problems += audit("Macro editor, toggles on")

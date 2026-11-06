@@ -1,9 +1,12 @@
 package dev.mote.remote.ui
 
+import dev.mote.remote.data.RightClick
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
+import dev.mote.remote.ui.theme.MIcon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,7 +45,6 @@ import dev.mote.remote.ui.theme.well
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.hypot
-import kotlin.math.pow
 
 /**
  * Touchpad: 1-finger move, tap = click, 2-finger tap = right click, 2-finger drag = scroll.
@@ -70,19 +72,20 @@ fun MouseScreen(banner: Boolean, onBannerDone: () -> Unit) {
         }
         Touchpad(Modifier.weight(1f).fillMaxWidth(), dragLock)
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth().height(64.dp).well(RoundedCornerShape(20.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth().height(60.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), description = "Left button",
                 onDown = { Remote.setButton(Hid.BUTTON_LEFT, true) }, onClick = { if (!dragLock) Remote.setButton(Hid.BUTTON_LEFT, false) }) {
-                Text("L", style = T.label, color = c.muted)
+                Text("Left", style = T.label, color = c.ink)
             }
-            Cap(Modifier.width(96.dp).fillMaxHeight(), RoundedCornerShape(16.dp), haptic = Haptic.HEAVY, forcePressed = dragLock,
+            Cap(Modifier.width(72.dp).fillMaxHeight().then(if (dragLock) Modifier.border(2.dp, c.accent, RoundedCornerShape(16.dp)) else Modifier),
+                RoundedCornerShape(16.dp), haptic = Haptic.HEAVY, forcePressed = dragLock,
                 tone = Tone.NORMAL, description = if (dragLock) "Drag lock on" else "Drag lock off",
                 onClick = { dragLock = !dragLock; Remote.setButton(Hid.BUTTON_LEFT, dragLock) }) {
-                Text("Drag lock", style = T.small, color = if (dragLock) c.accent else c.muted)
+                MIcon("lock", if (dragLock) c.accent else c.ink, size = 22.dp)
             }
             Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), description = "Right button",
                 onDown = { Remote.setButton(Hid.BUTTON_RIGHT, true) }, onClick = { Remote.setButton(Hid.BUTTON_RIGHT, false) }) {
-                Text("R", style = T.label, color = c.muted)
+                Text("Right", style = T.label, color = c.ink)
             }
         }
     }
@@ -93,6 +96,8 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
     val c = LocalMote.current
     val h = haptics()
     val linked by rememberUpdatedState(LocalLinked.current)
+    val settingsNow = rememberUpdatedState(LocalSettings.current)
+    val mapper = remember { PointerMapper() }
     val density = LocalDensity.current.density
     val scope = rememberCoroutineScope()
     var glow by remember { mutableStateOf<Offset?>(null) }
@@ -105,7 +110,6 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
             .semantics { contentDescription = "Touchpad" }
             .pointerInput(Unit) {
                 val tapSlop = 8 * density
-                val scrollStep = 20 * density
                 awaitPointerEventScope {
                     while (true) {
                         // one gesture: from first finger down until all fingers are up
@@ -119,6 +123,12 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
                         var scrollAccY = 0f
                         var scrollAccX = 0f
                         var scrolledPx = 0f
+                        val cfg = settingsNow.value
+                        mapper.speed = cfg.pointerSpeed
+                        mapper.reset()
+                        // base: one wheel notch per 20dp of two-finger travel, scaled by Scroll speed
+                        val scrollStep = 20 * density / cfg.scrollSpeed
+                        val wheelSign = if (cfg.naturalScroll) 1 else -1
                         glow = first.position
                         scope.launch { glowAlpha.snapTo(1f); glowAlpha.animateTo(0f, tween(160)) }
                         while (true) {
@@ -131,10 +141,10 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
                                 val d = ch.position - ch.previousPosition
                                 val dt = (ch.uptimeMillis - ch.previousUptimeMillis).coerceAtLeast(1)
                                 val dpx = d.x / density; val dpy = d.y / density
-                                val speed = hypot(dpx, dpy) / dt // dp per ms
-                                // gain 1.8x, quadratic above 600 dp/s
-                                val gain = 1.8f * if (speed > 0.6f) (speed / 0.6f).pow(2).coerceAtMost(4f) else 1f
-                                if (maxFingers == 1) Remote.move(dpx * gain, dpy * gain)
+                                if (maxFingers == 1) {
+                                    val (mx, my) = mapper.map(dpx, dpy, dt)
+                                    if (mx != 0 || my != 0) Remote.move(mx.toFloat(), my.toFloat())
+                                }
                                 travel += hypot(d.x, d.y)
                             } else {
                                 val avg = down.fold(Offset.Zero) { a, ch -> a + (ch.position - ch.previousPosition) } / down.size.toFloat()
@@ -144,7 +154,7 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
                                 val wy = (-scrollAccY / scrollStep).toInt()
                                 val wx = (scrollAccX / scrollStep).toInt()
                                 if (wy != 0 || wx != 0) {
-                                    Remote.scroll(wy, wx)
+                                    Remote.scroll(wy * wheelSign, wx * wheelSign)
                                     scrollAccY += wy * scrollStep; scrollAccX -= wx * scrollStep
                                     scrolledPx += abs(wy * scrollStep) + abs(wx * scrollStep)
                                     if (scrolledPx >= 48 * density) { h(Haptic.TICK); scrolledPx = 0f }
@@ -157,6 +167,8 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
                         if (travel < tapSlop && dur < 250) {
                             if (maxFingers >= 2) { h(Haptic.HEAVY); Remote.click(Hid.BUTTON_RIGHT) }
                             else if (!dragLock) { h(Haptic.CLICK); Remote.click(Hid.BUTTON_LEFT) }
+                        } else if (cfg.rightClick == RightClick.HOLD && maxFingers == 1 && travel < tapSlop && dur >= 500 && !dragLock) {
+                            h(Haptic.HEAVY); Remote.click(Hid.BUTTON_RIGHT) // Settings: right-click = Hold
                         }
                     }
                 }
@@ -167,7 +179,7 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
             var y = pitch
             while (y < size.height) {
                 var x = pitch
-                while (x < size.width) { drawCircle(c.dot, 1.dp.toPx(), Offset(x, y)); x += pitch }
+                while (x < size.width) { drawCircle(c.dot, 1.25.dp.toPx(), Offset(x, y)); x += pitch }
                 y += pitch
             }
             glow?.let { drawCircle(c.accent.copy(alpha = 0.25f * glowAlpha.value), 28.dp.toPx(), it) }
