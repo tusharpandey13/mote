@@ -19,6 +19,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 /** What stands between the user and a usable remote. Bluetooth is the only transport today. */
 enum class BtGate { UNSUPPORTED, NEEDS_PERMISSION, BT_OFF, READY }
@@ -52,6 +53,10 @@ object Bt {
     fun permitted(c: Context) = permissions.all { c.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
 
     fun snapshot(c: Context): BtEnv {
+        TestSeam.adapter?.value?.let { a ->
+            val ok = permitted(c)
+            return BtEnv(a.supported, ok, a.enabled, if (ok && a.enabled) a.hosts else emptyList())
+        }
         val a = c.getSystemService(BluetoothManager::class.java)?.adapter ?: return BtEnv(supported = false)
         val permitted = permitted(c)
         val enabled = a.isEnabled
@@ -81,7 +86,9 @@ object Bt {
         val resume = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) trySend(snapshot(c)) }
         lifecycle.addObserver(resume)
         trySend(snapshot(c))
+        val fake = TestSeam.adapter?.let { f -> launch { f.collect { trySend(snapshot(c)) } } }
         awaitClose {
+            fake?.cancel()
             c.unregisterReceiver(receiver)
             lifecycle.removeObserver(resume)
         }

@@ -91,6 +91,7 @@ object Hid {
 
     fun start(context: Context) = exec.execute {
         appContext = context.applicationContext
+        if (TestSeam.sink != null) return@execute // state is driven by the test
         if (proxy != null || _state.value.phase == Phase.REGISTERING) return@execute
         val a = context.getSystemService(BluetoothManager::class.java)?.adapter
         adapter = a
@@ -111,6 +112,7 @@ object Hid {
     }
 
     fun stop() {
+        if (TestSeam.sink != null) return
         reconnectJob?.cancel(); reconnectJob = null
         exec.execute {
             releaseAll()
@@ -229,6 +231,7 @@ object Hid {
     // ---- report pipe (HID thread only) ----
 
     private fun send(id: Int, data: ByteArray) {
+        TestSeam.sink?.let { it.send(id, data); return }
         val p = proxy ?: return
         val d = device ?: return
         runCatching { p.sendReport(d, id, data) }
@@ -335,6 +338,10 @@ object Hid {
     fun scroll(wheel: Int, pan: Int) = exec.execute {
         if (wheel != 0 || pan != 0) send(HidDescriptor.ID_MOUSE, HidDescriptor.mouseReport(buttons, 0, 0, wheel, pan))
     }
+
+    /** Test hook: sets the link state directly (with [TestSeam.sink] installed nothing else writes it). */
+    @androidx.annotation.VisibleForTesting
+    fun setStateForTest(s: HidState) { _state.value = s }
 
     const val BUTTON_LEFT = 1
     const val BUTTON_RIGHT = 2
