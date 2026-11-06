@@ -40,3 +40,6 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
 - HID can't be tested in an emulator; needs a real phone.
 - A browser can't be a Bluetooth peripheral; that's why the helper exists.
 - The helper is ad-hoc signed: each build needs Accessibility re-granted.
+
+## README screenshots
+`docs/assets/readme/*.png` are renders of the design artboards (hero = 3 phones). Regenerate after artboard changes: `cd e2e/web && npm ci && npx playwright install chromium`, `brew install pngquant`, then from the repo root `node tools/readme-shots/shots.mjs` (set `PLAYWRIGHT_DIR` to another dir with `node_modules/playwright` if needed). Keep each shot <= 150 KB and the hero <= 400 KB. Swap in real device screenshots once the app restyle lands.
