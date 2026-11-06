@@ -20,8 +20,8 @@ android {
         applicationId = "dev.mote.remote"
         minSdk = 28
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.1.3"
+        versionCode = 10
+        versionName = "0.2.0"
     }
 
     signingConfigs {
@@ -64,5 +64,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
     implementation(libs.datastore.preferences)
+    implementation(libs.okhttp)
     testImplementation(libs.junit)
+    testImplementation(libs.org.json) // the JVM test classpath has only stubs of android.jar's org.json
 }

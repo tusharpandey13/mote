@@ -155,29 +155,56 @@ final class RateLimiter {
 
 // MARK: - LAN-only check
 
-/// True for loopback, RFC 1918, CGNAT 100.64/10, link-local and IPv6 ULA / link-local.
-func isLocalAddress(_ host: NWEndpoint.Host) -> Bool {
+/// True for loopback, RFC 1918, link-local and IPv6 ULA / link-local. Tailscale's ranges
+/// (CGNAT 100.64/10 and fd7a:115c:a1e0::/48) count only when `tailnet` is on.
+func isLocalAddress(_ host: NWEndpoint.Host, tailnet: Bool) -> Bool {
     switch host {
-    case .ipv4(let a): return isLocalV4([UInt8](a.rawValue))
-    case .ipv6(let a):
-        if let v4 = a.asIPv4 { return isLocalV4([UInt8](v4.rawValue)) }
-        let b = [UInt8](a.rawValue)
-        if a.isLoopback { return true }
-        if b[0] == 0xfe && (b[1] & 0xc0) == 0x80 { return true }   // fe80::/10
-        if (b[0] & 0xfe) == 0xfc { return true }                     // fc00::/7
-        return false
+    case .ipv4(let a): return isLocalV4([UInt8](a.rawValue), tailnet: tailnet)
+    case .ipv6(let a): return isLocalV6(a, tailnet: tailnet)
     default: return false
     }
 }
 
-private func isLocalV4(_ b: [UInt8]) -> Bool {
+private func isLocalV6(_ a: IPv6Address, tailnet: Bool) -> Bool {
+    if let v4 = a.asIPv4 { return isLocalV4([UInt8](v4.rawValue), tailnet: tailnet) }
+    let b = [UInt8](a.rawValue)
+    if a.isLoopback { return true }
+    if b[0] == 0xfe && (b[1] & 0xc0) == 0x80 { return true }   // fe80::/10
+    if isTailnetV6(b) { return tailnet }                       // fd7a:115c:a1e0::/48
+    if (b[0] & 0xfe) == 0xfc { return true }                   // fc00::/7
+    return false
+}
+
+private func isTailnetV4(_ b: [UInt8]) -> Bool { b.count == 4 && b[0] == 100 && (64...127).contains(b[1]) }
+private func isTailnetV6(_ b: [UInt8]) -> Bool { b.starts(with: [0xfd, 0x7a, 0x11, 0x5c, 0xa1, 0xe0]) }
+
+private func isLocalV4(_ b: [UInt8], tailnet: Bool) -> Bool {
     guard b.count == 4 else { return false }
+    if isTailnetV4(b) { return tailnet }   // 100.64/10 (also carrier CGNAT, hence opt-in)
     switch (b[0], b[1]) {
     case (127, _), (10, _), (192, 168), (169, 254): return true
     case (172, 16...31): return true
-    case (100, 64...127): return true
     default: return false
     }
+}
+
+/// DNS-rebinding guard for the HTTP `Host` header: only names that point at this Mac.
+/// Always: `localhost`, `*.local`, IP literals. With `tailnet`: also `*.ts.net` MagicDNS names;
+/// without it, tailnet IP literals (100.64/10, fd7a:115c:a1e0::/48) are refused too.
+func hostHeaderAllowed(_ header: String, tailnet: Bool) -> Bool {
+    var h = header.lowercased()
+    if h.hasPrefix("[") {                                                  // IPv6 literal, optional :port
+        guard let end = h.firstIndex(of: "]") else { return false }
+        let lit = String(h[h.index(after: h.startIndex)..<end]).components(separatedBy: "%")[0]
+        guard let a = IPv6Address(lit) else { return false }
+        return tailnet || !isTailnetV6([UInt8](a.rawValue))
+    }
+    if let i = h.lastIndex(of: ":") { h = String(h[..<i]) }
+    if h.hasSuffix(".") { h.removeLast() }                                 // FQDN form "mac.local."
+    if h == "localhost" || h.hasSuffix(".local") { return true }
+    if h.hasSuffix(".ts.net") { return tailnet && h.count > ".ts.net".count }
+    guard let a = IPv4Address(h) else { return false }
+    return tailnet || !isTailnetV4([UInt8](a.rawValue))
 }
 
 // MARK: - helpers

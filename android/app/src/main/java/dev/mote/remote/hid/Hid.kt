@@ -84,6 +84,8 @@ object Hid {
     private var plugged: String? = null
     private var attempts = 0
     private var pausedUntil = 0L
+    /** A Mote Helper host is active ([deselect]); Bluetooth auto-connect is off until [select]. */
+    private var released = false
     private var reconnectJob: Job? = null
 
     // keyboard / mouse state, touched only on the HID thread
@@ -214,7 +216,7 @@ object Hid {
             scope.launch { Prefs.setSelectedHost(appContext, host.address) }
             if (p != null && cur != null && cur.address != host.address) runCatching { p.disconnect(cur) }
             // Explicit user tap: one connect even if unbonded (may start pairing once). Then normal policy.
-            attempts = 0; pausedUntil = 0L
+            attempts = 0; pausedUntil = 0L; released = false
             if (p != null && _state.value.phase == Phase.READY && _state.value.connected?.address != host.address) {
                 adapter?.getRemoteDevice(host.address)?.let { d -> attempts++; runCatching { p.connect(d) } }
             }
@@ -229,8 +231,19 @@ object Hid {
 
     fun disconnect() = exec.execute { device?.let { d -> runCatching { proxy?.disconnect(d) } } }
 
+    /**
+     * Another transport (Mote Helper) took over: forget the selection, drop the link, and don't
+     * auto-connect (not even to the plugged host) until the user picks a Bluetooth host again.
+     */
+    fun deselect() = exec.execute {
+        released = true
+        _state.update { it.copy(selected = null, unpaired = false) }
+        device?.let { d -> runCatching { proxy?.disconnect(d) } }
+        if (::appContext.isInitialized) scope.launch { Prefs.clearSelectedHost(appContext) }
+    }
 
     private fun tryReconnect() {
+        if (released) return
         val s = _state.value
         val p = proxy ?: return
         val bonded = runCatching { adapter?.bondedDevices.orEmpty().map { it.address }.toSet() }.getOrDefault(emptySet())

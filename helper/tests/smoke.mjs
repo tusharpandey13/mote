@@ -34,6 +34,18 @@ ok((await http('/')).includes('200'), 'GET / serves the web remote');
 ok((await http('/design/mote.css')).includes('200'), 'GET /design/mote.css');
 ok((await http('/../../etc/passwd')).includes('404'), 'path traversal refused');
 ok((await http('/', 'evil.example.com')).includes('421'), 'foreign Host refused (DNS rebinding)');
+
+// --- Host rules (v1.1). Tailnet names/literals depend on "Allow Tailscale connections":
+// MOTE_TAILNET=1 when the helper runs with --allow-tailscale, else off (the default).
+const tailnet = process.env.MOTE_TAILNET === '1';
+for (const [host, always] of [
+  [`Some-Mac.local:${port}`, true], [`some-mac.local.:${port}`, true], [`192.168.1.5:${port}`, true],
+  [`[fd00::1]:${port}`, true], ['ts.net', false], ['mac.ts.net.example.com', false],
+  [`mac.tail1234.ts.net:${port}`, null], [`100.101.102.103:${port}`, null], [`[fd7a:115c:a1e0::1]:${port}`, null],
+]) {
+  const want = always ?? tailnet;
+  ok((await http('/', host)).includes(want ? '200' : '421'), `Host ${host} ${want ? 'allowed' : 'refused'}${always === null ? ` (tailnet ${tailnet ? 'on' : 'off'})` : ''}`);
+}
 ok((await http('/ws', `127.0.0.1:${port}`, 'Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nOrigin: http://evil.example.com\r\n')).includes('403'), 'cross-origin WebSocket refused');
 
 let cred;
@@ -64,6 +76,9 @@ if (code !== '-') {
 // --- authenticated session: harmless dry-run input
 const b = await open();
 const hb = await b.next();
+ok(/^[0-9a-f]{16}$/.test(hb.hostId || ''), 'hello carries a 16-hex hostId');
+const hb2 = await (async () => { const x = await open(); const m = await x.next(); x.close(); return m; })();
+ok(hb2.hostId === hb.hostId && hb2.nonce !== hb.nonce, 'hostId is stable across connections, nonce is not');
 const replay = await b.req({ t: 'auth', id: cred.id, mac: mac(cred.token, 'not-the-nonce') });
 ok(replay.code === 'auth', 'MAC over a different nonce (replay) rejected');
 const au2 = await b.req({ t: 'auth', id: cred.id, mac: mac(cred.token, hb.nonce) });

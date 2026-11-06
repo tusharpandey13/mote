@@ -1,6 +1,12 @@
 package dev.mote.remote.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.offset
@@ -50,7 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mote.remote.data.Macro
 import dev.mote.remote.data.Step
-import dev.mote.remote.hid.Hid
+import dev.mote.remote.net.Remote
 import dev.mote.remote.hid.Key
 import dev.mote.remote.hid.Mod
 import dev.mote.remote.ui.theme.LocalMote
@@ -192,7 +198,7 @@ fun SpacesTile(modifier: Modifier, compact: Boolean) {
                         val dx = ch.position.x - anchor
                         if (abs(dx) >= step) {
                             val right = dx > 0
-                            Hid.tap(if (right) "right" else "left", Mod.CTRL)
+                            Remote.tap(if (right) "right" else "left", Mod.CTRL)
                             h(Haptic.TICK); dir = if (right) 1 else -1
                             anchor += if (right) step else -step
                         }
@@ -200,7 +206,7 @@ fun SpacesTile(modifier: Modifier, compact: Boolean) {
                         scope.launch { nudge.snapTo(follow) }
                         ch.consume()
                     }
-                    if (!moved) Hid.tap("up", Mod.CTRL)
+                    if (!moved) Remote.tap("up", Mod.CTRL)
                     pressed = false; dir = 0
                     scope.launch { nudge.animateTo(0f, Motion.spatialFast()) }
                 }
@@ -248,7 +254,12 @@ private fun Field(value: String, placeholder: String, onChange: (String) -> Unit
 private fun MacroEditor(initial: Macro, isNew: Boolean, onSave: (Macro) -> Unit, onDelete: (() -> Unit)?) {
     val c = LocalMote.current
     val chord0 = initial.steps.singleOrNull() as? Step.Chord
-    val chordEditable = initial.kind == Macro.Kind.STEPS && (initial.steps.isEmpty() || chord0 != null)
+    val click0 = initial.steps.singleOrNull() as? Step.ClickAt
+    val chordEditable = initial.kind == Macro.Kind.STEPS && (initial.steps.isEmpty() || chord0 != null || click0 != null)
+    val caps by Remote.caps.collectAsState()
+    var clickAction by remember { mutableStateOf(click0 != null) } // false = shortcut chord
+    var px by remember { mutableFloatStateOf(click0?.x ?: 0.5f) }
+    var py by remember { mutableFloatStateOf(click0?.y ?: 0.5f) }
     var name by remember { mutableStateOf(initial.name) }
     var icon by remember { mutableStateOf(initial.icon) }
     var mods by remember { mutableIntStateOf(chord0?.mods ?: 0) }
@@ -270,6 +281,20 @@ private fun MacroEditor(initial: Macro, isNew: Boolean, onSave: (Macro) -> Unit,
             }
         }
         if (chordEditable) {
+            SectionHead("Action")
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Toggle("Shortcut", !clickAction, Modifier.weight(1f)) { clickAction = false }
+                // Click-at-point needs absolute positioning: only Mote Helper hosts can do it.
+                Toggle("Click at point", clickAction, Modifier.weight(1f)) { if (caps.clickAt || clickAction) clickAction = true }
+            }
+            if (!caps.clickAt) Text("Click at point needs a Mac with Mote Helper (Wi-Fi or Tailscale). On Bluetooth hosts it is skipped.",
+                style = T.small, color = c.subtle)
+        }
+        if (chordEditable && clickAction) {
+            PointPicker(px, py) { x, y -> px = x; py = y }
+            Text("Tap or drag where to click on the main display: ${(px * 100).toInt()}% across, ${(py * 100).toInt()}% down.",
+                style = T.small, color = c.muted)
+        } else if (chordEditable) {
             SectionHead("Shortcut")
             Box(Modifier.fillMaxWidth().height(56.dp).well(RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
                 Text(if (key == null) Mod.glyphs(mods) + " + key" else Mod.glyphs(mods) + Key.label(key!!), style = T.title, color = c.ink)
@@ -292,15 +317,49 @@ private fun MacroEditor(initial: Macro, isNew: Boolean, onSave: (Macro) -> Unit,
             Toggle("★ Favourite", star, Modifier.weight(1f)) { star = !star }
             Toggle("Confirm before run", confirm, Modifier.weight(1f)) { confirm = !confirm }
         }
-        val valid = name.isNotBlank() && (!chordEditable || key != null)
+        val valid = name.isNotBlank() && (!chordEditable || clickAction || key != null)
         PrimaryButton(if (valid) "Save" else "Add a name and a key") {
             if (!valid) return@PrimaryButton
-            val steps = if (chordEditable) listOf(Step.Chord(mods, key!!)) else initial.steps
+            val steps = when {
+                !chordEditable -> initial.steps
+                clickAction -> listOf(Step.ClickAt(px, py))
+                else -> listOf(Step.Chord(mods, key!!))
+            }
             onSave(initial.copy(name = name.trim(), icon = icon, steps = steps, star = star, confirm = confirm))
         }
         if (onDelete != null && initial.kind == Macro.Kind.STEPS) {
             Text("Delete macro", style = T.label, color = c.danger, modifier = Modifier.clickable(onClick = onDelete).padding(8.dp))
         }
         Spacer(Modifier.width(1.dp))
+    }
+}
+
+/** A 16:10 stand-in for the Mac's main display; tap or drag to place the click point (normalised 0..1). */
+@Composable
+private fun PointPicker(x: Float, y: Float, onChange: (Float, Float) -> Unit) {
+    val c = LocalMote.current
+    val update by rememberUpdatedState(onChange)
+    Box(
+        Modifier.fillMaxWidth().aspectRatio(16f / 10f).well(RoundedCornerShape(14.dp))
+            .semantics { contentDescription = "Click point ${(x * 100).toInt()}% across, ${(y * 100).toInt()}% down" }
+            .pointerInput(Unit) {
+                fun set(p: Offset) = update((p.x / size.width).coerceIn(0f, 1f), (p.y / size.height).coerceIn(0f, 1f))
+                awaitEachGesture {
+                    val d = awaitFirstDown(); set(d.position)
+                    while (true) {
+                        val ch = awaitPointerEvent().changes.firstOrNull { it.id == d.id } ?: break
+                        if (!ch.pressed) break
+                        set(ch.position); ch.consume()
+                    }
+                }
+            },
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val p = Offset(x * size.width, y * size.height)
+            val r = 10.dp.toPx()
+            drawLine(c.accent, p.copy(x = p.x - r * 2), p.copy(x = p.x + r * 2), 1.5.dp.toPx())
+            drawLine(c.accent, p.copy(y = p.y - r * 2), p.copy(y = p.y + r * 2), 1.5.dp.toPx())
+            drawCircle(c.accent, r, p, style = Stroke(1.5.dp.toPx()))
+        }
     }
 }

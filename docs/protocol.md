@@ -1,11 +1,13 @@
-# Mote helper protocol, v1
+# Mote helper protocol, v1.1
 
 One JSON message protocol shared by both transports of the Mote Helper (macOS menu-bar app):
 
-- **Wi-Fi**: WebSocket at `ws://<host>:8790/ws` (same origin as the web remote served at `http://<host>:8790/`). One JSON message per text frame. Bonjour type `_mote._tcp`.
+- **Wi-Fi** (LAN, or a tailnet when allowed, see [Tailscale](#tailscale)): WebSocket at `ws://<host>:8790/ws` (same origin as the web remote served at `http://<host>:8790/`). One JSON message per text frame. Bonjour type `_mote._tcp`, TXT record `id=<hostId>`, `v=1`.
 - **BLE**: GATT service on the Mac (the helper is the peripheral, the phone is the central). Same JSON, fragmented (see [BLE framing](#ble-framing)).
 
-All messages are JSON objects with a type field `t`. Unknown fields are ignored. Unknown `t` gets an `err`. The protocol version is announced in `hello` (`"v": 1`); a peer that sees a different major version closes the connection.
+All messages are JSON objects with a type field `t`. Unknown fields are ignored. Unknown `t` gets an `err`. The protocol version is announced in `hello` (`"v": 1`); a peer that sees a different major version closes the connection. Minor versions only add optional fields, so `v` stays 1.
+
+Changes in 1.1 (backward compatible): `hello.hostId` and `hello.local`, Bonjour TXT record, extra fields in the pairing link (section 1.1), and the opt-in [Tailscale](#tailscale) access rules (section 4).
 
 ## 1. Handshake and auth
 
@@ -27,7 +29,7 @@ client                                   helper
 
 | Message | Direction | Fields |
 |---|---|---|
-| `hello` | helper -> client | `v` (1), `app` ("mote-helper"), `host` (Mac name), `nonce`, `pairing` (bool: pairing window open) |
+| `hello` | helper -> client | `v` (1), `app` ("mote-helper"), `host` (Mac name), `hostId` (v1.1: 16 hex chars, stable per Mac), `local` (v1.1: Bonjour host name, reachable as `<local>.local`), `nonce`, `pairing` (bool: pairing window open) |
 | `pair` | client -> helper | `code` ("123456"), `name` (device label, ≤ 64 chars) |
 | `paired` | helper -> client | `id` (device id, uuid), `token` (64 hex) |
 | `auth` | client -> helper | `id`, `mac` |
@@ -38,7 +40,19 @@ client                                   helper
 
 Error codes: `auth` (bad/unknown token), `code` (wrong pairing code), `pairing-closed`, `rate` (too many attempts, see `retryAfter`), `unauth` (input before auth), `paused`, `ax` (Accessibility not granted), `bad` (malformed), `unknown` (unknown `t`), `revoked`, `unsupported` (e.g. no way to set brightness).
 
-The client keeps `{id, token}` (web remote: `localStorage`, per origin). Reconnects use `auth` only; the token never crosses the wire again after `paired`.
+The client keeps `{id, token}` (web remote: `localStorage`, per origin; Android app: keyed by `hostId`, token in the Android Keystore). Reconnects use `auth` only; the token never crosses the wire again after `paired`.
+
+`hostId` is random per Mac, generated once and kept in the helper's preferences. It is an identifier, not a secret: it lets a client recognise the same Mac at a LAN IP, `<name>.local` and a tailnet address, and match a Bonjour result to a saved host before connecting. Clients must still authenticate; a matching `hostId` proves nothing.
+
+### 1.1 Pairing link (QR)
+
+The helper's pairing window shows the code and a QR of:
+
+```
+http://<lan-ip or name.local>:8790/#code=123456&id=<hostId>[&ts=<tailnet host>]
+```
+
+The web remote reads `code` from the fragment and ignores the rest. On Android it doesn't auto-submit the code; it offers "Open in the Mote app", a `mote://pair?h=<host:port>&code=…&id=…[&ts=…]` link (Android 12+ opens unverified `http` links only in the browser, so the app can't claim the `http` URL itself). The Android app accepts that link, or the pasted `http` link, and also reads `id` and `ts` (MagicDNS name such as `mac.tailnet.ts.net`, or the `100.x` IP; only present while Tailscale connections are allowed), so a phone paired on the LAN already knows the tailnet address.
 
 ## 2. Input messages (only after `authed`)
 
@@ -134,9 +148,18 @@ The helper turns network messages into keystrokes and clicks on the Mac, so an u
 | Tokens at rest on the Mac | Device tokens (the HMAC keys) and names are stored in the login Keychain (generic password, service `dev.mote.helper`), not in files. |
 | A lost or untrusted phone | Menu > "Revoke all devices" deletes all tokens and drops all sessions. |
 | "Something is typing on my Mac" | Menu > "Pause input" (kill switch) drops all input at once and cancels a running macro. The menu lists connected clients. |
-| Exposure beyond the LAN | The listener refuses cellular interfaces, and every connection whose remote address isn't loopback, RFC 1918, CGNAT 100.64/10, link-local or IPv6 ULA/link-local is closed before any byte is read. Nothing is forwarded or exposed via UPnP. |
-| A web page in the phone's (or Mac's) browser driving the helper (cross-site WebSocket hijacking, DNS rebinding) | The WebSocket upgrade needs an `Origin` equal to the page's own `http://<Host>` and a `Host` that is `<name>.local`, an IP literal or `localhost`. A foreign page has neither the token (stored per origin) nor the code. |
+| Exposure beyond the LAN | The listener refuses cellular interfaces, and every connection whose remote address isn't loopback, RFC 1918, link-local or IPv6 ULA/link-local is closed before any byte is read. Tailscale's ranges (100.64/10, which carriers also use for CGNAT, and `fd7a:115c:a1e0::/48`) are refused unless "Allow Tailscale connections" is on. Nothing is forwarded or exposed via UPnP. |
+| A web page in the phone's (or Mac's) browser driving the helper (cross-site WebSocket hijacking, DNS rebinding) | The WebSocket upgrade needs an `Origin` equal to the page's own `http://<Host>` (native clients send none) and a `Host` that is `<name>.local`, an IP literal or `localhost`; with Tailscale allowed, also `*.ts.net`. Tailnet IP literals in `Host` are refused while Tailscale is off. A foreign page has neither the token (stored per origin) nor the code. |
 | Resource exhaustion | ≤ 32 concurrent connections (8 per address), 10 s to send the HTTP request, 5 min to authenticate, 8 KiB HTTP headers, 64 KiB messages, macro limits above, static files only (no directory listing, no path traversal). |
+
+### Tailscale
+
+Menu > "Allow Tailscale connections" (persisted, default off; `--allow-tailscale` forces it on for one run). When on:
+
+- peers in 100.64/10 and `fd7a:115c:a1e0::/48` are accepted, and `Host` may be a MagicDNS name (`*.ts.net`) or a tailnet IP literal;
+- the menu shows `http://<tailnet host>:8790` when it can detect it (MagicDNS name from the Tailscale CLI, else the `utun` 100.x address), and the pairing link carries `ts=`.
+
+Turning it off drops connected tailnet peers. Bonjour doesn't cross a tailnet, so clients enter the address or learn it from the pairing link. Plain `ws` is acceptable here: tailnet traffic is WireGuard-encrypted end to end. Every device in the tailnet (including shared-in ones, under default ACLs) can reach the port, so app-level auth and pairing limits still apply; restrict port 8790 with Tailscale ACLs if the tailnet is shared.
 
 ### What it does not defend against (known limits)
 
@@ -152,7 +175,9 @@ The helper turns network messages into keystrokes and clicks on the Mac, so an u
 helper/build.sh                     # -> helper/build/MoteHelper.app, MoteHelper-macos-{arm64,x86_64}.zip + .sha256
 B=helper/build/MoteHelper.app/Contents/MacOS/MoteHelper
 $B --dry-run --headless --no-ble --memory-store --open-pairing --port 8791   # prints PAIRING CODE: nnnnnn
-node helper/tests/smoke.mjs 8791 <code>                                       # auth, guards, rate limit, dry-run input
+node helper/tests/smoke.mjs 8791 <code>                                       # auth, guards, Host rules, hostId, rate limit, dry-run input
+# Tailscale rules on: start the helper with --allow-tailscale, then
+MOTE_TAILNET=1 node helper/tests/smoke.mjs 8791 <code>
 ```
 
 Test-only flags: `--port 0` binds any free port (the log line `wifi: listening on :N` has the real one); `--stdin-control` (honoured only with `--dry-run`) reads `pair` (open a pairing window, print `PAIRING CODE: nnnnnn`), `revoke`, `pause`, `resume` from stdin, standing in for the menu in headless runs. `e2e/web/` uses both.

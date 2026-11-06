@@ -187,14 +187,22 @@
     return conn;
   }
 
+  // Pairing link fragment: code=123456[&id=<hostId>][&ts=<tailnet host>] (protocol 1.1).
+  // The same fields, plus this page's host, form a mote://pair link for the Android app.
+  var appLink = null;
   function autoPairCode() {
-    var m = /(?:^#|&)code=(\d{6})/.exec(location.hash || '');
-    if (m) history.replaceState(null, '', location.pathname + location.search);
+    var h = location.hash || '';
+    var m = /(?:^#|&)code=(\d{6})/.exec(h);
+    if (m) {
+      appLink = 'mote://pair?h=' + encodeURIComponent(location.host) + '&' + h.slice(1);
+      history.replaceState(null, '', location.pathname + location.search);
+    }
     return m ? m[1] : null;
   }
 
   window.Mote = {
     env: env, connect: connect, autoPairCode: autoPairCode,
+    appLink: function () { return appLink; },
     forget: function (kind) { localStorage.removeItem(credKey(kind)); },
     _hmac: function (keyHex, msg) { return hmac(hexToBytes(keyHex), enc.encode(msg)); }
   };

@@ -36,6 +36,20 @@ test.describe('pairing and auth', () => {
     expect(page.url()).not.toContain('code='); // the code is scrubbed from the URL
   });
 
+  test('helper 1.1 QR link on Android -> offers the Mote app and keeps the code unspent', async ({ page, remote, helper }) => {
+    const code = await helper.openPairing();
+    const from = helper.mark();
+    await remote.open(`#code=${code}&id=0123456789abcdef&ts=mac.tail1234.ts.net`);
+    const app = page.locator('#p-app');
+    await expect(app).toBeVisible();
+    const href = await app.getAttribute('href');
+    expect(href).toMatch(/^mote:\/\/pair\?h=127\.0\.0\.1%3A\d+&code=\d{6}&id=0123456789abcdef&ts=mac\.tail1234\.ts\.net$/);
+    await expect(page.locator('#p-code')).toHaveValue(code); // prefilled, not submitted
+    await page.locator('#p-go').tap(); // the browser can still pair on request
+    await expect(page.locator('#rail')).toBeVisible();
+    await helper.waitFor(/paired Chrome on Android/, { from });
+  });
+
   test('reload -> automatic re-auth with the stored token', async ({ page, remote, helper }) => {
     await remote.openPaired();
     const from = helper.mark();

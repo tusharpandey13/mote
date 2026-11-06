@@ -43,7 +43,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.mote.remote.data.Macro
 import dev.mote.remote.hid.Consumer
-import dev.mote.remote.hid.Hid
+import dev.mote.remote.net.Remote
 import dev.mote.remote.ui.theme.LocalMote
 import dev.mote.remote.ui.theme.MIcon
 import dev.mote.remote.ui.theme.Tone
@@ -73,7 +73,7 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Box(Modifier.width(56.dp).height(dpad), contentAlignment = Alignment.BottomStart) {
-                    Cap(Modifier.size(52.dp, 40.dp), RoundedCornerShape(13.dp), haptic = Haptic.TICK, description = "Escape", onDown = { Hid.tap("esc") }) {
+                    Cap(Modifier.size(52.dp, 40.dp), RoundedCornerShape(13.dp), haptic = Haptic.TICK, description = "Escape", onDown = { Remote.tap("esc") }) {
                         Text("esc", style = T.keyS, color = c.muted)
                     }
                 }
@@ -83,31 +83,31 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
             Spacer(Modifier.weight(1f))
             Pair(Modifier.height(60.dp)) {
                 Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(14.dp), haptic = Haptic.TICK, description = "Brightness down",
-                    repeat = Repeat(), onDown = { Hid.consumer(Consumer.BRIGHTNESS_DOWN) }) { MIcon("sunDown", c.ink) }
+                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_DOWN) }) { MIcon("sunDown", c.ink) }
                 Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(14.dp), haptic = Haptic.TICK, description = "Brightness up",
-                    repeat = Repeat(), onDown = { Hid.consumer(Consumer.BRIGHTNESS_UP) }) { MIcon("sunUp", c.ink) }
+                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_UP) }) { MIcon("sunUp", c.ink) }
             }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Cap(Modifier.size(64.dp), RoundedCornerShape(20.dp), description = "Previous track", onClick = { Hid.consumer(Consumer.PREV) }) {
+                Cap(Modifier.size(64.dp), RoundedCornerShape(20.dp), description = "Previous track", onClick = { Remote.consumer(Consumer.PREV) }) {
                     MIcon("prev", c.ink, size = 28.dp)
                 }
                 Box(Modifier.size(172.dp, 100.dp).well(RoundedCornerShape(30.dp)), contentAlignment = Alignment.Center) {
                     Cap(Modifier.size(156.dp, 84.dp), RoundedCornerShape(22.dp), tone = Tone.PRIMARY, description = "Play or pause",
-                        onClick = { Hid.consumer(Consumer.PLAY_PAUSE) }) { MIcon("playPause", c.onPrim, size = 32.dp) }
+                        onClick = { Remote.consumer(Consumer.PLAY_PAUSE) }) { MIcon("playPause", c.onPrim, size = 32.dp) }
                 }
-                Cap(Modifier.size(64.dp), RoundedCornerShape(20.dp), description = "Next track", onClick = { Hid.consumer(Consumer.NEXT) }) {
+                Cap(Modifier.size(64.dp), RoundedCornerShape(20.dp), description = "Next track", onClick = { Remote.consumer(Consumer.NEXT) }) {
                     MIcon("next", c.ink, size = 28.dp)
                 }
             }
             Spacer(Modifier.height(16.dp))
             Pair(Modifier.height(72.dp)) {
                 Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), haptic = Haptic.TICK, description = "Volume down",
-                    repeat = Repeat(), onDown = { Hid.consumer(Consumer.VOL_DOWN) }) { MIcon("volDown", c.ink, size = 28.dp) }
+                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.VOL_DOWN) }) { MIcon("volDown", c.ink, size = 28.dp) }
                 Cap(Modifier.width(76.dp).fillMaxHeight(), RoundedCornerShape(16.dp), description = "Mute",
-                    onClick = { Hid.consumer(Consumer.MUTE) }) { MIcon("mute", c.ink) }
+                    onClick = { Remote.consumer(Consumer.MUTE) }) { MIcon("mute", c.ink) }
                 Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), haptic = Haptic.TICK, description = "Volume up",
-                    repeat = Repeat(), onDown = { Hid.consumer(Consumer.VOL_UP) }) { MIcon("volUp", c.ink, size = 28.dp) }
+                    repeat = Repeat(), onDown = { Remote.consumer(Consumer.VOL_UP) }) { MIcon("volUp", c.ink, size = 28.dp) }
             }
         }
     }
@@ -177,14 +177,14 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
                     var longFired = false
                     if (arm == Arm.CENTER) {
                         h(Haptic.CLICK)
-                        job = scope.launch { delay(500); longFired = true; h(Haptic.HEAVY); Hid.tap("space") }
+                        job = scope.launch { delay(500); longFired = true; h(Haptic.HEAVY); Remote.tap("space") }
                     } else {
                         h(Haptic.TICK)
-                        Hid.keyDown(arm.key) // macOS applies its own key repeat while held
+                        Remote.keyDown(arm.key) // macOS applies its own key repeat while held
                     }
                     val up = waitForUpOrCancellation()
                     job?.cancel()
-                    if (arm == Arm.CENTER) { if (up != null && !longFired) Hid.tap("return") } else Hid.keyUp(arm.key)
+                    if (arm == Arm.CENTER) { if (up != null && !longFired) Remote.tap("return") } else Remote.keyUp(arm.key)
                     pressed = null
                 }
             },
@@ -236,7 +236,7 @@ private fun ScrollLever(modifier: Modifier) {
     val rates = intArrayOf(0, 4, 8, 16, 30)
     Column(modifier.well(RoundedCornerShape(18.dp)).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.fillMaxWidth().height(36.dp).semantics { contentDescription = "Scroll up one notch" }.pointerInput(Unit) {
-            awaitEachGesture { awaitFirstDown(); if (waitForUpOrCancellation() != null) { if (linked) { h(Haptic.TICK); Hid.scroll(-1, 0) } else h(Haptic.REJECT) } }
+            awaitEachGesture { awaitFirstDown(); if (waitForUpOrCancellation() != null) { if (linked) { h(Haptic.TICK); Remote.scroll(-1, 0) } else h(Haptic.REJECT) } }
         }, contentAlignment = Alignment.Center) { MIcon("chevUp", c.muted, size = 20.dp) }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val travelPx = with(androidx.compose.ui.platform.LocalDensity.current) { ((maxHeight - 52.dp) / 2).toPx().coerceAtLeast(1f) }
@@ -258,7 +258,7 @@ private fun ScrollLever(modifier: Modifier) {
                                     val nb = if (mag <= 0f) 0 else (1 + (mag / (travelPx - deadPx) * 4).toInt()).coerceAtMost(4)
                                     if (nb != band) { band = nb; h(Haptic.TICK) }
                                     if (band == 0) { delay(16); continue }
-                                    Hid.scroll(if (disp < 0) -1 else 1, 0)
+                                    Remote.scroll(if (disp < 0) -1 else 1, 0)
                                     delay(1000L / rates[band])
                                 }
                             }
@@ -286,7 +286,7 @@ private fun ScrollLever(modifier: Modifier) {
             ) { repeat(3) { Box(Modifier.size(18.dp, 2.dp).well(RoundedCornerShape(1.dp))) } }
         }
         Box(Modifier.fillMaxWidth().height(36.dp).semantics { contentDescription = "Scroll down one notch" }.pointerInput(Unit) {
-            awaitEachGesture { awaitFirstDown(); if (waitForUpOrCancellation() != null) { if (linked) { h(Haptic.TICK); Hid.scroll(1, 0) } else h(Haptic.REJECT) } }
+            awaitEachGesture { awaitFirstDown(); if (waitForUpOrCancellation() != null) { if (linked) { h(Haptic.TICK); Remote.scroll(1, 0) } else h(Haptic.REJECT) } }
         }, contentAlignment = Alignment.Center) { MIcon("chevDown", c.muted, size = 20.dp) }
     }
 }
