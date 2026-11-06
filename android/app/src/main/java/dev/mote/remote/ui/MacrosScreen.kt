@@ -239,7 +239,8 @@ private fun Field(value: String, placeholder: String, onChange: (String) -> Unit
     val c = LocalMote.current
     Box(Modifier.fillMaxWidth().height(52.dp).well(RoundedCornerShape(14.dp)).padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
         if (value.isEmpty()) Text(placeholder, style = T.body, color = c.subtle)
-        BasicTextField(value, onChange, singleLine = true, textStyle = T.body.copy(color = c.ink), cursorBrush = SolidColor(c.accent), modifier = Modifier.fillMaxWidth())
+        BasicTextField(value, onChange, singleLine = true, textStyle = T.body.copy(color = c.ink), cursorBrush = SolidColor(c.accent),
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = placeholder })
     }
 }
 

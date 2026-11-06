@@ -128,8 +128,7 @@ fun Cap(
     val depth by animateFloatAsState(if (down0) 1f else 0f, Motion.press, label = "press")
     Box(
         modifier
-            .then(if (flat && depth == 0f) Modifier.clip(shape) else Modifier.raised(shape, down0, tone, depth))
-            .then(if (fill > 0f) Modifier.drawBehind { drawRect(Brush.verticalGradient(listOf(c.modTop, c.modBot)), alpha = fill) } else Modifier)
+            // input and semantics sit outside the press transform (scale 0.96), so the hit area stays full size
             .pointerInput(Unit) {
                 awaitEachGesture {
                     awaitFirstDown()
@@ -162,7 +161,9 @@ fun Cap(
                 role = Role.Button
                 description?.let { contentDescription = it }
                 onClick { (click ?: down)?.invoke(); true }
-            },
+            }
+            .then(if (flat && depth == 0f) Modifier.clip(shape) else Modifier.raised(shape, down0, tone, depth))
+            .then(if (fill > 0f) Modifier.drawBehind { drawRect(Brush.verticalGradient(listOf(c.modTop, c.modBot)), alpha = fill) } else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.alpha(if (enabled) 1f else 0.38f), contentAlignment = Alignment.Center) { content() }

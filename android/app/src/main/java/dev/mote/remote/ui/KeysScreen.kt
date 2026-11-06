@@ -39,6 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.Key
@@ -147,7 +149,7 @@ private fun TypeRow() {
             BasicTextField(
                 text, { text = it }, singleLine = true, textStyle = T.body.copy(color = c.ink), cursorBrush = SolidColor(c.accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { send() }),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Text to send" },
             )
         }
         Cap(Modifier.width(72.dp).fillMaxHeight(), RoundedCornerShape(12.dp), description = "Send text", onClick = send) {
