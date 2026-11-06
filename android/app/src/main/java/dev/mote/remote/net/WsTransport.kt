@@ -55,6 +55,10 @@ class WsTransport(
     private val _mods = MutableStateFlow(Hid.Mods())
     override val mods: StateFlow<Hid.Mods> = _mods.asStateFlow()
 
+    private val _spaces = MutableStateFlow<SpacesState?>(null)
+    /** Spaces state with thumbnails; null until the helper answers `spaces.sub` (pre-1.3 helpers never do). */
+    override val spaces: StateFlow<SpacesState?> = _spaces.asStateFlow()
+
     @Volatile private var session: WsSession? = null
     private var loop: Job? = null
     private val wake = Channel<Unit>(Channel.CONFLATED)
@@ -72,6 +76,7 @@ class WsTransport(
         loop?.cancel(); loop = null
         session?.close(); session = null
         repeats.values.forEach { it.cancel() }; repeats.clear()
+        _spaces.value = null
         _status.value = WsStatus.Idle
     }
 
@@ -102,8 +107,12 @@ class WsTransport(
                     backoff = MIN_BACKOFF
                     _status.value = WsStatus.Ready(s.address, a.paused, a.ax)
                     onReady(s.address, s.hello)
+                    s.send(Proto.spacesSub())
                     for (m in s.inbox) when (m) {
                         is Msg.State -> _status.value = WsStatus.Ready(s.address, m.paused, m.ax)
+                        is Msg.Spaces -> onSpaces(s, m)
+                        is Msg.SpacesThumb -> onThumb(m)
+                        // `spaces*` errors (old helper: `unknown`; `notfound`, `unsupported`) leave the link up.
                         is Msg.Err -> if (m.code == "revoked") throw HelperError(m.code, m.msg)
                         else -> Unit
                     }
@@ -118,6 +127,7 @@ class WsTransport(
                     // socket dropped: fall through to backoff
                 } finally {
                     session = null
+                    _spaces.value = null // thumbnail versions are only meaningful within one helper run
                     s.close()
                 }
             }
@@ -125,6 +135,30 @@ class WsTransport(
             withTimeoutOrNull(backoff + Random.nextLong(backoff / 4 + 1)) { wake.receive() }
             backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF)
         }
+    }
+
+    /** Thumbnail version last requested per desktop, so repeated `spaces` don't re-request. Run loop only. */
+    private val requested = HashMap<Int, Int>()
+
+    /**
+     * New `spaces` state: fetch every thumbnail whose version differs from the cached one. A stale
+     * thumbnail stays visible until its replacement arrives; desktops past [Msg.Spaces.count] are dropped.
+     */
+    private fun onSpaces(s: WsSession, m: Msg.Spaces) {
+        if (_spaces.value == null) requested.clear() // new session
+        val kept = _spaces.value?.thumbs.orEmpty().filterKeys { it <= m.count }
+        m.thumbs.forEachIndexed { k, v ->
+            val i = k + 1
+            if (v > 0 && kept[i]?.version != v && requested[i] != v) { requested[i] = v; s.send(Proto.spacesThumb(i)) }
+        }
+        _spaces.value = SpacesState(m.count, m.current, m.capture, m.thumbs, kept)
+    }
+
+    /** Stores a thumbnail if it is still the latest version for its desktop. */
+    private fun onThumb(m: Msg.SpacesThumb) {
+        val st = _spaces.value ?: return
+        if (st.versions.getOrNull(m.i - 1) != m.v) return
+        _spaces.value = st.copy(thumbs = st.thumbs + (m.i to SpaceThumb(m.i, m.v, m.jpeg)))
     }
 
     /** Pre-1.1 helpers send no hostId (saved as "addr:…"), so only a present, different id is a mismatch. */
@@ -218,6 +252,9 @@ class WsTransport(
     }
 
     override fun clickAt(x: Float, y: Float): Boolean { sendNow(Proto.clickAt(x.toDouble(), y.toDouble())); return true }
+
+    /** `spaces.goto`; the helper picks ⌃N or ⌃← / ⌃→ steps and the next `spaces` confirms the switch. */
+    override fun spacesGoto(index: Int) = sendNow(Proto.spacesGoto(index))
 
     companion object {
         const val FRAME_MS = 16L

@@ -16,6 +16,16 @@ sealed interface Msg {
     data class Err(val code: String, val msg: String, val retryAfter: Int? = null, val ref: String? = null) : Msg
     data class Pong(val n: Int) : Msg
     data class Other(val t: String) : Msg
+
+    /**
+     * `spaces` (protocol 1.3): [count] desktops on the main display (0 = unknown, clamped to 0..16),
+     * 1-based [current] (0 = unknown / full-screen Space), [thumbs] = thumbnail version per desktop
+     * (exactly [count] entries, 0 = none yet), [capture] = `on` / `off` / `denied` / `unavailable`.
+     */
+    data class Spaces(val count: Int, val current: Int, val thumbs: List<Int>, val capture: String) : Msg
+
+    /** `spaces.thumb` reply: JPEG thumbnail [jpeg] (decoded from base64) of desktop [i] at version [v]. */
+    class SpacesThumb(val i: Int, val v: Int, val w: Int, val h: Int, val jpeg: ByteArray) : Msg
 }
 
 /** Pure codec for the Mote helper protocol v1.x: JSON text frames and the HMAC challenge. */
@@ -65,6 +75,15 @@ object Proto {
         return out
     }
 
+    /** `spaces.sub` (protocol 1.3): [on] = true subscribes to `spaces` updates, false stops them. */
+    fun spacesSub(on: Boolean = true): String = obj("spaces.sub").put("on", on).toString()
+    /** `spaces.thumb` request for the 1-based desktop [i]. */
+    fun spacesThumb(i: Int): String = obj("spaces.thumb").put("i", i).toString()
+    /** `spaces.goto`: switch the Mac to the 1-based desktop [i]. */
+    fun spacesGoto(i: Int): String = obj("spaces.goto").put("i", i).toString()
+
+    const val SPACES_MAX = 16
+
     /** HID consumer usage (what the BT path sends) to the protocol's consumer key. */
     fun consumerKey(usage: Int): String? = when (usage) {
         Consumer.PLAY_PAUSE -> "play"
@@ -102,6 +121,20 @@ object Proto {
                 if (o.has("retryAfter")) o.optInt("retryAfter") else null, o.optString("ref").ifEmpty { null },
             )
             "pong" -> Msg.Pong(o.optInt("n"))
+            "spaces" -> {
+                val count = o.optInt("count").coerceIn(0, SPACES_MAX)
+                val a = o.optJSONArray("thumbs")
+                Msg.Spaces(
+                    count, o.optInt("current").coerceIn(0, count),
+                    List(count) { i -> (a?.optInt(i) ?: 0).coerceAtLeast(0) }, o.optString("capture", "unavailable"),
+                )
+            }
+            "spaces.thumb" -> {
+                val i = o.getInt("i")
+                val jpeg = java.util.Base64.getDecoder().decode(o.getString("data"))
+                if (i !in 1..SPACES_MAX || jpeg.isEmpty()) null
+                else Msg.SpacesThumb(i, o.optInt("v"), o.optInt("w"), o.optInt("h"), jpeg)
+            }
             else -> Msg.Other(t)
         }
     }.getOrNull()

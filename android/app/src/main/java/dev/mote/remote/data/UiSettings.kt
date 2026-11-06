@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -27,10 +28,16 @@ data class UiSettings(
     val hapticKeys: Boolean = true,
     val hapticDetents: Boolean = true,
     val hapticLink: Boolean = true,
+    /** Desktops on the Mac, for Spaces navigation over Bluetooth (the helper reports its own count). 1..16. */
+    val desktopCount: Int = 4,
+    /** "Switch to Desktop N" (⌃1-⌃9) is enabled on the Mac: Bluetooth goto jumps instead of stepping. */
+    val ctrlNumberShortcuts: Boolean = false,
 ) {
     companion object {
         const val SPEED_MIN = 0.25f
         const val SPEED_MAX = 2f
+        const val DESKTOPS_MIN = 1
+        const val DESKTOPS_MAX = 16
     }
 }
 
@@ -48,8 +55,12 @@ object UiPrefs {
     private val H_KEYS = booleanPreferencesKey("haptic_keys")
     private val H_DETENTS = booleanPreferencesKey("haptic_detents")
     private val H_LINK = booleanPreferencesKey("haptic_link")
+    private val DESKTOPS = intPreferencesKey("desktop_count")
+    private val CTRL_N = booleanPreferencesKey("ctrl_number_shortcuts")
 
     private fun clampSpeed(v: Float?) = (v ?: 1f).coerceIn(UiSettings.SPEED_MIN, UiSettings.SPEED_MAX)
+
+    private fun clampDesktops(v: Int?) = (v ?: 4).coerceIn(UiSettings.DESKTOPS_MIN, UiSettings.DESKTOPS_MAX)
 
     private fun read(p: Preferences) = UiSettings(
         pointerSpeed = clampSpeed(p[POINTER]),
@@ -64,6 +75,8 @@ object UiPrefs {
         hapticKeys = p[H_KEYS] ?: true,
         hapticDetents = p[H_DETENTS] ?: true,
         hapticLink = p[H_LINK] ?: true,
+        desktopCount = clampDesktops(p[DESKTOPS]),
+        ctrlNumberShortcuts = p[CTRL_N] ?: false,
     )
 
     fun flow(c: Context): Flow<UiSettings> = c.store.data.map(::read)
@@ -76,6 +89,7 @@ object UiPrefs {
             it[SCREEN_ON] = s.keepScreenOn; it[DIM] = s.extraDim
             it[H_STRENGTH] = s.hapticStrength.name; it[H_KEYS] = s.hapticKeys
             it[H_DETENTS] = s.hapticDetents; it[H_LINK] = s.hapticLink
+            it[DESKTOPS] = clampDesktops(s.desktopCount); it[CTRL_N] = s.ctrlNumberShortcuts
         }
     }
 }

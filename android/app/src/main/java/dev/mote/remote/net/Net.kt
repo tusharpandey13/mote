@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.mote.remote.data.UiPrefs
 import dev.mote.remote.hid.Hid
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +51,8 @@ object Net {
     val http by lazy { helperHttpClient() }
     private lateinit var app: Context
 
-    val bt: Transport = BtHidTransport(scope)
+    private val btHid = BtHidTransport(scope)
+    val bt: Transport = btHid
     private val _active = MutableStateFlow(bt)
     val active: StateFlow<Transport> = _active.asStateFlow()
 
@@ -91,6 +93,7 @@ object Net {
             _wifiChosen.value = p[WIFI_CHOSEN] ?: false
             Selection.decode(p[SELECTION])?.let { apply(it) }
         }
+        scope.launch { UiPrefs.flow(app).collect { btHid.settings = it } } // Spaces navigation over Bluetooth
         // Wi-Fi power save delayed 3 of 12 sparse taps by 140-530 ms (Nothing Phone 2, Android 16);
         // hold a low-latency Wi-Fi lock only while a helper host is active and the app is on screen.
         scope.launch {
