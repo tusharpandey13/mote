@@ -136,7 +136,8 @@ final class Session {
     }
 
     func send(_ m: [String: Any]) {
-        guard !closed, let d = try? JSONSerialization.data(withJSONObject: m) else { return }
+        // isValidJSONObject first: writing NaN/inf raises an ObjC exception that `try?` can't catch.
+        guard !closed, JSONSerialization.isValidJSONObject(m), let d = try? JSONSerialization.data(withJSONObject: m) else { return }
         sendRaw(d)
     }
 
@@ -172,7 +173,10 @@ final class Session {
         guard data.count <= 65536, let m = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let t = m["t"] as? String else { err("bad", "malformed message"); return }
         switch t {
-        case "ping": send(["t": "pong", "n": m["n"] ?? 0])
+        case "ping":
+            // Echo `n` only if it can be written back (e.g. -1e400 parses to -inf).
+            let n = m["n"] ?? 0
+            send(["t": "pong", "n": JSONSerialization.isValidJSONObject([n]) ? n : 0])
         case "pong": break
         case "pair": pair(m)
         case "auth": auth(m)
