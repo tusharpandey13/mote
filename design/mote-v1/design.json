@@ -2,19 +2,103 @@
   "version": 1,
   "title": "mote v1",
   "kind": "prototype",
-  "description": "mote, an Android Bluetooth-HID remote for any BT host (Mac first). Revision 1: Graphite dark / Putty light palettes, skeuomorphic raised caps and recessed wells, sans-only type. Tokens in mote.css; rules in docs/design/design-language.md (Revision 1 decisions).",
+  "description": "Mote, an Android Bluetooth-HID remote for any BT host (Mac first). Revision 2: light (silver aluminium) is the default theme, with dark (titanium) as a variant. One material family: soft-touch caps, recessed wells, dark-anodised primary cap with LED legend, noise texture. Tokens in mote.css; rules in docs/design/design-language.md.",
   "artboards": [
-    { "id": "media", "title": "1 Media (dark)", "file": "media.html", "width": 412, "height": 915, "group": "media" },
-    { "id": "media-light", "title": "1 Media (light)", "file": "media-light.html", "width": 412, "height": 915, "group": "media" },
-    { "id": "menu-sheet", "title": "1 Menu sheet", "file": "menu-sheet.html", "width": 412, "height": 915, "group": "media" },
-    { "id": "pad", "title": "2 Mouse", "file": "pad.html", "width": 412, "height": 915, "group": "pad" },
-    { "id": "pad-landscape", "title": "2 Mouse (landscape, drag lock on)", "file": "pad-landscape.html", "width": 915, "height": 412, "group": "pad" },
-    { "id": "keys", "title": "3 Keys (cmd armed, shift locked)", "file": "keys.html", "width": 412, "height": 915, "group": "keys" },
-    { "id": "macros", "title": "4 Macros grid", "file": "macros.html", "width": 412, "height": 915, "group": "macros" },
-    { "id": "macro-editor", "title": "4 Macro editor (Click at point)", "file": "macro-editor.html", "width": 412, "height": 915, "group": "macros" },
-    { "id": "macro-running", "title": "4 Macro running (Screenshot area)", "file": "macro-running.html", "width": 412, "height": 915, "group": "macros" },
-    { "id": "disconnected", "title": "5 Disconnected (auto-search)", "file": "disconnected.html", "width": 412, "height": 915, "group": "connection" },
-    { "id": "device-picker", "title": "5 Device picker", "file": "device-picker.html", "width": 412, "height": 915, "group": "connection" },
-    { "id": "pairing", "title": "5 Pairing", "file": "pairing.html", "width": 412, "height": 915, "group": "connection" }
+    {
+      "id": "media-light",
+      "title": "1 Media (light, default)",
+      "file": "media-light.html",
+      "width": 412,
+      "height": 915,
+      "group": "media"
+    },
+    {
+      "id": "media",
+      "title": "1 Media (dark variant)",
+      "file": "media.html",
+      "width": 412,
+      "height": 915,
+      "group": "media"
+    },
+    {
+      "id": "menu-sheet",
+      "title": "1 Menu sheet",
+      "file": "menu-sheet.html",
+      "width": 412,
+      "height": 915,
+      "group": "media"
+    },
+    {
+      "id": "pad",
+      "title": "2 Mouse",
+      "file": "pad.html",
+      "width": 412,
+      "height": 915,
+      "group": "pad"
+    },
+    {
+      "id": "pad-landscape",
+      "title": "2 Mouse (landscape, drag lock on)",
+      "file": "pad-landscape.html",
+      "width": 915,
+      "height": 412,
+      "group": "pad"
+    },
+    {
+      "id": "keys",
+      "title": "3 Keys (cmd armed, shift locked)",
+      "file": "keys.html",
+      "width": 412,
+      "height": 915,
+      "group": "keys"
+    },
+    {
+      "id": "macros",
+      "title": "4 Macros grid",
+      "file": "macros.html",
+      "width": 412,
+      "height": 915,
+      "group": "macros"
+    },
+    {
+      "id": "macro-editor",
+      "title": "4 Macro editor (Click at point)",
+      "file": "macro-editor.html",
+      "width": 412,
+      "height": 915,
+      "group": "macros"
+    },
+    {
+      "id": "macro-running",
+      "title": "4 Macro running (Screenshot area)",
+      "file": "macro-running.html",
+      "width": 412,
+      "height": 915,
+      "group": "macros"
+    },
+    {
+      "id": "disconnected",
+      "title": "5 Disconnected (auto-search)",
+      "file": "disconnected.html",
+      "width": 412,
+      "height": 915,
+      "group": "connection"
+    },
+    {
+      "id": "device-picker",
+      "title": "5 Device picker",
+      "file": "device-picker.html",
+      "width": 412,
+      "height": 915,
+      "group": "connection"
+    },
+    {
+      "id": "pairing",
+      "title": "5 Pairing",
+      "file": "pairing.html",
+      "width": 412,
+      "height": 915,
+      "group": "connection"
+    }
   ]
 }

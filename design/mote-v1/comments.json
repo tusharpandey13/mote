@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextNumber": 25,
+  "nextNumber": 38,
   "comments": [
     {
       "id": "c-512cf5e39358",
@@ -577,6 +577,318 @@
       "sentAt": 1793969914852,
       "resolvedAt": 1793970244092,
       "resolution": "Added a spring-loaded scroll lever (scroll-lever) beside the D-pad: hold-drag scrolls faster the further you pull, end chevrons step one notch; mirrored on the disconnected screen."
+    },
+    {
+      "id": "c-106488980909",
+      "number": 25,
+      "body": "make it rectangular, rounded corners still",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "play-pause",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"play accent-cap\" data-dc-id=\"play-pause\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i32\"><path fill=\"currentColor\" d=\"M3.5 6.2v11.6c0 .7.76 1.13 1.36.77l8.9-5.8a.92.92 0 0 0 0-1.54l-8.9-5.8c-.6-.36-1.36.07-1.36.77z\"></path><rect fill=\"currentColor\" x=\"15\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect><rect fill=\"currentColor\" x=\"19\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect></svg></div>",
+        "rect": {
+          "x": 158.00511169433594,
+          "y": 599.0144653320312,
+          "width": 95.99407958984375,
+          "height": 95.99407958984375
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793970973360,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "Play/pause is now a rounded rectangle (156x84, r22) on a dark anodised cap; prev/next are matching 64dp rounded squares."
+    },
+    {
+      "id": "c-ecca4ee4c5d6",
+      "number": 26,
+      "body": "a single button which i can hold and move left/right for switching spaces",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "fav-prev-space",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(3)",
+        "tag": "div",
+        "text": "Prev Space",
+        "html": "<div class=\"fav raised\" data-tint=\"indigo\" data-dc-id=\"fav-prev-space\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M21 7.5A1.5 1.5 0 0 0 19.5 6h-6A1.5 1.5 0 0 0 12 7.5v9a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5zM9 12H3M5.5 9.5L3 12l2.5 2.5\"></path></svg><span class=\"lb\">Prev Space</span></div>",
+        "rect": {
+          "x": 209.99595642089844,
+          "y": 125.98331451416016,
+          "width": 89.00491333007812,
+          "height": 59.9998664855957
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793970998460,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "Prev/Next Space merged into one 'Spaces' tile on Media and Macros: hold and slide left/right (‹ › hints), tap opens Mission Control."
+    },
+    {
+      "id": "c-b902c8f86b60",
+      "number": 27,
+      "body": "shoudl not be default fav",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "fav-screenshot",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "Screenshot",
+        "html": "<div class=\"fav raised\" data-tint=\"blue\" data-dc-id=\"fav-screenshot\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z\"></path><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12.5\" r=\"3.5\"></circle></svg><span class=\"lb\">Screenshot</span></div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 125.98331451416016,
+          "width": 89.00491333007812,
+          "height": 59.9998664855957
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971012444,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "Screenshot is no longer a default favourite; defaults are Spaces (2 columns wide), Spotlight, Lock."
+    },
+    {
+      "id": "c-09a5aaa8f78f",
+      "number": 28,
+      "body": "low priority",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "esc",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "esc",
+        "html": "<div class=\"kc raised\" data-dc-id=\"esc\">esc</div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 249.9768524169922,
+          "width": 63.993675231933594,
+          "height": 55.998924255371094
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971030876,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "esc demoted to a small 52x40 cap at the D-pad's lower left."
+    },
+    {
+      "id": "c-c35953855e5d",
+      "number": 29,
+      "body": "low priority",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "space",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "space",
+        "html": "<div class=\"kc raised\" data-dc-id=\"space\">space</div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 317.9714660644531,
+          "width": 63.993675231933594,
+          "height": 55.998924255371094
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971034827,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "space dropped from Media; hold the D-pad centre for Space, or use the space bar on Keys."
+    },
+    {
+      "id": "c-baecd190a00e",
+      "number": 30,
+      "body": "not much disctinction b/w 2 icons",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "brightness-group",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"pair small well\" data-dc-id=\"brightness-group\">\n        <div class=\"cap raised\" data-dc-id=\"brightness-down\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12\" r=\"3\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 5.5v.5M12 18v.5M5.5 12h.5M18 12h.5M7.4 7.4l.35.35M16.25 16.25l.35.35M7.4 16.6l.35-.35M16.25 7.75l.35-.35\"></path></svg></div>\n        <div class=\"cap raised\" data-dc-id=\"brightness-up\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"3.6\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7\"></path></svg></div>\n      </div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 515.0160522460938,
+          "width": 304.0145263671875,
+          "height": 55.991790771484375
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971048528,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "Brightness down = small outline sun with short rays; up = large filled sun with long rays."
+    },
+    {
+      "id": "c-ff0ac34cc099",
+      "number": 31,
+      "body": "why is this away from the vol buttons",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "mute",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"mute raised\" data-dc-id=\"mute\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5z\"></path><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.5 9.5l5 5M20.5 9.5l-5 5\"></path></svg></div>",
+        "rect": {
+          "x": 332.0068664550781,
+          "y": 515.0160522460938,
+          "width": 63.993675231933594,
+          "height": 55.998924255371094
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971060027,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "Volume is now one recessed cluster: − | mute | +."
+    },
+    {
+      "id": "c-99587c825c2f",
+      "number": 32,
+      "body": "make white theme default",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "media-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "FAVOURITES EDIT Screenshot Mission Prev Space Next Space esc space OK",
+        "html": "<main class=\"content media\" data-dc-id=\"media-content\">\n    <section class=\"fav-wrap\" data-dc-id=\"fav-strip\">\n      <div class=\"fav-head\"><span class=\"t-caps\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\" d=\"M12 4.2l2.3 4.7 5.2.75-3.75 3.65.88 5.15L12 16l-4.63 2.45.88-5.15L4.5 9.65l5.2-.75z\"></path></svg>Favourites</span><span class=\"t-caps\" data-dc-id=\"fav-edit\">Edit</span></div>\n      <div class=\"favs\"><div class=\"fav raised\" data-tint=\"blue\" data-dc-id=\"fav-screenshot\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z\"></path><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12.5\" r=\"3.5\"></circle></svg><span class=\"lb\">Screenshot</span></div><div class=\"fav raised\" data-tint=\"indigo\" data-dc-id=\"fav-mission\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"n",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 723.0079956054688
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971069011,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "Light is the default on all screens; dark is kept as the Media variant."
+    },
+    {
+      "id": "c-245864376c74",
+      "number": 33,
+      "body": "colors are still bad for dark mode, move away from the orange feel, skeumorphic colors too. maybe textures?",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "play-pause",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"play accent-cap\" data-dc-id=\"play-pause\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i32\"><path fill=\"currentColor\" d=\"M3.5 6.2v11.6c0 .7.76 1.13 1.36.77l8.9-5.8a.92.92 0 0 0 0-1.54l-8.9-5.8c-.6-.36-1.36.07-1.36.77z\"></path><rect fill=\"currentColor\" x=\"15\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect><rect fill=\"currentColor\" x=\"19\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect></svg></div>",
+        "rect": {
+          "x": 158.00511169433594,
+          "y": 599.0144653320312,
+          "width": 95.99407958984375,
+          "height": 95.99407958984375
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971094427,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "Orange retired. Bead-blasted aluminium (light) and anodised titanium (dark) with noise and brushed texture; backlit-LED blue accent."
+    },
+    {
+      "id": "c-bf29e5bdad57",
+      "number": 34,
+      "body": "looks like inner circle is not prpperly aligned, even if it is. \nbetter skupmorphism here, textures for here too?",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "play-bezel",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"bezel well\" data-dc-id=\"play-bezel\"><div class=\"play accent-cap\" data-dc-id=\"play-pause\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i32\"><path fill=\"currentColor\" d=\"M3.5 6.2v11.6c0 .7.76 1.13 1.36.77l8.9-5.8a.92.92 0 0 0 0-1.54l-8.9-5.8c-.6-.36-1.36.07-1.36.77z\"></path><rect fill=\"currentColor\" x=\"15\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect><rect fill=\"currentColor\" x=\"19\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect></svg></div></div>",
+        "rect": {
+          "x": 150.00323486328125,
+          "y": 591.0125732421875,
+          "width": 111.99784851074219,
+          "height": 111.99784851074219
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971137844,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "Play bezel redone as a machined recess with an even 8dp reveal and nested radii, top-lit; smoked-glass cap with LED legend in dark."
+    },
+    {
+      "id": "c-ed4dcfeb4af4",
+      "number": 35,
+      "body": "icons color is bad",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "fav-strip",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1)",
+        "tag": "section",
+        "text": "FAVOURITES EDIT Screenshot Mission Prev Space Next Space",
+        "html": "<section class=\"fav-wrap\" data-dc-id=\"fav-strip\">\n      <div class=\"fav-head\"><span class=\"t-caps\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\" d=\"M12 4.2l2.3 4.7 5.2.75-3.75 3.65.88 5.15L12 16l-4.63 2.45.88-5.15L4.5 9.65l5.2-.75z\"></path></svg>Favourites</span><span class=\"t-caps\" data-dc-id=\"fav-edit\">Edit</span></div>\n      <div class=\"favs\"><div class=\"fav raised\" data-tint=\"blue\" data-dc-id=\"fav-screenshot\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z\"></path><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12.5\" r=\"3.5\"></circle></svg><span class=\"lb\">Screenshot</span></div><div class=\"fav raised\" data-tint=\"indigo\" data-dc-id=\"fav-mission\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-lineca",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 95.98694610595703,
+          "width": 380.00390625,
+          "height": 89.99623107910156
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971150023,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "Favourite and macro icons are one engraved ink colour; tints are only a thin top-edge marker."
+    },
+    {
+      "id": "c-0fdab1eb96ca",
+      "number": 36,
+      "body": "its \"Mote\" not \"mote\"",
+      "anchor": {
+        "artboardId": "disconnected",
+        "dcId": "disconnected-body",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(1)",
+        "tag": "p",
+        "text": "mote reconnects on its own while it's open. Wake MacBook Pro or bring it in range. Nothing you press is sent until then.",
+        "html": "<p class=\"t-body-s\" data-dc-id=\"disconnected-body\">mote reconnects on its own while it's open. Wake MacBook Pro or bring it in range. Nothing you press is sent until then.</p>",
+        "rect": {
+          "x": 55.998924255371094,
+          "y": 439.4974060058594,
+          "width": 299.99932861328125,
+          "height": 59.992733001708984
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971238116,
+      "sentAt": 1793971255007,
+      "resolvedAt": 1793971580770,
+      "resolution": "'Mote' capitalised in all copy and titles."
+    },
+    {
+      "id": "c-eaab0c99fa81",
+      "number": 37,
+      "body": "can we have branding here in the empty right space? no svg icon, only type, some sexy font, type should look sunken skeumorphic",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "topbar",
+        "path": "body > div:nth-of-type(1) > header:nth-of-type(1)",
+        "tag": "header",
+        "text": "MacBook Pro",
+        "html": "<header class=\"topbar\" data-dc-id=\"topbar\">\n    <div class=\"pill raised\" data-dc-id=\"connection-pill\">\n      <span class=\"led\" data-dc-id=\"pill-led\"></span>\n      <span class=\"name\" data-dc-id=\"pill-name\">MacBook Pro</span>\n      <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20 chev\" data-dc-id=\"pill-chevron\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.5 10l4.5 4.5 4.5-4.5\"></path></svg>\n    </div>\n    <div class=\"icon-btn\" data-dc-id=\"menu\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"5.5\" r=\"1.6\"></circle><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"1.6\"></circle><circle fill=\"currentColor\" cx=\"12\" cy=\"18.5\" r=\"1.6\"></circle></svg></div>\n  </header>",
+        "rect": {
+          "x": 0,
+          "y": 31.993270874023438,
+          "width": 411.9971618652344,
+          "height": 55.998924255371094
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793971321193,
+      "sentAt": 1793971327005,
+      "resolvedAt": 1793971580770,
+      "resolution": "Debossed 'Mote' wordmark in Michroma (OFL, local woff2) at the right of the top bar, with ⋯ as an engraved glyph beside it."
     }
   ]
 }

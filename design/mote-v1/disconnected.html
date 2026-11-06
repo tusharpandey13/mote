@@ -2,23 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>mote — Disconnected</title>
+<title>Mote — Disconnected</title>
 <link rel="stylesheet" href="mote.css">
 <style>
   .media { display: flex; flex-direction: column; height: 100%; }
   .fav-head { display: flex; align-items: center; justify-content: space-between; height: 24px; color: var(--on-surface-subtle); }
   .fav-head span { display: inline-flex; align-items: center; gap: 6px; }
   .favs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
-  .fav { height: 60px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative; }
-  .fav .ic { color: var(--tint); }
+  .fav { height: 64px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative; color: var(--on-surface); }
   .fav .lb { font: 600 12px/14px var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
-  .nav-row { display: grid; grid-template-columns: 64px 208px 56px; justify-content: space-between; align-items: center; margin-top: 22px; }
-  .nav-row .keycol { display: flex; flex-direction: column; gap: 12px; }
-  .nav-row .kc { height: 56px; border-radius: 16px; display: grid; place-items: center; font: 600 14px/1 var(--font-ui); color: var(--on-surface-muted); }
-  .sec-row { display: grid; grid-template-columns: 1fr 64px; gap: 12px; margin-top: auto; align-items: center; }
-  .sec-row .mute { width: 64px; height: 56px; border-radius: 20px; display: grid; place-items: center; }
-  .transport { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding: 0 10px; }
-  .vol { margin-top: 20px; }
+  .fav.gesture { grid-column: span 2; flex-direction: row; padding: 0 8px; }
+  .nav-row { display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; align-items: end; margin-top: 22px; }
+  .nav-row .kc { width: 52px; height: 40px; border-radius: 13px; display: grid; place-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface-muted); }
+  .sec-row { margin-top: auto; }
+  .transport { display: grid; grid-template-columns: 64px auto 64px; justify-content: space-between; align-items: center; margin-top: 20px; }
+  .transport .side { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; color: var(--on-surface); }
+  .vol { margin-top: 20px; grid-template-columns: 1fr 76px 1fr; }
 
   .lost { position: absolute; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); z-index: 2; border-radius: 24px; padding: 24px 20px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; }
   .lost .t-title { margin-top: 16px; }
@@ -36,25 +35,29 @@
       <span class="name" data-dc-id="pill-name">MacBook Pro</span><span class="state" data-dc-id="pill-state">Searching…</span>
       <i data-i="chevDown" class="i20 chev" data-dc-id="pill-chevron"></i>
     </div>
-    <div class="icon-btn" data-dc-id="menu"><i data-i="more"></i></div>
+    <div class="brand" data-dc-id="brand">
+      <span class="wordmark" data-dc-id="wordmark">Mote</span>
+      <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
+    </div>
   </header>
   <main class="content media offline" data-dc-id="media-content">
     <section class="lost raised" data-dc-id="disconnected-card">
       <div class="scan" data-dc-id="scan-indicator"><i data-i="bluetooth" class="i28"></i></div>
       <h2 class="t-title" data-dc-id="disconnected-title">Searching for MacBook Pro…</h2>
-      <p class="t-body-s" data-dc-id="disconnected-body">mote reconnects on its own while it's open. Wake MacBook Pro or bring it in range. Nothing you press is sent until then.</p>
+      <p class="t-body-s" data-dc-id="disconnected-body">Mote reconnects on its own while it's open. Wake MacBook Pro or bring it in range. Nothing you press is sent until then.</p>
       <div class="acts"><div class="btn-secondary raised" data-dc-id="pair-another"><i data-i="devices"></i>Choose device</div></div>
     </section>
     <section class="fav-wrap live" data-dc-id="fav-strip">
-      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16" style="color:var(--accent)"></i>Favourites</span><span class="t-caps" data-dc-id="fav-edit">Edit</span></div>
-      <div class="favs"><div class="fav raised" data-tint="blue" data-dc-id="fav-screenshot"><i data-i="camera" class="ic"></i><span class="lb">Screenshot</span></div><div class="fav raised" data-tint="indigo" data-dc-id="fav-mission"><i data-i="windows" class="ic"></i><span class="lb">Mission</span></div><div class="fav raised" data-tint="indigo" data-dc-id="fav-prev-space"><i data-i="spacePrev" class="ic"></i><span class="lb">Prev Space</span></div><div class="fav raised" data-tint="indigo" data-dc-id="fav-next-space"><i data-i="spaceNext" class="ic"></i><span class="lb">Next Space</span></div></div>
+      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="t-caps" data-dc-id="fav-edit">Edit</span></div>
+      <div class="favs"><div class="fav gesture raised" data-dc-id="fav-next-space">
+        <div class="slide"><i data-i="chevLeft" class="i20" data-dc-id="fav-next-space-prev"></i>
+          <div class="mid"><i data-i="spaces"></i><span class="lb" style="color:var(--on-surface)">Spaces</span><span class="hint" data-dc-id="fav-next-space-hint">hold &amp; slide</span></div>
+          <i data-i="chevRight" class="i20" data-dc-id="fav-next-space-next"></i></div>
+      </div><div class="fav raised" data-dc-id="fav-spotlight"><i data-i="search" class="ic"></i><span class="lb">Spotlight</span></div><div class="fav raised" data-dc-id="fav-lock"><i data-i="lock" class="ic"></i><span class="lb">Lock</span></div></div>
     </section>
 
     <div class="nav-row live" data-dc-id="dpad-row">
-      <div class="keycol">
-        <div class="kc raised" data-dc-id="esc">esc</div>
-        <div class="kc raised" data-dc-id="space">space</div>
-      </div>
+      <div class="kc raised" data-dc-id="esc">esc</div>
       <svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
         <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--key-top)"/><stop offset="1" style="stop-color:var(--key-bot)"/></linearGradient></defs>
         <circle class="housing" cx="104" cy="104" r="104"/>
@@ -76,17 +79,17 @@
         <div class="cap raised" data-dc-id="brightness-down"><i data-i="sunDown"></i></div>
         <div class="cap raised" data-dc-id="brightness-up"><i data-i="sunUp"></i></div>
       </div>
-      <div class="mute raised" data-dc-id="mute"><i data-i="mute"></i></div>
     </div>
 
     <div class="transport live" data-dc-id="transport">
-      <div class="mbtn raised" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
-      <div class="bezel well" data-dc-id="play-bezel"><div class="play accent-cap" data-dc-id="play-pause"><i data-i="playPause" class="i32"></i></div></div>
-      <div class="mbtn raised" data-dc-id="next"><i data-i="next" class="i28"></i></div>
+      <div class="side raised" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
+      <div class="bezel" data-dc-id="play-bezel"><div class="play accent-cap" data-dc-id="play-pause"><i data-i="playPause" class="i32"></i></div></div>
+      <div class="side raised" data-dc-id="next"><i data-i="next" class="i28"></i></div>
     </div>
 
     <div class="pair well vol live" data-dc-id="volume-group">
       <div class="cap raised" data-dc-id="volume-down"><i data-i="volDown" class="i28"></i></div>
+      <div class="cap raised" data-dc-id="mute"><i data-i="mute"></i></div>
       <div class="cap raised" data-dc-id="volume-up"><i data-i="volUp" class="i28"></i></div>
     </div>
   </main>

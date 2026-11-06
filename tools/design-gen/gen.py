@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Generates design/mote-v1/*.html (rev 1). Static HTML is the artifact; this only removes chrome duplication."""
+"""Generates design/mote-v1/*.html (rev 2: light default; media.html is the dark variant). Static HTML is the artifact; this only removes chrome duplication."""
 import sys, pathlib
 OUT = pathlib.Path(sys.argv[1])
 
 DEVICE = "MacBook Pro"
 
-def page(title, body, css="", light=False):
-    cls = ' class="light"' if light else ""
+def page(title, body, css="", dark=False):
+    cls = ' class="dark"' if dark else ""
     return f"""<!doctype html>
 <html lang="en"{cls}>
 <head>
 <meta charset="utf-8">
-<title>mote — {title}</title>
+<title>Mote — {title}</title>
 <link rel="stylesheet" href="mote.css">
 <style>{css}</style>
 </head>
@@ -24,6 +24,12 @@ def page(title, body, css="", light=False):
 
 STATUS = '<div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>'
 
+# Wordmark (debossed Michroma) sits right; the menu is a small engraved glyph beside it.
+BRAND = """<div class="brand" data-dc-id="brand">
+      <span class="wordmark" data-dc-id="wordmark">Mote</span>
+      <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
+    </div>"""
+
 def topbar(state="connected"):
     led = {"connected": "led", "searching": "led amber", "pairing": "led amber"}[state]
     extra = {"connected": "", "searching": '<span class="state" data-dc-id="pill-state">Searching…</span>', "pairing": ""}[state]
@@ -33,7 +39,7 @@ def topbar(state="connected"):
       <span class="name" data-dc-id="pill-name">{DEVICE}</span>{extra}
       <i data-i="chevDown" class="i20 chev" data-dc-id="pill-chevron"></i>
     </div>
-    <div class="icon-btn" data-dc-id="menu"><i data-i="more"></i></div>
+    {BRAND}
   </header>"""
 
 MODES = [("media", "rail-media", "modeMedia", "Media"), ("mouse", "rail-pad", "modeMouse", "Mouse"),
@@ -82,34 +88,36 @@ MEDIA_CSS = """
   .fav-head { display: flex; align-items: center; justify-content: space-between; height: 24px; color: var(--on-surface-subtle); }
   .fav-head span { display: inline-flex; align-items: center; gap: 6px; }
   .favs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
-  .fav { height: 60px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative; }
-  .fav .ic { color: var(--tint); }
+  .fav { height: 64px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative; color: var(--on-surface); }
   .fav .lb { font: 600 12px/14px var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
-  .nav-row { display: grid; grid-template-columns: 64px 208px 56px; justify-content: space-between; align-items: center; margin-top: 22px; }
-  .nav-row .keycol { display: flex; flex-direction: column; gap: 12px; }
-  .nav-row .kc { height: 56px; border-radius: 16px; display: grid; place-items: center; font: 600 14px/1 var(--font-ui); color: var(--on-surface-muted); }
-  .sec-row { display: grid; grid-template-columns: 1fr 64px; gap: 12px; margin-top: auto; align-items: center; }
-  .sec-row .mute { width: 64px; height: 56px; border-radius: 20px; display: grid; place-items: center; }
-  .transport { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding: 0 10px; }
-  .vol { margin-top: 20px; }
+  .fav.gesture { grid-column: span 2; flex-direction: row; padding: 0 8px; }
+  .nav-row { display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; align-items: end; margin-top: 22px; }
+  .nav-row .kc { width: 52px; height: 40px; border-radius: 13px; display: grid; place-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface-muted); }
+  .sec-row { margin-top: auto; }
+  .transport { display: grid; grid-template-columns: 64px auto 64px; justify-content: space-between; align-items: center; margin-top: 20px; }
+  .transport .side { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; color: var(--on-surface); }
+  .vol { margin-top: 20px; grid-template-columns: 1fr 76px 1fr; }
 """
+
+def spaces_tile(dc, cls):
+    return f"""<div class="{cls} gesture raised" data-dc-id="{dc}">
+        <div class="slide"><i data-i="chevLeft" class="i20" data-dc-id="{dc}-prev"></i>
+          <div class="mid"><i data-i="spaces"></i><span class="lb" style="color:var(--on-surface)">Spaces</span><span class="hint" data-dc-id="{dc}-hint">hold &amp; slide</span></div>
+          <i data-i="chevRight" class="i20" data-dc-id="{dc}-next"></i></div>
+      </div>"""
 
 def media_inner(offline=False):
     live = " live" if offline else ""
-    favs = [("fav-screenshot", "camera", "Screenshot", "blue"), ("fav-mission", "windows", "Mission", "indigo"),
-            ("fav-prev-space", "spacePrev", "Prev Space", "indigo"), ("fav-next-space", "spaceNext", "Next Space", "indigo")]
-    fav_html = "".join(f'<div class="fav raised" data-tint="{t}" data-dc-id="{i}"><i data-i="{ic}" class="ic"></i><span class="lb">{lb}</span></div>' for i, ic, lb, t in favs)
+    favs = [("fav-spotlight", "search", "Spotlight"), ("fav-lock", "lock", "Lock")]
+    fav_html = spaces_tile("fav-next-space", "fav") + "".join(f'<div class="fav raised" data-dc-id="{i}"><i data-i="{ic}" class="ic"></i><span class="lb">{lb}</span></div>' for i, ic, lb in favs)
     return f"""<main class="content media{' offline' if offline else ''}" data-dc-id="media-content">
     <section class="fav-wrap{live}" data-dc-id="fav-strip">
-      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16" style="color:var(--accent)"></i>Favourites</span><span class="t-caps" data-dc-id="fav-edit">Edit</span></div>
+      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="t-caps" data-dc-id="fav-edit">Edit</span></div>
       <div class="favs">{fav_html}</div>
     </section>
 
     <div class="nav-row{live}" data-dc-id="dpad-row">
-      <div class="keycol">
-        <div class="kc raised" data-dc-id="esc">esc</div>
-        <div class="kc raised" data-dc-id="space">space</div>
-      </div>
+      <div class="kc raised" data-dc-id="esc">esc</div>
       {dpad()}
       <div class="lever well" data-dc-id="scroll-lever">
         <i data-i="chevUp" class="i20" data-dc-id="scroll-notch-up"></i>
@@ -123,17 +131,17 @@ def media_inner(offline=False):
         <div class="cap raised" data-dc-id="brightness-down"><i data-i="sunDown"></i></div>
         <div class="cap raised" data-dc-id="brightness-up"><i data-i="sunUp"></i></div>
       </div>
-      <div class="mute raised" data-dc-id="mute"><i data-i="mute"></i></div>
     </div>
 
     <div class="transport{live}" data-dc-id="transport">
-      <div class="mbtn raised" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
-      <div class="bezel well" data-dc-id="play-bezel"><div class="play accent-cap" data-dc-id="play-pause"><i data-i="playPause" class="i32"></i></div></div>
-      <div class="mbtn raised" data-dc-id="next"><i data-i="next" class="i28"></i></div>
+      <div class="side raised" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
+      <div class="bezel" data-dc-id="play-bezel"><div class="play accent-cap" data-dc-id="play-pause"><i data-i="playPause" class="i32"></i></div></div>
+      <div class="side raised" data-dc-id="next"><i data-i="next" class="i28"></i></div>
     </div>
 
     <div class="pair well vol{live}" data-dc-id="volume-group">
       <div class="cap raised" data-dc-id="volume-down"><i data-i="volDown" class="i28"></i></div>
+      <div class="cap raised" data-dc-id="mute"><i data-i="mute"></i></div>
       <div class="cap raised" data-dc-id="volume-up"><i data-i="volUp" class="i28"></i></div>
     </div>
   </main>"""
@@ -150,7 +158,7 @@ def lost_card():
     return f"""<section class="lost raised" data-dc-id="disconnected-card">
       <div class="scan" data-dc-id="scan-indicator"><i data-i="bluetooth" class="i28"></i></div>
       <h2 class="t-title" data-dc-id="disconnected-title">Searching for {DEVICE}…</h2>
-      <p class="t-body-s" data-dc-id="disconnected-body">mote reconnects on its own while it's open. Wake {DEVICE} or bring it in range. Nothing you press is sent until then.</p>
+      <p class="t-body-s" data-dc-id="disconnected-body">Mote reconnects on its own while it's open. Wake {DEVICE} or bring it in range. Nothing you press is sent until then.</p>
       <div class="acts"><div class="btn-secondary raised" data-dc-id="pair-another"><i data-i="devices"></i>Choose device</div></div>
     </section>"""
 
@@ -179,7 +187,7 @@ def device_sheet():
   <section class="sheet" data-dc-id="device-picker-sheet">
     <div class="handle"></div>
     <div class="sh-head"><h2 class="t-headline">Devices</h2><div class="icon-btn" data-dc-id="picker-close"><i data-i="close"></i></div></div>
-    <p class="t-body-s muted" style="margin-bottom:14px">mote connects to the selected device and keeps looking for it while the app is open.</p>
+    <p class="t-body-s muted" style="margin-bottom:14px">Mote connects to the selected device and keeps looking for it while the app is open.</p>
     <div class="list" data-dc-id="device-list">{items}
     </div>
     <div class="btn-primary accent-cap" style="margin-top:18px" data-dc-id="pair-new"><i data-i="plus"></i>Pair new device</div>
@@ -189,15 +197,15 @@ def menu_sheet():
     rows = [("menu-devices", "devices", "Manage devices", f"{DEVICE} and 3 others"),
             ("menu-haptics", "haptic", "Haptics", "Standard"),
             ("menu-settings", "gear", "Settings", "Pointer speed, scrolling, keyboard"),
-            ("menu-about", "info", "About mote", "Version 0.1")]
+            ("menu-about", "info", "About Mote", "Version 0.1")]
     items = "".join(f"""
         <div class="row-item" data-dc-id="{i}"><i data-i="{ic}"></i><div class="tx"><div class="t-label">{n}</div><div class="sub">{s}</div></div><i data-i="chevRight" class="i20 subtle"></i></div>""" for i, ic, n, s in rows)
     return f"""  <div class="scrim" data-dc-id="scrim"></div>
   <section class="sheet" data-dc-id="menu-sheet">
     <div class="handle"></div>
-    <div class="sh-head"><h2 class="t-headline">mote</h2><div class="icon-btn"><i data-i="close"></i></div></div>
+    <div class="sh-head"><h2 class="t-headline">Mote</h2><div class="icon-btn"><i data-i="close"></i></div></div>
     <div class="row-item" data-dc-id="menu-theme" style="margin-bottom:4px"><i data-i="theme"></i><div class="tx"><div class="t-label">Theme</div></div>
-      <div class="seg-ctl well" style="width:216px"><div class="on raised">Dark</div><div>Light</div><div>System</div></div></div>
+      <div class="seg-ctl well" style="width:216px"><div>Dark</div><div class="on raised">Light</div><div>System</div></div></div>
     <div class="list" style="gap:2px">{items}
     </div>
   </section>"""
@@ -336,26 +344,31 @@ def keys_inner():
 MACROS_CSS = """
   .macros { display: flex; flex-direction: column; height: 100%; }
   .mhead { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; }
-  .mhead .icon-btn { margin-right: -12px; }
   .hint { margin-top: 4px; }
+  .edit-btn { height: 40px; padding: 0 14px 0 10px; border-radius: 13px; display: inline-flex; align-items: center; gap: 6px; font: 600 14px/1 var(--font-ui); color: var(--on-surface); }
   .grid { margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 """
-TILES = [("macro-screenshot", "camera", "Screenshot area", "⌘⇧4", "blue", True),
-         ("macro-mission", "windows", "Mission Control", "⌃↑", "indigo", True),
-         ("macro-spotlight", "search", "Spotlight", "⌘ space", "slate", False),
-         ("macro-prev-space", "spacePrev", "Prev Space", "⌃←", "indigo", True),
-         ("macro-next-space", "spaceNext", "Next Space", "⌃→", "indigo", True),
-         ("macro-open-safari", "apps", "Open Safari", "3 steps", "cyan", False),
-         ("macro-force-quit", "power", "Force quit", "⌥⌘esc", "magenta", False),
-         ("macro-hide-others", "windows", "Hide others", "⌥⌘H", "slate", False)]
+TILES = [("macro-spotlight", "search", "Spotlight", "⌘ space", "slate", True),
+         ("macro-mission", "windows", "Mission Control", "⌃↑", "indigo", False),
+         ("macro-screenshot", "camera", "Screenshot area", "⌘⇧4", "blue", False),
+         ("macro-open-safari", "apps", "Open Safari", "3 steps", "cyan", False)]
+TILES2 = [("macro-force-quit", "power", "Force quit", "⌥⌘esc", "magenta", False),
+          ("macro-hide-others", "windows", "Hide others", "⌥⌘H", "slate", False)]
+def _tiles(lst):
+    return "".join(f"""
+      <div class="tile" data-tint="{t}" data-dc-id="{i}"><i data-i="{'starFill' if fav else 'star'}" class="i16 star{' on' if fav else ''}" data-dc-id="{i}-star"></i><i data-i="{ic}" class="ic"></i><div><div class="nm">{n}</div><div class="ch">{c}</div></div></div>""" for i, ic, n, c, t, fav in lst)
 def macros_inner():
-    tiles = "".join(f"""
-      <div class="tile" data-tint="{t}" data-dc-id="{i}"><i data-i="{'starFill' if fav else 'star'}" class="i16 star{' on' if fav else ''}" data-dc-id="{i}-star"></i><i data-i="{ic}" class="ic"></i><div><div class="nm">{n}</div><div class="ch">{c}</div></div></div>""" for i, ic, n, c, t, fav in TILES)
+    spaces = f"""
+      <div class="tile gesture" data-tint="indigo" data-dc-id="macro-next-space" style="grid-column: span 2">
+        <i data-i="starFill" class="i16 star on" data-dc-id="macro-next-space-star"></i>
+        <i data-i="spaces" class="ic"></i>
+        <div class="slide"><i data-i="chevLeft" class="i20"></i><div style="flex:1;padding-left:4px"><div class="nm">Spaces</div><div class="ch">hold &amp; slide ⌃← ⌃→, tap ⌃↑</div></div><i data-i="chevRight" class="i20"></i></div>
+      </div>"""
     return f"""<main class="content macros live" data-dc-id="macros-content">
-    <div class="mhead" data-dc-id="macros-header"><h1 class="t-headline">Macros</h1><div class="icon-btn" data-dc-id="macros-edit"><i data-i="edit"></i></div></div>
-    <p class="t-body-s subtle hint" data-dc-id="macros-hint">Tap to run, hold to edit. Starred macros also show on Media. Shortcuts here are set for {DEVICE}.</p>
-    <div class="grid" data-dc-id="macro-grid">{tiles}
-      <div class="tile confirm" data-dc-id="macro-lock-confirm"><i data-i="lock" class="ic"></i><div><div class="nm">Tap again</div><div class="ch">Lock screen</div></div></div>
+    <div class="mhead" data-dc-id="macros-header"><h1 class="t-headline">Macros</h1><div class="edit-btn raised" data-dc-id="macros-edit"><i data-i="edit" class="i20"></i>Edit</div></div>
+    <p class="t-body-s subtle hint" data-dc-id="macros-hint">Tap to run. Spaces is a gesture tile: hold and slide. Use Edit to change, star or reorder. Shortcuts are set for {DEVICE}.</p>
+    <div class="grid" data-dc-id="macro-grid">{spaces}{_tiles(TILES)}
+      <div class="tile confirm" data-dc-id="macro-lock-confirm"><i data-i="lock" class="ic"></i><div><div class="nm">Tap again</div><div class="ch">Lock screen</div></div></div>{_tiles(TILES2)}
       <div class="tile add" data-dc-id="macro-add"><i data-i="plus" class="i28"></i><span class="t-label" style="margin-top:6px">New macro</span></div>
     </div>
   </main>"""
@@ -368,7 +381,7 @@ EDITOR_CSS = """
   .sh-head .del { color: var(--danger); }
   .lbl { color: var(--on-surface-subtle); margin: 12px 0 6px; display: block; }
   .look { display: flex; align-items: center; gap: 14px; }
-  .look .prev { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; flex: none; color: var(--tint); }
+  .look .prev { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; flex: none; color: var(--on-surface); }
   .sw { display: flex; gap: 8px; }
   .sw span { width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 2px rgba(0,0,0,.4); }
   .sw .sel { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--on-surface); }
@@ -410,7 +423,7 @@ def editor_sheet():
     </div>
     <div class="btn-secondary raised capture" data-dc-id="click-capture"><i data-i="target"></i>Capture pointer position</div>
     <p class="t-body-s muted pick-hint" data-dc-id="click-pick-hint">Move the pointer to the spot on {DEVICE}, then tap Capture. Or type the coordinates.</p>
-    <p class="caveat" data-dc-id="click-caveat"><i data-i="info" class="i16"></i><span>Approximate. mote moves the pointer to the top-left corner first, then by this offset, so pointer acceleration can shift it a little. The optional Mac helper makes it exact.</span></p>
+    <p class="caveat" data-dc-id="click-caveat"><i data-i="info" class="i16"></i><span>Approximate. Mote moves the pointer to the top-left corner first, then by this offset, so pointer acceleration can shift it a little. The optional Mac helper makes it exact.</span></p>
 
     <div class="trow" data-dc-id="confirm-toggle">
       <div class="txt"><div class="t-label">Confirm before run</div><div class="t-body-s subtle">First tap arms, second tap runs</div></div>
@@ -498,8 +511,8 @@ def landscape_page():
 
 # ---------------------------------------------------------------- write
 files = {
-    "media.html": page("Media", screen(media_inner(), "media"), MEDIA_CSS),
-    "media-light.html": page("Media (light)", screen(media_inner(), "media"), MEDIA_CSS, light=True),
+    "media.html": page("Media (dark)", screen(media_inner(), "media"), MEDIA_CSS, dark=True),
+    "media-light.html": page("Media", screen(media_inner(), "media"), MEDIA_CSS),
     "menu-sheet.html": page("Menu", screen(media_inner(), "media", overlay=menu_sheet()), MEDIA_CSS + SHEET_CSS),
     "pad.html": page("Mouse", screen(pad_inner(), "mouse"), PAD_CSS),
     "macro-running.html": page("Macro running", screen(pad_inner(running=True), "mouse"), PAD_CSS),

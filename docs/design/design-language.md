@@ -287,3 +287,29 @@ These override the sections above where they conflict. `design/mote-v1/mote.css`
   - The main keyboard is a laptop-style deck: an edge-to-edge well, 4dp gutters, 50dp keys, no keypad gaps.
   - The function/navigation section uses 58dp keys and an inverted-T arrow cluster.
   - Modifiers are labelled control/option/command. fn is shown disabled ("not sendable").
+
+## Revision 2 decisions (2026-11, second canvas review)
+
+- **Brand casing:** "Mote" with a capital M in all copy and titles.
+  - **Wordmark:** "Mote" set in **Michroma** (OFL, from google/fonts `ofl/michroma`), subset to woff2 at `design/mote-v1/fonts/`. Michroma's wide, square-shouldered letters read like a label machined into a hardware chassis.
+  - **Placement:** the wordmark sits at the right of the top bar, debossed into the material. Its fill is a little darker than the chassis, with a layered text-shadow: a dark 1px edge above and a light 1px highlight below, matching the light from the top.
+  - **Menu:** the ⋯ menu is a small engraved glyph beside the wordmark.
+  - **Font scope:** Michroma is used only for the wordmark. All UI text stays in the UI sans.
+- **Light is the default theme.** It is not opt-in any more; dark is the user's choice (or follows the system setting). Principle 5 ("Dark is the default") is replaced: *quiet is the law*. No large bright accent areas in either theme.
+- **One material family, two finishes.** These replace the Graphite/Putty palettes and the copper accent:
+  - **Silver (light, default):** bead-blasted aluminium chassis `#EEEFF1`->`#D9DBDF`; soft-touch caps `#FBFBFC`->`#E6E7EA`, edge `#B4B8BE`; well `#CBCED3`; printed ink `#1C1D20` / muted `#50535A` / subtle `#62656C`.
+  - **Titanium (dark):** anodised chassis `#2C2E33`->`#1C1D21`; rubber caps `#3E4148`->`#31343A`; well `#141518`; ink `#E9EAEC` / `#A9ACB2` / `#8F939A`.
+  - **Texture:** fractal noise from an inline SVG `feTurbulence` data URI. It sits at 10% (light) or 16% (dark) over the chassis, blended soft-light into caps and sheets, together with a 2% brushed hairline. No external images.
+  - **Primary cap** (play/pause, Save, Pair new device): dark anodised aluminium in light, smoked glass in dark. Its legend is printed white in light and LED-backlit in dark (`#8FD3FF` with glow).
+  - **Accent comes from the material.** It is a backlit-LED "glacier" tint: `#1D6FB8` light, `#6CC4FF` dark. It marks active/selected/focus states (rail icon, stars, radios, drag lock, touch glow). Orange is retired. Yellow (armed modifier) and green/amber/red (link state) are unchanged.
+  - **Legends are monochrome ink, printed on the cap.** Macro tints survive only as a thin top-edge marker.
+- **Play/pause** is a rounded rectangle (156x84, r22) inside a machined recess. The recess is 8dp all round, with outer radius 30 = 22 + 8, so the cap sits concentric. The recess is darkest at the top lip, lighter at the bottom, with a 1px highlight on the bottom edge (top light). Prev/next are 64dp rounded-square caps.
+- **Volume cluster:** − | mute | + in one well (1fr / 76dp / 1fr). Brightness is a separate full-width pair: a small dim sun with short rays vs a large filled sun with long rays.
+- **esc demoted:** a small 52x40 cap at the D-pad's lower left. **space dropped from Media**: a long-press on the D-pad center already sends Space, and the Keys screen has a space bar.
+- **Gesture tile: Spaces.** One tile replaces Prev/Next Space.
+  - **Hold and slide:** sends ⌃← or ⌃→, one step per slide past a 32dp threshold, with `TICK` on each step. Holding at the edge auto-repeats at 3/s.
+  - **Tap:** opens Mission Control (⌃↑).
+  - **Affordance:** ‹ › chevrons and a "hold & slide" label.
+  - **Placement:** spans 2 columns on Media favourites and in the Macros grid.
+  - **Editing moves to the Edit button:** holding a tile no longer opens the editor, because hold is a gesture on gesture tiles.
+- **Default favourites:** Spaces, Spotlight, Lock (Lock still requires confirmation). Mission Control is reachable by tapping Spaces, so it isn't a separate default.
