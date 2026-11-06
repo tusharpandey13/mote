@@ -270,6 +270,7 @@ private fun Root(theme: ThemeChoice) {
                 onClose = close,
             )
         }
+        TailscalePrompt()
     }
 }
 

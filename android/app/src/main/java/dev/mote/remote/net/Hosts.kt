@@ -36,7 +36,9 @@ data class SavedHost(
 
     /** Records an address that just worked (or was typed) in the right slot. */
     fun withAddress(address: String): SavedHost = when {
-        routeOf(address) == Route.TAILNET -> copy(tailnet = address)
+        // Prefer the MagicDNS name (stable across re-registration); a 100.x next to it goes to `manual`.
+        routeOf(address) == Route.TAILNET ->
+            if (isIpLiteral(address) && tailnet != null && !isIpLiteral(tailnet)) copy(manual = address) else copy(tailnet = address)
         address.endsWith(".local", ignoreCase = true) -> copy(local = address.removeSuffix(".local").removeSuffix(".LOCAL"))
         isIpLiteral(address) -> copy(lan = address)
         else -> copy(manual = address)
