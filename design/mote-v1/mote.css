@@ -437,9 +437,15 @@ svg.i.i16 { width: 16px; height: 16px; }
   --brushed-30: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .30'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
   --brushed-45: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .45'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
   --brushed-60: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .60'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  --grain-04: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .04'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-06: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .06'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-11: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .11'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --grain-15: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .15'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url%28%23g%29'/%3E%3C/svg%3E");
+  --brushed-32: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .32'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
+  --brushed-42: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='128'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 .42'/%3E%3C/filter%3E%3Crect width='512' height='128' filter='url%28%23b%29'/%3E%3C/svg%3E");
   /* per-material grain (Overlay) — light */
-  --g-plate: var(--grain-22); --g-plastic: var(--grain-16); --g-rubber: var(--grain-24); --g-metal: var(--grain-12); --g-glass: var(--grain-08);
-  --b-plate: var(--brushed-45); --b-metal: var(--brushed-60);
+  --g-plate: var(--grain-11); --g-plastic: var(--grain-08); --g-rubber: var(--grain-12); --g-metal: var(--grain-06); --g-glass: var(--grain-04);
+  --b-plate: var(--brushed-32); --b-metal: var(--brushed-42);
   /* anisotropic sheen for horizontal brushing: soft vertical bands */
   --sheen-plate: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.38) 30%, rgba(255,255,255,0) 52%, rgba(255,255,255,.18) 74%, rgba(255,255,255,0) 90%);
   --sheen-metal: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 35%, rgba(255,255,255,0) 60%);
@@ -447,8 +453,8 @@ svg.i.i16 { width: 16px; height: 16px; }
   --bezel-top: #B9BDC3; --bezel-bot: #D6D9DD;
 }
 .dark {
-  --g-plate: var(--grain-30); --g-plastic: var(--grain-22); --g-rubber: var(--grain-30); --g-metal: var(--grain-16); --g-glass: var(--grain-12);
-  --b-plate: var(--brushed-60); --b-metal: var(--brushed-60);
+  --g-plate: var(--grain-15); --g-plastic: var(--grain-11); --g-rubber: var(--grain-15); --g-metal: var(--grain-08); --g-glass: var(--grain-06);
+  --b-plate: var(--brushed-42); --b-metal: var(--brushed-42);
   --sheen-plate: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.07) 30%, rgba(255,255,255,0) 52%, rgba(255,255,255,.04) 74%, rgba(255,255,255,0) 90%);
   --sheen-metal: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 35%, rgba(255,255,255,0) 60%);
   --ring-metal: conic-gradient(from 0deg, #8E939A 0deg, #4B4F56 45deg, #9A9FA6 90deg, #464A51 135deg, #8B9097 180deg, #484C53 225deg, #969BA2 270deg, #43474E 315deg, #8E939A 360deg);

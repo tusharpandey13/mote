@@ -385,3 +385,4 @@ Every control family has its own material and keeps it in both themes. That give
     - D-pad: a new **machined bezel ring** (r 99-104) made from an 8-stop `sweepGradient` (radial brushed sheen) around the rubber disc.
     - Transport channel: explicit dark-top bezel stops.
 - **Layer order is fixed for every material:** shadows, body gradient, textures (Overlay), sheen/gloss, inner lines. See `tokens.json` → `materials`.
+- **Grain halved (0.3.1, on-device feedback "too much grain").** Grain alpha is half the table above in both themes (plate .11/.15, plastic .08/.11, rubber and wells .12/.15, metal .06/.08, glass .04/.06), and brushed alpha is about 30% lower (plate .32/.42, metal .42/.42). `tokens.json` holds the live values.
