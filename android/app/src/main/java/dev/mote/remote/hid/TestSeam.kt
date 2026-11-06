@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Instrumented tests (app/src/androidTest) install fakes before the app touches [dev.mote.remote.net.Net]:
  * - [transport]: replaces the Bluetooth HID transport, so every UI action lands in the fake
  *   (which can present Bluetooth HID or Mote Helper capabilities). [Hid] then skips the real
- *   profile registration; its host selection state still works.
+ *   profile registration and reports it as done (phase READY); its host selection state still works.
  * - [adapter]: replaces the adapter half of [Bt.snapshot] (present / enabled / bonded hosts).
  *   Runtime permissions are still read from the system.
  */

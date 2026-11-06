@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+
 package dev.mote.remote.e2e
 
 import androidx.compose.ui.geometry.Offset
@@ -15,6 +17,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import dev.mote.remote.data.UiPrefs
 import dev.mote.remote.data.UiSettings
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -70,6 +74,30 @@ class SettingsTest {
         c.awaitDesc("Pointer speed") // the open Settings page is restored too
         shows("Pointer speed", "2.00x")
         shows("Scroll speed", "0.25x")
+    }
+
+    /**
+     * Regression: two changes fired back to back (no wait in between) must both persist. Settings used
+     * to save the whole UI snapshot, so the second change wrote the first one's old value back.
+     */
+    @Test
+    fun rapidChangesAreNotLost() {
+        openSettings()
+        c.desc("Pointer speed").performTouchInput { click(centerRight - Offset(2f, 0f)) }
+        c.desc("Scroll speed").performTouchInput { click(centerLeft + Offset(2f, 0f)) }
+        c.desc("Natural scrolling").performClick()
+        c.waitUntil(5_000) { saved().let { it.pointerSpeed == UiSettings.SPEED_MAX && it.scrollSpeed == UiSettings.SPEED_MIN && !it.naturalScroll } }
+    }
+
+    /** The same through the API: concurrent atomic updates of different fields all land. */
+    @Test
+    fun concurrentUpdatesAllLand() = runBlocking {
+        listOf<(UiSettings) -> UiSettings>(
+            { it.copy(desktopCount = 9) }, { it.copy(extraDim = true) }, { it.copy(hapticKeys = false) }, { it.copy(ctrlNumberShortcuts = true) },
+        ).map { f -> kotlinx.coroutines.GlobalScope.async { UiPrefs.update(ctx, f) } }.awaitAll()
+        val s = saved()
+        assertEquals(9, s.desktopCount)
+        assertTrue(s.extraDim && !s.hapticKeys && s.ctrlNumberShortcuts)
     }
 
     /** Slow (linear) one-finger motion: counts scale with Pointer speed. */

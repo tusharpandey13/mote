@@ -89,8 +89,8 @@ Tests assert the exact transport calls (key names, modifier bits, consumer usage
 The HID byte encoding is covered by `EncoderTest`, and the helper wire protocol by `ProtoTest` and
 `HelperIntegrationTest` (JVM). Timing tests (brightness auto-repeat, long-press, the SCROLL / VOLUME
 sliders, macro confirm) pause the Compose clock (`mainClock.autoAdvance = false`) and advance it
-explicitly, so they're deterministic. Hold-to-seek and the Spaces cooldown measure real time
-(`SystemClock`), so those tests wait in real time.
+explicitly, so they're deterministic. Hold-to-seek and the Bluetooth Spaces step queue (300 ms per step) use
+real time (`SystemClock`, the main dispatcher), so those tests wait in real time.
 
 On a busy Mac the emulator can crash with a host GL error. If that happens, boot it with `-gpu guest`.
 

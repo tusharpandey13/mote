@@ -46,6 +46,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.shadow
@@ -212,11 +217,91 @@ fun Led(color: Color, pulse: Boolean) {
     }
 }
 
-/** "MOTE" debossed into the chassis (Unbounded Black 19sp, tracking 2.5): dark edge above, light below. */
+/** Wordmark LED state, from the active transport's real link. */
+enum class LinkLight { UNLIT, CONNECTING, LIT }
+
+@Composable
+fun linkLight(): LinkLight {
+    val linked = LocalLinked.current // real link of the active transport (or the debug demo)
+    val s by dev.mote.remote.hid.Hid.state.collectAsState()
+    val active by dev.mote.remote.net.Net.active.collectAsState()
+    val ws by dev.mote.remote.net.Net.wsStatus.collectAsState()
+    return when {
+        linked -> LinkLight.LIT
+        active is dev.mote.remote.net.WsTransport ->
+            if (ws is dev.mote.remote.net.WsStatus.Connecting) LinkLight.CONNECTING else LinkLight.UNLIT
+        !s.isConnected && s.selected != null && !s.unpaired && s.phase == dev.mote.remote.hid.Phase.READY -> LinkLight.CONNECTING
+        s.phase == dev.mote.remote.hid.Phase.REGISTERING -> LinkLight.CONNECTING
+        else -> LinkLight.UNLIT
+    }
+}
+
+private val LedEasing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+/**
+ * "MOTE" (Unbounded Black 19sp, tracking 2.5) as an LED (rev 6 #61/#64): an unlit grey deboss when
+ * disconnected; lit blue with three stacked glows when connected; the unlit mark pulses towards dim
+ * blue (1600 ms, reversing) while connecting. Lit/unlit cross-fade in 400 ms. Drawn natively so each
+ * glow is the text with a BlurMaskFilter; paints are cached, the animation only redraws.
+ */
 @Composable
 fun WordmarkText() {
     val c = LocalMote.current
-    EngravedText("MOTE", 19.sp, 2.5.sp, c.engrave)
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val state = linkLight()
+    val reduced = reducedMotion()
+    val lit = animateFloatAsState(if (state == LinkLight.LIT) 1f else 0f, tween(400, easing = LedEasing), label = "led")
+    val pulse = if (state == LinkLight.CONNECTING && !reduced) {
+        rememberInfiniteTransition(label = "ledPulse").animateFloat(
+            0f, 1f, infiniteRepeatable(tween(1600, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse), label = "p",
+        )
+    } else remember(state) { mutableStateOf(if (state == LinkLight.CONNECTING) 0.5f else 0f) }
+    val base = remember(density) {
+        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = androidx.core.content.res.ResourcesCompat.getFont(ctx, dev.mote.remote.R.font.unbounded_black)
+            textSize = with(density) { 19.sp.toPx() }
+            letterSpacing = 2.5f / 19f
+        }
+    }
+    val text = "MOTE"
+    val fm = base.fontMetrics
+    val wPx = base.measureText(text); val hPx = fm.descent - fm.ascent
+    Box(
+        Modifier
+            .size(with(density) { wPx.toDp() }, with(density) { hPx.toDp() })
+            .semantics { contentDescription = "Mote, " + state.name.lowercase() }
+            .drawWithCache {
+                val y = -fm.ascent
+                val one = 1.dp.toPx()
+                val glows = c.led.glows.map { (blur, col) ->
+                    android.graphics.Paint(base).apply {
+                        maskFilter = android.graphics.BlurMaskFilter(blur * density.density, android.graphics.BlurMaskFilter.Blur.NORMAL)
+                        color = col.toArgb()
+                    } to col.alpha
+                }
+                val paint = android.graphics.Paint(base)
+                onDrawBehind {
+                    val l = lit.value
+                    val p = pulse.value
+                    drawIntoCanvas { cv ->
+                        val nc = cv.nativeCanvas
+                        // unlit deboss: dark edge above, light edge below
+                        if (l < 1f) {
+                            paint.color = c.engraveDark.copy(alpha = c.engraveDark.alpha * (1 - l)).toArgb(); nc.drawText(text, 0f, y - one, paint)
+                            paint.color = c.engraveLight.copy(alpha = c.engraveLight.alpha * (1 - l)).toArgb(); nc.drawText(text, 0f, y + one, paint)
+                        }
+                        if (l > 0f) {
+                            for ((g, a) in glows) { g.alpha = (a * l * 255).toInt(); nc.drawText(text, 0f, y, g) }
+                            paint.color = c.led.edge.copy(alpha = c.led.edge.alpha * l).toArgb(); nc.drawText(text, 0f, y - one, paint)
+                        }
+                        val unlitFill = androidx.compose.ui.graphics.lerp(c.engrave, c.led.pulse, p)
+                        paint.color = androidx.compose.ui.graphics.lerp(unlitFill, c.led.fill, l).toArgb()
+                        nc.drawText(text, 0f, y, paint)
+                    }
+                }
+            },
+    )
 }
 
 enum class Mode(val label: String, val icon: String) {

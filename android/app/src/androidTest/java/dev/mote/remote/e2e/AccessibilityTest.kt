@@ -49,7 +49,7 @@ class AccessibilityTest {
     fun everyControlIsLabelledAndAtLeast48dp() {
         val problems = mutableListOf<String>()
         problems += audit("Media")
-        gestureSurfacesLabelled("Direction pad", "Scroll lever", "Spaces: slide to switch, tap for Mission Control")
+        gestureSurfacesLabelled("Direction pad", "Scroll lever", "Desktop 1, current")
 
         c.mode("Mouse"); problems += audit("Mouse")
         gestureSurfacesLabelled("Touchpad")

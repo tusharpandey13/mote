@@ -6,21 +6,21 @@
 <link rel="stylesheet" href="mote.css">
 <style>
   .media { display: flex; flex-direction: column; height: 100%; }
-  .fav-head { display: flex; align-items: center; justify-content: space-between; height: 40px; color: var(--on-surface-subtle); }
+  .fav-head { display: flex; align-items: center; justify-content: space-between; height: 32px; color: var(--on-surface-subtle); }
   .fav-head span { display: inline-flex; align-items: center; gap: 6px; }
-  .favs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
-  .fav { height: 64px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative; color: var(--on-surface); }
-  .fav .lb { font: 600 12px/14px var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
-  .fav.gesture { grid-column: span 2; flex-direction: row; padding: 0 8px; }
-  .sec-row { margin-top: auto; }
-  .sec-row .cap { color: var(--on-surface) !important; }
-  .cluster { position: relative; height: 256px; margin-top: 24px; align-items: center; display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; }
+  .cap-row { display: flex; justify-content: space-between; align-items: center; height: 16px; margin-top: 4px; color: var(--on-surface-subtle); font: 500 11px/1 var(--font-ui); }
+  .carousel { margin-top: 4px; }
+  .favs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+  .fav { height: 52px; border-radius: 16px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; position: relative; color: var(--on-surface); }
+  .fav .lb { font: 600 13px/16px var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
+  .sec-row { margin-top: auto; padding-top: 12px; }
+  .sec-row .pair.small .cap { height: 64px; border-radius: 17px; color: var(--on-surface) !important; }
+  .sec-row .pair.small { border-radius: 22px; }
+  .cluster { position: relative; height: 252px; margin-top: 14px; align-items: start; display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; }
   .cluster .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .cluster .dpad { margin-top: 0; }
-  .cluster .mute { position: absolute; right: 66px; bottom: 6px; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: var(--on-surface); }
-  .transport { margin-top: 20px; }
-  .transport .glass.sm { height: 72px; }
-  .transport .glass.play { height: 96px; border-radius: 24px; }
+  .cluster .dpad-wrap { margin-top: 12px; }
+  .transport { margin-top: 14px; grid-template-columns: 76px 1fr 76px !important; }
+  .transport .glass.sm, .transport .glass.play { height: 96px; border-radius: 24px; }
   .cluster .slider { height: 232px; }
   .dark .engrave { color: #4F535B; }
 </style>
@@ -35,18 +35,19 @@
       <i data-i="chevDown" class="i20 chev" data-dc-id="pill-chevron"></i>
     </div>
     <div class="brand" data-dc-id="brand">
-      <span class="wordmark" data-dc-id="wordmark">MOTE</span>
+      <span class="wordmark lit" data-dc-id="wordmark">MOTE</span>
       <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
     </div>
   </header>
   <main class="content media" data-dc-id="media-content">
     <section class="fav-wrap" data-dc-id="fav-strip">
-      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="fav-edit-btn raised" data-dc-id="fav-edit"><i data-i="edit" class="i16"></i>Edit</span></div>
-      <div class="favs"><div class="fav gesture raised" data-dc-id="fav-next-space">
-        <div class="slide"><i data-i="chevLeft" class="i20" data-dc-id="fav-next-space-prev"></i>
-          <div class="mid"><i data-i="spaces"></i><span class="lb" style="color:var(--on-surface)">Spaces</span><span class="hint" data-dc-id="fav-next-space-hint">hold &amp; slide</span></div>
-          <i data-i="chevRight" class="i20" data-dc-id="fav-next-space-next"></i></div>
-      </div><div class="fav add" style="grid-column: span 2" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div></div>
+      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="edit-chip raised" data-dc-id="fav-edit"><i data-i="edit" class="i16"></i>Edit</span></div>
+      <div class="cap-row"><span>Spaces</span><span>swipe or tap a desktop</span></div>
+      <div class="carousel well" data-dc-id="fav-next-space">
+        <div class="rowc"><div class="scard raised" data-dc-id="fav-next-space-card-1"><span class="num">1</span><span class="nm">Desktop 1</span></div><div class="scard current raised" data-dc-id="fav-next-space-card-2"><span class="cur-dot"></span><span class="num">2</span><span class="nm">Desktop 2</span></div><div class="scard raised" data-dc-id="fav-next-space-card-3"><span class="num">3</span><span class="nm">Desktop 3</span></div><div class="scard raised" data-dc-id="fav-next-space-card-4"><span class="num">4</span><span class="nm">Desktop 4</span></div><div class="scard raised" data-dc-id="fav-next-space-card-5"><span class="num">5</span><span class="nm">Desktop 5</span></div><div class="scard raised" data-dc-id="fav-next-space-card-6"><span class="num">6</span><span class="nm">Desktop 6</span></div></div>
+        <span class="fade-r"></span>
+      </div>
+      <div class="favs"><div class="fav add" style="grid-column: span 4" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div></div>
     </section>
 
     <div class="sec-row" data-dc-id="brightness-row">
@@ -67,7 +68,7 @@
         <span class="engrave" data-dc-id="scroll-lever-label">Scroll</span>
       </div>
       <div class="dpad-wrap" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
-        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient><filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter><clipPath id="cdisc"><circle cx="104" cy="104" r="96"/></clipPath><clipPath id="ccap"><circle cx="104" cy="104" r="35"/></clipPath></defs>
+        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient><linearGradient id="bevp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.30"/><stop offset=".4" style="stop-color:#000;stop-opacity:0"/><stop offset=".75" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.55"/></linearGradient><filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter><clipPath id="cdisc"><circle cx="104" cy="104" r="96"/></clipPath><clipPath id="ccap"><circle cx="104" cy="104" r="35"/></clipPath></defs>
         <circle class="housing" cx="104" cy="104" r="99"/>
         <circle class="contact" cx="104" cy="110" r="92"/>
         <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
@@ -75,18 +76,17 @@
         <circle class="bevel" cx="104" cy="104" r="95.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
         <g data-dc-id="dpad-up"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g><g data-dc-id="dpad-right" transform="rotate(90 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g><g data-dc-id="dpad-down" transform="rotate(180 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g><g data-dc-id="dpad-left" transform="rotate(270 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g>
         <g><line class="div" x1="73" y1="73" x2="47" y2="47"/><line class="div" x1="135" y1="73" x2="161" y2="47"/><line class="div" x1="73" y1="135" x2="47" y2="161"/><line class="div" x1="135" y1="135" x2="161" y2="161"/></g>
-        <g data-dc-id="dpad-center"><circle class="ring" cx="104" cy="104" r="42"/><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><rect class="grain" x="69" y="69" width="70" height="70" filter="url(#gr)" clip-path="url(#ccap)" opacity=".5"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#bev)"/><text class="ok" x="104" y="109.5" text-anchor="middle">OK</text></g>
+        <circle class="ring" cx="104" cy="104" r="42"/><g data-dc-id="dpad-center" class="okcap"><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><rect class="grain" x="69" y="69" width="70" height="70" filter="url(#gr)" clip-path="url(#ccap)" opacity=".5"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#bev)"/><text class="ok" x="104" y="109.5" text-anchor="middle" data-dc-id="dpad-center-legend">OK</text></g>
       </svg></div>
       <div class="col">
-        <div class="slider well" data-dc-id="volume-group">
+        <div class="slider well vol" data-dc-id="volume-group">
           <span class="end" data-dc-id="volume-group-top">+</span>
           <span class="ticks"></span>
           <div class="thumb" data-dc-id="volume-group-thumb"><i data-i="speaker" class="i20"></i></div>
-          <span class="end" data-dc-id="volume-group-bottom">−</span>
+          <span class="end bot" data-dc-id="volume-group-bottom">−</span><div class="mutecap raised" data-dc-id="mute"><i data-i="mute" class="i20"></i></div>
         </div>
         <span class="engrave" data-dc-id="volume-group-label">Volume</span>
       </div>
-      <div class="mute raised" data-dc-id="mute"><i data-i="mute" class="i20"></i></div>
     </div>
 
     <div class="channel well transport" data-dc-id="transport">

@@ -192,7 +192,7 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
     /** Defaults (rev 3+): only Spaces is a favourite; the rest of the strip is one "Add favourite" slot. */
     @Test
     fun defaultFavouritesAreSpacesAndAddSlot() {
-        c.desc("Spaces: slide to switch, tap for Mission Control").assertExists()
+        c.desc("Desktop 1, current").assertExists() // Spaces is the carousel row
         c.desc("Escape").assertDoesNotExist() // esc moved to Macros
         c.desc("Lock").assertDoesNotExist()
         c.onNode(hasText("Add favourite") and hasClickAction()).performClick()

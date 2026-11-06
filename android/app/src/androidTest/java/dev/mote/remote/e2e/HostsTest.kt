@@ -90,6 +90,22 @@ class HostsTest {
         c.waitUntil(5_000) { Net.tsPrompt.value == null && !shown("Tailscale is off") }
     }
 
+    /**
+     * The LED wordmark (rev 6): unlit with no host, connecting (pulsing) while a chosen Bluetooth host
+     * isn't connected yet, lit once the transport links. State is exposed as "Mote, <state>".
+     */
+    @Test
+    fun wordmarkFollowsTheLink() {
+        c.awaitDesc("Mote, unlit")
+        c.desc(noHost).performClick()
+        c.desc("Use Test Mac").performClick()
+        c.awaitDesc("Mote, connecting") // selected, searching
+        rule.transport.linked.value = true
+        c.awaitDesc("Mote, lit")
+        rule.transport.linked.value = false // host dropped: back to searching
+        c.awaitDesc("Mote, connecting")
+    }
+
     @Test
     fun sheetOffersWifiAndAddressFlows() {
         c.desc(noHost).performClick()

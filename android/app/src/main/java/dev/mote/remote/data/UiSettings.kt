@@ -27,6 +27,12 @@ data class UiSettings(
     val hapticKeys: Boolean = true,
     val hapticDetents: Boolean = true,
     val hapticLink: Boolean = true,
+    /** Spaces over Bluetooth: how many desktops to show (1-16). */
+    val desktopCount: Int = 4,
+    /** The Mac has "Switch to Desktop N" enabled, so a card can send ⌃N instead of stepping. */
+    val ctrlNumberShortcuts: Boolean = false,
+    /** The one-time ⌃N hint card was dismissed with Done. */
+    val spacesHintDone: Boolean = false,
 ) {
     companion object {
         const val SPEED_MIN = 0.25f
@@ -48,6 +54,9 @@ object UiPrefs {
     private val H_KEYS = booleanPreferencesKey("haptic_keys")
     private val H_DETENTS = booleanPreferencesKey("haptic_detents")
     private val H_LINK = booleanPreferencesKey("haptic_link")
+    private val DESKTOPS = androidx.datastore.preferences.core.intPreferencesKey("desktop_count")
+    private val CTRL_N = booleanPreferencesKey("ctrl_number_shortcuts")
+    private val SPACES_HINT = booleanPreferencesKey("spaces_hint_done")
 
     private fun clampSpeed(v: Float?) = (v ?: 1f).coerceIn(UiSettings.SPEED_MIN, UiSettings.SPEED_MAX)
 
@@ -64,18 +73,33 @@ object UiPrefs {
         hapticKeys = p[H_KEYS] ?: true,
         hapticDetents = p[H_DETENTS] ?: true,
         hapticLink = p[H_LINK] ?: true,
+        desktopCount = (p[DESKTOPS] ?: 4).coerceIn(1, 16),
+        ctrlNumberShortcuts = p[CTRL_N] ?: false,
+        spacesHintDone = p[SPACES_HINT] ?: false,
     )
 
     fun flow(c: Context): Flow<UiSettings> = c.store.data.map(::read)
 
-    suspend fun save(c: Context, s: UiSettings) {
-        c.store.edit {
-            it[POINTER] = clampSpeed(s.pointerSpeed); it[SCROLL] = clampSpeed(s.scrollSpeed)
-            it[NATURAL] = s.naturalScroll; it[RIGHT] = s.rightClick.name
-            it[CLEAR_MODS] = s.clearModsOnSwitch; it[IDLE_MODS] = s.releaseModsIdle
-            it[SCREEN_ON] = s.keepScreenOn; it[DIM] = s.extraDim
-            it[H_STRENGTH] = s.hapticStrength.name; it[H_KEYS] = s.hapticKeys
-            it[H_DETENTS] = s.hapticDetents; it[H_LINK] = s.hapticLink
+    /**
+     * Changes settings atomically: [f] runs on the stored value inside one DataStore edit, so two quick
+     * changes (e.g. two toggles before the first write lands) both survive. Writing a whole snapshot
+     * taken from the UI would overwrite the first change with stale values.
+     */
+    suspend fun update(c: Context, f: (UiSettings) -> UiSettings) {
+        c.store.edit { p -> write(p, f(read(p))) }
+    }
+
+    suspend fun save(c: Context, s: UiSettings) = update(c) { s }
+
+    private fun write(p: androidx.datastore.preferences.core.MutablePreferences, s: UiSettings) {
+        p.apply {
+            this[POINTER] = clampSpeed(s.pointerSpeed); this[SCROLL] = clampSpeed(s.scrollSpeed)
+            this[NATURAL] = s.naturalScroll; this[RIGHT] = s.rightClick.name
+            this[CLEAR_MODS] = s.clearModsOnSwitch; this[IDLE_MODS] = s.releaseModsIdle
+            this[SCREEN_ON] = s.keepScreenOn; this[DIM] = s.extraDim
+            this[H_STRENGTH] = s.hapticStrength.name; this[H_KEYS] = s.hapticKeys
+            this[H_DETENTS] = s.hapticDetents; this[H_LINK] = s.hapticLink
+            this[DESKTOPS] = s.desktopCount.coerceIn(1, 16); this[CTRL_N] = s.ctrlNumberShortcuts; this[SPACES_HINT] = s.spacesHintDone
         }
     }
 }

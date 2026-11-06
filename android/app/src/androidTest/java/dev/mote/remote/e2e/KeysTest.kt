@@ -30,6 +30,49 @@ class KeysTest(@Suppress("unused") private val name: String, caps: Caps) {
     private val c get() = rule.compose
     private val t get() = rule.transport
 
+    /**
+     * Two real taps; returns the wall-clock gap. The app times double taps with SystemClock (300 ms
+     * window), and the second tap needs the UI to have seen "armed" (Remote.mods is derived
+     * asynchronously), as it would for a finger. The clock is paused so injection doesn't wait for
+     * press animations.
+     */
+    private fun doubleTap(name: String, bit: Int): Long {
+        val key = c.onNode(hasContentDescription("$name, ", substring = true))
+        c.mainClock.autoAdvance = false
+        key.performTouchInput { click() }
+        val t0 = android.os.SystemClock.uptimeMillis()
+        while (dev.mote.remote.net.Remote.mods.value.armed and bit == 0 && android.os.SystemClock.uptimeMillis() - t0 < 200) Thread.sleep(2)
+        c.mainClock.advanceTimeByFrame() // recompose with "armed"
+        key.performTouchInput { click() }
+        val gap = android.os.SystemClock.uptimeMillis() - t0
+        c.mainClock.autoAdvance = true
+        return gap
+    }
+
+    /** Locks [name] by double tap; retries when the device was too slow to tap twice within the window. */
+    private fun lockByDoubleTap(name: String, bit: Int) {
+        val gaps = mutableListOf<Long>()
+        repeat(5) {
+            val gap = doubleTap(name, bit).also { gaps += it }
+            if (gap < 280) { c.awaitDesc("$name, locked"); return }
+            c.waitForIdle()
+            if (c.onAllNodes(hasContentDescription("Clear modifiers")).fetchSemanticsNodes().isNotEmpty()) c.desc("Clear modifiers").performClick()
+            c.awaitDesc("$name, off")
+        }
+        org.junit.Assume.assumeTrue("device too slow to inject a double tap within 300 ms (gaps $gaps)", false)
+    }
+
+    /** Hold 450 ms = locked (deterministic: the Compose clock times it). */
+    private fun holdLock(name: String) {
+        c.mainClock.autoAdvance = false
+        val key = c.onNode(hasContentDescription("$name, ", substring = true))
+        key.performTouchInput { down(center) }
+        c.mainClock.advanceTimeBy(500, ignoreFrameDuration = true)
+        key.performTouchInput { up() }
+        c.mainClock.autoAdvance = true
+        c.awaitDesc("$name, locked")
+    }
+
     @Before fun openKeys() { rule.awaitLinkState(); c.mode("Keys"); c.waitForIdle(); t.clear() }
 
     @Test
@@ -63,8 +106,7 @@ class KeysTest(@Suppress("unused") private val name: String, caps: Caps) {
 
     @Test
     fun doubleTapLocksUntilTappedAgain() {
-        c.desc("command, off").performTouchInput { click(); advanceEventTime(80); click() }
-        c.awaitDesc("command, locked")
+        lockByDoubleTap("command", Mods.CMD)
         t.clear()
         c.desc("A").press()
         c.desc("B").press()
@@ -106,8 +148,7 @@ class KeysTest(@Suppress("unused") private val name: String, caps: Caps) {
 
     @Test
     fun clearModifiersReleasesEverything() {
-        c.desc("control, off").performTouchInput { click(); advanceEventTime(80); click() }
-        c.awaitDesc("control, locked")
+        holdLock("control")
         c.desc("command, off").performClick()
         c.awaitDesc("command, armed")
         t.clear()

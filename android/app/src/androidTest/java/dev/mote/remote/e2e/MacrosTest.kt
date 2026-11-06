@@ -35,7 +35,6 @@ class MacrosTest(@Suppress("unused") private val name: String, private val caps:
     private val c get() = rule.compose
     private val t get() = rule.transport
     @org.junit.Before fun linked() = rule.awaitLinkState()
-    private val spaces = "Spaces: slide to switch, tap for Mission Control"
 
     /** Running a macro clears sticky modifiers first, then taps the chord. */
     private fun ran(key: String, mods: Int) = listOf(Call.SetMods(0, 0), Call.TapAwait(key, mods))
@@ -124,42 +123,6 @@ class MacrosTest(@Suppress("unused") private val name: String, private val caps:
         t.clear()
         c.desc("Dock").press()
         assertEquals(listOf(Call.SetMods(0, 0), Call.ClickAt(0.5f, 0.5f)), rule.awaitCalls(2))
-    }
-
-    /** Slides [dx] (fraction of the tile width) in small steps, without lifting. */
-    private fun androidx.compose.ui.test.TouchInjectionScope.slide(dx: Float) {
-        val n = 12
-        repeat(n) { moveBy(Offset(width * dx / n, 0f)) }
-    }
-
-    /** One deliberate slide = exactly one step, however far it goes; lift releases all keys. */
-    @Test
-    fun spacesSlideIsOneStep() {
-        t.clear()
-        c.desc(spaces).performTouchInput { down(Offset(width * 0.05f, centerY)); slide(0.9f); up() } // > 2 thresholds
-        assertEquals(listOf(Call.Tap("right", CTRL), Call.SetMods(0, 0)), t.awaitAtLeast(2))
-    }
-
-    /** A slide inside the 450 ms cooldown is queued (at most one) and sent when the cooldown ends. */
-    @Test
-    fun spacesSecondSlideWaitsForCooldown() {
-        t.clear()
-        c.desc(spaces).performTouchInput {
-            down(Offset(width * 0.1f, centerY)); slide(0.6f); up()
-            down(Offset(width * 0.9f, centerY)); slide(-0.6f); up() // left, right away
-        }
-        val r = rule.awaitCalls(4)
-        assertEquals(
-            "second step only after the first slide's cooldown, after its own lift",
-            listOf(Call.Tap("right", CTRL), Call.SetMods(0, 0), Call.SetMods(0, 0), Call.Tap("left", CTRL)), r,
-        )
-    }
-
-    @Test
-    fun spacesTapIsMissionControl() {
-        t.clear()
-        c.desc(spaces).press()
-        assertEquals(listOf(Call.Tap("up", CTRL), Call.SetMods(0, 0)), t.awaitAtLeast(2))
     }
 
     @Test

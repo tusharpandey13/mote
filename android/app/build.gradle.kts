@@ -20,8 +20,8 @@ android {
         applicationId = "dev.mote.remote"
         minSdk = 28
         targetSdk = 35
-        versionCode = 20
-        versionName = "0.3.0"
+        versionCode = 22
+        versionName = "0.3.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Fresh process + cleared data per test. The physical-HID suite is opt-in (see README).

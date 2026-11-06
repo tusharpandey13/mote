@@ -99,7 +99,8 @@ object Hid {
 
     fun start(context: Context) = exec.execute {
         appContext = context.applicationContext
-        if (TestSeam.transport != null) return@execute // tests: no real HID registration
+        // tests: no real registration; act as if it succeeded, so host selection behaves as on a phone
+        if (TestSeam.transport != null) { _state.update { it.copy(phase = Phase.READY) }; return@execute }
         if (proxy != null || _state.value.phase == Phase.REGISTERING) return@execute
         val a = context.getSystemService(BluetoothManager::class.java)?.adapter
         adapter = a

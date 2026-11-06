@@ -127,50 +127,60 @@ private fun Overline(text: String) {
 private fun speedLabel(v: Float) = if (v == 1f) "1x (default)" else "%.2gx".format(v)
 
 @Composable
-fun SettingsPage(onBack: () -> Unit, update: (UiSettings) -> Unit) {
+fun SettingsPage(onBack: () -> Unit, update: ((UiSettings) -> UiSettings) -> Unit) {
     val s = LocalSettings.current
     PageScaffold("Settings", onBack) {
         Overline("Pointer")
         SettingsCard {
             SettingRow("Pointer speed", "${speedLabel(s.pointerSpeed)}. Higher moves farther per swipe.") {}
-            MetalSlider(s.pointerSpeed, UiSettings.SPEED_MIN, UiSettings.SPEED_MAX, 8, "Pointer speed") { update(s.copy(pointerSpeed = it)) }
+            MetalSlider(s.pointerSpeed, UiSettings.SPEED_MIN, UiSettings.SPEED_MAX, 8, "Pointer speed") { update { st -> st.copy(pointerSpeed = it) } }
             Spacer(Modifier.height(4.dp))
             SettingRow("Scroll speed", "${speedLabel(s.scrollSpeed)}. Two-finger scrolling on the touchpad.") {}
-            MetalSlider(s.scrollSpeed, UiSettings.SPEED_MIN, UiSettings.SPEED_MAX, 8, "Scroll speed") { update(s.copy(scrollSpeed = it)) }
+            MetalSlider(s.scrollSpeed, UiSettings.SPEED_MIN, UiSettings.SPEED_MAX, 8, "Scroll speed") { update { st -> st.copy(scrollSpeed = it) } }
             Spacer(Modifier.height(4.dp))
             SettingRow("Natural scrolling", "Content follows your fingers") {
-                Switch(s.naturalScroll, "Natural scrolling") { update(s.copy(naturalScroll = it)) }
+                Switch(s.naturalScroll, "Natural scrolling") { update { st -> st.copy(naturalScroll = it) } }
             }
             Hairline()
             SettingRow("Right-click") {
                 Segmented(RightClick.entries, s.rightClick, { if (it == RightClick.HOLD) "Hold" else "2-finger tap" }, Modifier.width(190.dp)) {
-                    update(s.copy(rightClick = it))
+                    update { st -> st.copy(rightClick = it) }
                 }
             }
         }
+        Overline("Spaces")
+        SettingsCard {
+            SettingRow("Desktops", "${s.desktopCount} on the Mac. Sets the cards in the Spaces carousel over Bluetooth.") {}
+            MetalSlider(s.desktopCount.toFloat(), 1f, 16f, 16, "Desktops") { update { st -> st.copy(desktopCount = it.toInt()) } }
+            Spacer(Modifier.height(4.dp))
+            SettingRow(
+                "Use ⌃1–⌃9 shortcuts",
+                "Turn on Switch to Desktop 1-9 on the Mac (System Settings, Keyboard Shortcuts, Mission Control). Off: Mote steps with ⌃← and ⌃→.",
+            ) { Switch(s.ctrlNumberShortcuts, "Use control 1 to 9 shortcuts") { update { st -> st.copy(ctrlNumberShortcuts = it) } } }
+        }
         Overline("Keyboard")
         SettingsCard {
-            SettingRow("Clear modifiers on mode switch") { Switch(s.clearModsOnSwitch, "Clear modifiers on mode switch") { update(s.copy(clearModsOnSwitch = it)) } }
+            SettingRow("Clear modifiers on mode switch") { Switch(s.clearModsOnSwitch, "Clear modifiers on mode switch") { update { st -> st.copy(clearModsOnSwitch = it) } } }
             Hairline()
-            SettingRow("Release modifiers after 30 s idle") { Switch(s.releaseModsIdle, "Release modifiers after 30 s idle") { update(s.copy(releaseModsIdle = it)) } }
+            SettingRow("Release modifiers after 30 s idle") { Switch(s.releaseModsIdle, "Release modifiers after 30 s idle") { update { st -> st.copy(releaseModsIdle = it) } } }
         }
         Overline("Screen")
         SettingsCard {
-            SettingRow("Keep screen on while connected") { Switch(s.keepScreenOn, "Keep screen on while connected") { update(s.copy(keepScreenOn = it)) } }
+            SettingRow("Keep screen on while connected") { Switch(s.keepScreenOn, "Keep screen on while connected") { update { st -> st.copy(keepScreenOn = it) } } }
             Hairline()
-            SettingRow("Extra dim", "For dark rooms and presentations") { Switch(s.extraDim, "Extra dim") { update(s.copy(extraDim = it)) } }
+            SettingRow("Extra dim", "For dark rooms and presentations") { Switch(s.extraDim, "Extra dim") { update { st -> st.copy(extraDim = it) } } }
         }
     }
 }
 
 @Composable
-fun HapticsPage(onBack: () -> Unit, update: (UiSettings) -> Unit) {
+fun HapticsPage(onBack: () -> Unit, update: ((UiSettings) -> UiSettings) -> Unit) {
     val c = LocalMote.current
     val s = LocalSettings.current
     val haptics = LocalHaptics.current
     PageScaffold("Haptics", onBack) {
         Overline("Strength")
-        Segmented(HapticStrength.entries, s.hapticStrength, { it.label }, Modifier.fillMaxWidth(), height = 48.dp) { update(s.copy(hapticStrength = it)) }
+        Segmented(HapticStrength.entries, s.hapticStrength, { it.label }, Modifier.fillMaxWidth(), height = 48.dp) { update { st -> st.copy(hapticStrength = it) } }
         Overline("Try them")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("Tick" to Haptic.TICK, "Click" to Haptic.CLICK, "Heavy" to Haptic.HEAVY, "Lock" to Haptic.LOCK, "Reject" to Haptic.REJECT).forEach { (label, hp) ->
@@ -182,11 +192,11 @@ fun HapticsPage(onBack: () -> Unit, update: (UiSettings) -> Unit) {
         }
         Spacer(Modifier.height(16.dp))
         SettingsCard {
-            SettingRow("Key presses", "Tick on every key and D-pad step") { Switch(s.hapticKeys, "Key presses") { update(s.copy(hapticKeys = it)) } }
+            SettingRow("Key presses", "Tick on every key and D-pad step") { Switch(s.hapticKeys, "Key presses") { update { st -> st.copy(hapticKeys = it) } } }
             Hairline()
-            SettingRow("Slider detents", "Ticks as scroll and volume speed change") { Switch(s.hapticDetents, "Slider detents") { update(s.copy(hapticDetents = it)) } }
+            SettingRow("Slider detents", "Ticks as scroll and volume speed change") { Switch(s.hapticDetents, "Slider detents") { update { st -> st.copy(hapticDetents = it) } } }
             Hairline()
-            SettingRow("Connect and disconnect", "Distinct pulses when the link changes") { Switch(s.hapticLink, "Connect and disconnect") { update(s.copy(hapticLink = it)) } }
+            SettingRow("Connect and disconnect", "Distinct pulses when the link changes") { Switch(s.hapticLink, "Connect and disconnect") { update { st -> st.copy(hapticLink = it) } } }
         }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth().well(RoundedCornerShape(20.dp)).padding(16.dp)) {

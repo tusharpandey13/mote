@@ -42,7 +42,13 @@ data class MoteColors(
     val glassTop: Color, val glassBot: Color, val glassInk: Color, val glassGlow: Color,
     val glossTop: Float, val glossMid: Float, val glassSpec: Float, val glassRim: Float,
     val engraveLabel: Color, val engraveDark: Color, val engraveLight: Color,
+    // revision 6 (tokens.json color.accentGlow, components.wordmark)
+    val accentGlow: Color, val led: LedMark,
 )
+
+/** The MOTE wordmark as an LED: lit fill, a crisp dark edge 1dp above, glow layers (blur dp, colour), connecting pulse colour. */
+@Immutable
+data class LedMark(val fill: Color, val edge: Color, val glows: List<Pair<Float, Color>>, val pulse: Color)
 
 /** Grain (Overlay) alpha per material, tokens.json themes.*.grainAlpha. */
 @Immutable
@@ -63,7 +69,7 @@ val Silver = MoteColors(
     hi = Color(0xF2FFFFFF), lo = Color(0x29283C3C), shadow = Color(0x47263240), wellShade = Color(0x42141C28),
     engrave = Color(0xFFC4C7CC), grain = Color(0x05000000), dot = Color(0x24000000),
     dshadow = Color(0x421E2632), vignette = Color(0x241E2632), vignetteStop = 0.55f,
-    grainAlpha = Grain(plate = 0.22f, plastic = 0.16f, rubber = 0.24f, metal = 0.12f, glass = 0.08f), brushedPlate = 0.45f, brushedMetal = 0.6f,
+    grainAlpha = Grain(plate = 0.11f, plastic = 0.08f, rubber = 0.12f, metal = 0.06f, glass = 0.04f), brushedPlate = 0.32f, brushedMetal = 0.42f,
     sheenPlate = listOf(0f to w(0), 0.30f to w(0x61), 0.52f to w(0), 0.74f to w(0x2E), 0.90f to w(0)),
     sheenMetal = listOf(0f to w(0), 0.35f to w(0x8C), 0.60f to w(0)),
     bezelTop = Color(0xFFB9BDC3), bezelBot = Color(0xFFD6D9DD), glassTopLine = w(0xE6),
@@ -74,6 +80,8 @@ val Silver = MoteColors(
     glassTop = Color(0xEBFFFFFF), glassBot = Color(0xDBE2E8F0), glassInk = Color(0xFF1C1D20), glassGlow = Color(0x3840A0FF),
     glossTop = 0.95f, glossMid = 0.35f, glassSpec = 0.9f, glassRim = 0.25f,
     engraveLabel = Color(0xFFC4C7CC), engraveDark = Color(0x6B141C28), engraveLight = Color(0xFFFFFFFF),
+    accentGlow = Color(0x7340A0FF),
+    led = LedMark(Color(0xFF2F8BE0), Color(0x4D141C28), listOf(4f to Color(0xBF40A0FF), 12f to Color(0x8C40A0FF), 22f to Color(0x5940A0FF)), Color(0xFF8FB3D6)),
 )
 
 val Titanium = MoteColors(
@@ -89,7 +97,7 @@ val Titanium = MoteColors(
     hi = Color(0x1AFFFFFF), lo = Color(0x59000000), shadow = Color(0x8C000000), wellShade = Color(0xB3000000),
     engrave = Color(0xFF1C1D21), grain = Color(0x05FFFFFF), dot = Color(0x1AFFFFFF),
     dshadow = Color(0x8C000000), vignette = Color(0x73000000), vignetteStop = 0.50f,
-    grainAlpha = Grain(plate = 0.30f, plastic = 0.22f, rubber = 0.30f, metal = 0.16f, glass = 0.12f), brushedPlate = 0.6f, brushedMetal = 0.6f,
+    grainAlpha = Grain(plate = 0.15f, plastic = 0.11f, rubber = 0.15f, metal = 0.08f, glass = 0.06f), brushedPlate = 0.42f, brushedMetal = 0.42f,
     sheenPlate = listOf(0f to w(0), 0.30f to w(0x12), 0.52f to w(0), 0.74f to w(0x0A), 0.90f to w(0)),
     sheenMetal = listOf(0f to w(0), 0.35f to w(0x59), 0.60f to w(0)),
     bezelTop = Color(0xFF08090A), bezelBot = Color(0xFF16171A), glassTopLine = w(0x59),
@@ -100,6 +108,8 @@ val Titanium = MoteColors(
     glassTop = Color(0xC7464E5C), glassBot = Color(0xEB161A20), glassInk = Color(0xFF9ED9FF), glassGlow = Color(0x596CC4FF),
     glossTop = 0.28f, glossMid = 0.08f, glassSpec = 0.35f, glassRim = 0.06f,
     engraveLabel = Color(0xFF4F535B), engraveDark = Color(0xD9000000), engraveLight = Color(0x17FFFFFF),
+    accentGlow = Color(0x8C6CC4FF),
+    led = LedMark(Color(0xFFA8DEFF), Color(0xCC000000), listOf(3f to Color(0xF26CC4FF), 10f to Color(0xCC6CC4FF), 24f to Color(0x8C6CC4FF)), Color(0xFF35556F)),
 )
 
 val LocalMote = staticCompositionLocalOf { Silver }
