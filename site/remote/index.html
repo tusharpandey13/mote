@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#E3E5E8">
+<title>Mote remote</title>
+<link rel="stylesheet" href="../design/mote.css">
+<link rel="stylesheet" href="remote.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<div class="screen" id="screen" data-view="connect">
+  <header class="topbar">
+    <button class="pill raised" id="pill" type="button">
+      <span class="led red" id="pill-led"></span>
+      <span class="name" id="pill-name">Mote</span><span class="state" id="pill-state">Not connected</span>
+      <i data-i="chevDown" class="i20 chev"></i>
+    </button>
+    <div class="brand">
+      <span class="wordmark">MOTE</span>
+      <button class="icon-btn" id="menu-btn" type="button" aria-label="Menu"><i data-i="more" class="i20"></i></button>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <div class="notice raised live" id="notice" hidden><span class="bar"></span>
+      <div class="tx"><div class="t-label" id="notice-tx">Input paused on the Mac</div><div class="t-body-s muted" id="notice-sub"></div></div>
+    </div>
+
+    <!-- Connect -->
+    <main class="content view" id="v-connect">
+      <section class="card raised">
+        <div class="scan idle" id="c-scan"><i data-i="laptop" class="i28"></i></div>
+        <h2 class="t-title" id="c-title">Connect to your Mac</h2>
+        <p class="t-body-s muted" id="c-status">Mote talks to the Mote Helper app in your Mac's menu bar.</p>
+        <div class="opts">
+          <button class="btn-secondary raised" id="c-wifi" type="button"><i data-i="wifiBars"></i>Wi-Fi</button>
+          <p class="t-body-s subtle note" id="c-wifi-note"></p>
+          <button class="btn-secondary raised" id="c-ble" type="button"><i data-i="bluetooth"></i>Bluetooth</button>
+          <p class="t-body-s subtle note" id="c-ble-note"></p>
+        </div>
+      </section>
+      <p class="t-body-s subtle foot-link"><a href="https://tusharpandey13.github.io/mote/" target="_blank" rel="noopener">Get Mote Helper for your Mac</a></p>
+    </main>
+
+    <!-- Pairing -->
+    <main class="content view pair-c" id="v-pair" hidden>
+      <h1 class="t-headline">Pair with <span id="p-host">your Mac</span></h1>
+      <p class="t-body muted p-lead">Open the Mote Helper menu on your Mac, choose Pair new device, and enter the code shown.</p>
+      <p class="t-body-s p-warn" id="p-closed" hidden>Pairing isn't open on the Mac right now. Choose Pair new device in the Mote Helper menu first.</p>
+      <form id="p-form" autocomplete="off">
+        <label class="field"><span class="t-caps subtle">Code</span>
+          <input id="p-code" class="code-in" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="······" aria-label="6-digit code"></label>
+        <label class="field"><span class="t-caps subtle">This device</span>
+          <input id="p-name" class="name-in" maxlength="64" autocapitalize="words" aria-label="Device name"></label>
+        <p class="t-body-s p-err" id="p-err" role="alert"></p>
+        <button class="btn-primary accent-cap" id="p-go" type="submit">Pair</button>
+      </form>
+      <button class="btn-secondary raised p-back" id="p-back" type="button">Use a different connection</button>
+    </main>
+
+    <!-- Media -->
+    <main class="content view pane media live" data-mode="media" hidden>
+      <section class="fav-wrap">
+        <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span></div>
+        <div class="favs">
+          <div class="fav gesture raised" data-spaces>
+            <div class="slide"><i data-i="chevLeft" class="i20"></i>
+              <div class="mid"><i data-i="spaces"></i><span class="lb" style="color:var(--on-surface)">Spaces</span><span class="hint">hold &amp; slide</span></div>
+              <i data-i="chevRight" class="i20"></i></div>
+          </div>
+          <div class="fav raised" data-macro="spotlight"><i data-i="search"></i><span class="lb">Spotlight</span></div>
+          <div class="fav raised" data-macro="mission"><i data-i="windows"></i><span class="lb">Mission</span></div>
+        </div>
+      </section>
+
+      <div class="nav-row">
+        <div class="kc raised" data-key="41">esc</div>
+        <svg class="dpad" viewBox="0 0 208 208">
+          <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--key-top)"/><stop offset="1" style="stop-color:var(--key-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient></defs>
+          <circle class="housing" cx="104" cy="104" r="104"/>
+          <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)"/>
+          <circle class="bevel" cx="104" cy="104" r="95.25" stroke="url(#bev)"/>
+          <g data-key="82" data-rep><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g>
+          <g data-key="79" data-rep transform="rotate(90 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g>
+          <g data-key="81" data-rep transform="rotate(180 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g>
+          <g data-key="80" data-rep transform="rotate(270 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g>
+          <g pointer-events="none"><line class="div" x1="73" y1="73" x2="47" y2="47"/><line class="div" x1="135" y1="73" x2="161" y2="47"/><line class="div" x1="73" y1="135" x2="47" y2="161"/><line class="div" x1="135" y1="135" x2="161" y2="161"/></g>
+          <g data-key="40" class="ok-g"><circle class="ring" cx="104" cy="104" r="42"/><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#bev)"/><text class="ok" x="104" y="109.5" text-anchor="middle">OK</text></g>
+        </svg>
+        <div class="lever well" id="lever">
+          <i data-i="chevUp" class="i20"></i>
+          <div class="thumb raised" id="lever-thumb"><span class="grip"></span><span class="grip"></span><span class="grip"></span></div>
+          <i data-i="chevDown" class="i20"></i>
+        </div>
+      </div>
+
+      <div class="sec-row">
+        <div class="pair small well">
+          <div class="cap raised" data-cons="brightdown" data-rep><span class="arrowed"><i data-i="sunDown"></i><i data-i="arrowDown" class="i16"></i></span></div>
+          <div class="cap raised" data-cons="brightup" data-rep><span class="arrowed"><i data-i="sunUp"></i><i data-i="arrowUp" class="i16"></i></span></div>
+        </div>
+      </div>
+
+      <div class="transport">
+        <div class="side raised" data-cons="prev"><i data-i="prev" class="i28"></i></div>
+        <div class="bezel"><div class="play accent-cap" data-cons="play"><i data-i="playPause" class="i32"></i></div></div>
+        <div class="side raised" data-cons="next"><i data-i="next" class="i28"></i></div>
+      </div>
+
+      <div class="pair well vol">
+        <div class="cap raised" data-cons="voldown" data-rep><i data-i="volDown" class="i28"></i></div>
+        <div class="cap raised" data-cons="mute"><i data-i="mute"></i></div>
+        <div class="cap raised" data-cons="volup" data-rep><i data-i="volUp" class="i28"></i></div>
+      </div>
+    </main>
+
+    <!-- Mouse -->
+    <main class="content view pane pad-wrap live" data-mode="mouse" hidden>
+      <div class="touchpad" id="touchpad">
+        <span class="chip-last" id="chip-last">Ready</span>
+        <span class="glow" id="glow" hidden></span>
+        <button class="hints-hide raised" id="hints-btn" type="button"><span id="hints-x"><i data-i="close" class="i16"></i></span><span id="hints-i" hidden><i data-i="info" class="i16"></i></span>Hints</button>
+        <div class="hints" id="hints">
+          <div class="f"><i data-i="finger1"></i></div><div class="h"><b>Drag</b> to move, <b>tap</b> to click, tap twice to double-click</div>
+          <div class="f"><i data-i="hold"></i></div><div class="h"><b>Hold</b> to right-click</div>
+          <div class="f"><i data-i="finger2"></i></div><div class="h"><b>Two fingers</b> to scroll, tap to right-click</div>
+          <div class="f"><i data-i="finger3"></i></div><div class="h"><b>Three fingers</b> sideways to switch desktops, up for overview</div>
+        </div>
+      </div>
+      <div class="strip">
+        <div class="raised" data-btn="left">Left</div>
+        <div class="raised" id="m-lock" aria-label="Drag lock"><span id="m-unlock-ic"><i data-i="unlock"></i></span><span id="m-lock-ic" hidden><i data-i="lock"></i></span></div>
+        <div class="raised" data-btn="right">Right</div>
+      </div>
+    </main>
+
+    <!-- Keys -->
+    <main class="content view pane keys live" data-mode="keys" hidden>
+      <form class="typebox" id="k-form" autocomplete="off">
+        <div class="field tb"><input id="k-text" placeholder="Type text" enterkeyhint="send" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type text"></div>
+        <button class="sendb accent-cap" type="submit">Send</button>
+      </form>
+      <label class="retopt t-body-s muted"><input type="checkbox" id="k-ret"> send Return after</label>
+
+      <div class="sec-head"><span class="t-caps">Function and navigation</span><button class="tog t-caps" id="fn-tog" type="button"><span id="fn-tx">Hide</span><span id="fn-up"><i data-i="chevUp" class="i16"></i></span><span id="fn-down" hidden><i data-i="chevDown" class="i16"></i></span></button></div>
+      <section class="upper" id="upper">
+        <div class="row"><div class="key fn" data-key="41">esc</div><div class="key fn" data-key="58">F1</div><div class="key fn" data-key="59">F2</div><div class="key fn" data-key="60">F3</div><div class="key fn" data-key="61">F4</div><div class="key fn" data-key="62">F5</div><div class="key fn" data-key="63">F6</div></div>
+        <div class="row"><div class="key fn" data-key="64">F7</div><div class="key fn" data-key="65">F8</div><div class="key fn" data-key="66">F9</div><div class="key fn" data-key="67">F10</div><div class="key fn" data-key="68">F11</div><div class="key fn" data-key="69">F12</div><div class="key fn" data-key="76" data-rep>del</div></div>
+        <div class="navblock">
+          <div class="key fn" data-key="74">home</div><div class="key fn" data-key="75">pg up</div><span class="gap"></span><span class="gap"></span><div class="key" data-key="82" data-rep>↑</div><span class="gap"></span>
+          <div class="key fn" data-key="77">end</div><div class="key fn" data-key="78">pg dn</div><span class="gap"></span><div class="key" data-key="80" data-rep>←</div><div class="key" data-key="81" data-rep>↓</div><div class="key" data-key="79" data-rep>→</div>
+        </div>
+      </section>
+
+      <section class="lower">
+        <div class="chord well">
+          <span id="chord-mods"></span>
+          <span id="chord-next" hidden><span class="plus">+</span><span class="slot"></span><span class="plus">next key</span></span>
+          <button class="clr raised" id="chord-clear" type="button">Clear</button>
+        </div>
+        <div class="deck well">
+          <div class="row" id="k-sym" hidden><div class="key" data-key="53">`</div><div class="key" data-key="45">-</div><div class="key" data-key="46">=</div><div class="key" data-key="47">[</div><div class="key" data-key="48">]</div><div class="key" data-key="49">\</div><div class="key" data-key="51">;</div><div class="key" data-key="52">'</div></div>
+          <div class="row"><div class="key" data-key="30"><span class="sub">!</span>1</div><div class="key" data-key="31"><span class="sub">@</span>2</div><div class="key" data-key="32"><span class="sub">#</span>3</div><div class="key" data-key="33"><span class="sub">$</span>4</div><div class="key" data-key="34"><span class="sub">%</span>5</div><div class="key" data-key="35"><span class="sub">^</span>6</div><div class="key" data-key="36"><span class="sub">&amp;</span>7</div><div class="key" data-key="37"><span class="sub">*</span>8</div><div class="key" data-key="38"><span class="sub">(</span>9</div><div class="key" data-key="39"><span class="sub">)</span>0</div></div>
+          <div class="row"><div class="key" data-key="20">Q</div><div class="key" data-key="26">W</div><div class="key" data-key="8">E</div><div class="key" data-key="21">R</div><div class="key" data-key="23">T</div><div class="key" data-key="28">Y</div><div class="key" data-key="24">U</div><div class="key" data-key="12">I</div><div class="key" data-key="18">O</div><div class="key" data-key="19">P</div></div>
+          <div class="row"><div class="key" data-key="4">A</div><div class="key" data-key="22">S</div><div class="key" data-key="7">D</div><div class="key" data-key="9">F</div><div class="key" data-key="10">G</div><div class="key" data-key="11">H</div><div class="key" data-key="13">J</div><div class="key" data-key="14">K</div><div class="key" data-key="15">L</div><div class="key wide g15" data-key="40"><i data-i="ret"></i></div></div>
+          <div class="row">
+            <div class="key mod g15" data-mod="2"><span class="g">⇧</span><span class="n">shift</span></div>
+            <div class="key" data-key="29">Z</div><div class="key" data-key="27">X</div><div class="key" data-key="6">C</div><div class="key" data-key="25">V</div><div class="key" data-key="5">B</div><div class="key" data-key="17">N</div><div class="key" data-key="16">M</div>
+            <div class="key wide g15" data-key="42" data-rep><i data-i="backspace"></i></div>
+          </div>
+          <div class="row">
+            <div class="key wide g15" data-sym>#+=</div>
+            <div class="key wide" data-key="43">tab</div>
+            <div class="key" data-key="54">,</div>
+            <div class="key g5" data-key="44"></div>
+            <div class="key" data-key="55">.</div>
+            <div class="key" data-key="56"><span class="sub">?</span>/</div>
+          </div>
+          <div class="modrow">
+            <div class="mod disabled"><span class="g">fn</span><span class="n">not sendable</span></div>
+            <div class="mod" data-mod="1"><span class="g">⌃</span><span class="n">control</span></div>
+            <div class="mod" data-mod="4"><span class="g">⌥</span><span class="n">option</span></div>
+            <div class="mod" data-mod="8"><span class="g">⌘</span><span class="n">command</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Macros -->
+    <main class="content view pane macros live" data-mode="macros" hidden>
+      <div class="mhead"><h1 class="t-headline">Macros</h1></div>
+      <p class="t-body-s subtle hint">Tap to run. Spaces is a gesture tile: hold and slide. Lock screen asks for a second tap.</p>
+      <div class="grid">
+        <div class="tile gesture" data-tint="indigo" data-spaces style="grid-column: span 2">
+          <i data-i="starFill" class="i16 star on"></i>
+          <i data-i="spaces" class="ic"></i>
+          <div class="slide"><i data-i="chevLeft" class="i20"></i><div style="flex:1;padding-left:4px"><div class="nm">Spaces</div><div class="ch">hold &amp; slide ⌃← ⌃→, tap ⌃↑</div></div><i data-i="chevRight" class="i20"></i></div>
+        </div>
+        <div class="tile" data-tint="slate" data-macro="spotlight"><i data-i="starFill" class="i16 star on"></i><i data-i="search" class="ic"></i><div><div class="nm">Spotlight</div><div class="ch">⌘ space</div></div></div>
+        <div class="tile" data-tint="indigo" data-macro="mission"><i data-i="starFill" class="i16 star on"></i><i data-i="windows" class="ic"></i><div><div class="nm">Mission Control</div><div class="ch">⌃↑</div></div></div>
+        <div class="tile" data-tint="blue" data-macro="shot"><i data-i="camera" class="ic"></i><div><div class="nm">Screenshot area</div><div class="ch">⌘⇧4</div></div></div>
+        <div class="tile" data-tint="cyan" data-macro="safari"><i data-i="apps" class="ic"></i><div><div class="nm">Open Safari</div><div class="ch">3 steps</div></div></div>
+        <div class="tile" data-tint="sand" data-macro="lock"><i data-i="lock" class="ic"></i><div><div class="nm">Lock screen</div><div class="ch">⌃⌘Q</div></div></div>
+        <div class="tile" data-tint="magenta" data-macro="forcequit"><i data-i="power" class="ic"></i><div><div class="nm">Force quit</div><div class="ch">⌥⌘esc</div></div></div>
+        <div class="tile" data-tint="slate" data-macro="hide"><i data-i="windows" class="ic"></i><div><div class="nm">Hide others</div><div class="ch">⌥⌘H</div></div></div>
+      </div>
+    </main>
+
+    <section class="lost raised" id="lost" hidden>
+      <div class="scan"><i data-i="laptop" class="i28"></i></div>
+      <h2 class="t-title" id="lost-title">Reconnecting…</h2>
+      <p class="t-body-s" id="lost-body">Nothing you press is sent until then.</p>
+      <div class="acts"><button class="btn-secondary raised" id="lost-retry" type="button"><i data-i="refresh"></i>Reconnect</button><button class="btn-secondary raised" id="lost-opts" type="button"><i data-i="devices"></i>Options</button></div>
+    </section>
+  </div>
+
+  <nav class="rail" id="rail" hidden>
+    <div class="track well">
+      <button class="seg" type="button" data-mode="media"><i data-i="modeMedia"></i><span class="lb">Media</span></button>
+      <button class="seg" type="button" data-mode="mouse"><i data-i="modeMouse"></i><span class="lb">Mouse</span></button>
+      <button class="seg" type="button" data-mode="keys"><i data-i="modeKeys"></i><span class="lb">Keys</span></button>
+      <button class="seg" type="button" data-mode="macros"><i data-i="modeMacros"></i><span class="lb">Macros</span></button>
+    </div>
+  </nav>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <section class="sheet" id="sheet" hidden>
+    <div class="handle"></div>
+    <div class="sh-head"><h2 class="t-headline">Mote</h2><button class="icon-btn" id="s-close" type="button" aria-label="Close"><i data-i="close"></i></button></div>
+    <div class="row-item"><i data-i="theme"></i><div class="tx"><div class="t-label">Theme</div></div>
+      <div class="seg-ctl well" id="s-theme"><div data-theme="light">Light</div><div data-theme="dark">Dark</div><div data-theme="system">System</div></div></div>
+    <div class="list">
+      <button class="row-item" id="s-disc" type="button"><i data-i="close"></i><div class="tx"><div class="t-label">Disconnect</div><div class="sub" id="s-sub">Not connected</div></div></button>
+      <button class="row-item" id="s-forget" type="button"><i data-i="trash"></i><div class="tx"><div class="t-label">Forget this Mac</div><div class="sub">Removes the pairing from this browser</div></div></button>
+      <a class="row-item" href="https://tusharpandey13.github.io/mote/" target="_blank" rel="noopener"><i data-i="info"></i><div class="tx"><div class="t-label">About Mote</div><div class="sub">Get Mote Helper for your Mac</div></div><i data-i="chevRight" class="i20 subtle"></i></a>
+    </div>
+  </section>
+</div>
+<script src="../design/icons.js"></script>
+<script src="mote.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
