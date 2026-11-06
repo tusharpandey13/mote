@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mote — Device picker</title>
+<link rel="stylesheet" href="mote.css">
+<style>
+  .media { display: flex; flex-direction: column; height: 100%; }
+  .fav-head { display: flex; align-items: center; justify-content: space-between; height: 24px; color: var(--on-surface-subtle); }
+  .fav-head span { display: inline-flex; align-items: center; gap: 6px; }
+  .favs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+  .fav { height: 60px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative; }
+  .fav .ic { color: var(--tint); }
+  .fav .lb { font: 600 12px/14px var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
+  .nav-row { display: grid; grid-template-columns: 64px 208px 56px; justify-content: space-between; align-items: center; margin-top: 22px; }
+  .nav-row .keycol { display: flex; flex-direction: column; gap: 12px; }
+  .nav-row .kc { height: 56px; border-radius: 16px; display: grid; place-items: center; font: 600 14px/1 var(--font-ui); color: var(--on-surface-muted); }
+  .sec-row { display: grid; grid-template-columns: 1fr 64px; gap: 12px; margin-top: auto; align-items: center; }
+  .sec-row .mute { width: 64px; height: 56px; border-radius: 20px; display: grid; place-items: center; }
+  .transport { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding: 0 10px; }
+  .vol { margin-top: 20px; }
+
+  .lost { position: absolute; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); z-index: 2; border-radius: 24px; padding: 24px 20px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .lost .t-title { margin-top: 16px; }
+  .lost .t-body-s { color: var(--on-surface-muted); margin-top: 6px; max-width: 300px; }
+  .lost .acts { display: flex; gap: 8px; margin-top: 18px; width: 100%; }
+  .lost .acts > * { flex: 1; }
+
+  .sheet { padding: 0 16px 36px; }
+  .sh-head { display: flex; align-items: center; justify-content: space-between; height: 60px; margin-top: 4px; }
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .scrim, .sheet { z-index: 3; }
+</style>
+</head>
+<body>
+<div class="screen" data-dc-id="screen">
+  <div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>
+  <header class="topbar" data-dc-id="topbar">
+    <div class="pill raised" data-dc-id="connection-pill">
+      <span class="led amber" data-dc-id="pill-led"></span>
+      <span class="name" data-dc-id="pill-name">MacBook Pro</span><span class="state" data-dc-id="pill-state">Searching…</span>
+      <i data-i="chevDown" class="i20 chev" data-dc-id="pill-chevron"></i>
+    </div>
+    <div class="icon-btn" data-dc-id="menu"><i data-i="more"></i></div>
+  </header>
+  <main class="content media offline" data-dc-id="media-content">
+    <section class="lost raised" data-dc-id="disconnected-card">
+      <div class="scan" data-dc-id="scan-indicator"><i data-i="bluetooth" class="i28"></i></div>
+      <h2 class="t-title" data-dc-id="disconnected-title">Searching for MacBook Pro…</h2>
+      <p class="t-body-s" data-dc-id="disconnected-body">mote reconnects on its own while it's open. Wake MacBook Pro or bring it in range. Nothing you press is sent until then.</p>
+      <div class="acts"><div class="btn-secondary raised" data-dc-id="pair-another"><i data-i="devices"></i>Choose device</div></div>
+    </section>
+    <section class="fav-wrap live" data-dc-id="fav-strip">
+      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16" style="color:var(--accent)"></i>Favourites</span><span class="t-caps" data-dc-id="fav-edit">Edit</span></div>
+      <div class="favs"><div class="fav raised" data-tint="blue" data-dc-id="fav-screenshot"><i data-i="camera" class="ic"></i><span class="lb">Screenshot</span></div><div class="fav raised" data-tint="indigo" data-dc-id="fav-mission"><i data-i="windows" class="ic"></i><span class="lb">Mission</span></div><div class="fav raised" data-tint="indigo" data-dc-id="fav-prev-space"><i data-i="spacePrev" class="ic"></i><span class="lb">Prev Space</span></div><div class="fav raised" data-tint="indigo" data-dc-id="fav-next-space"><i data-i="spaceNext" class="ic"></i><span class="lb">Next Space</span></div></div>
+    </section>
+
+    <div class="nav-row live" data-dc-id="dpad-row">
+      <div class="keycol">
+        <div class="kc raised" data-dc-id="esc">esc</div>
+        <div class="kc raised" data-dc-id="space">space</div>
+      </div>
+      <svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
+        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--key-top)"/><stop offset="1" style="stop-color:var(--key-bot)"/></linearGradient></defs>
+        <circle class="housing" cx="104" cy="104" r="104"/>
+        <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)"/>
+        <path class="rim" d="M22 86A96 96 0 0 1 186 86"/>
+        <g data-dc-id="dpad-up"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g><g data-dc-id="dpad-right" transform="rotate(90 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g><g data-dc-id="dpad-down" transform="rotate(180 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g><g data-dc-id="dpad-left" transform="rotate(270 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g>
+        <g><line class="div" x1="73" y1="73" x2="47" y2="47"/><line class="div" x1="135" y1="73" x2="161" y2="47"/><line class="div" x1="73" y1="135" x2="47" y2="161"/><line class="div" x1="135" y1="135" x2="161" y2="161"/></g>
+        <g data-dc-id="dpad-center"><circle class="ring" cx="104" cy="104" r="42"/><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><path class="rim" d="M76 96A30 30 0 0 1 132 96"/><text class="ok" x="104" y="109.5" text-anchor="middle">OK</text></g>
+      </svg>
+      <div class="lever well" data-dc-id="scroll-lever">
+        <i data-i="chevUp" class="i20" data-dc-id="scroll-notch-up"></i>
+        <div class="thumb raised" data-dc-id="scroll-thumb"><span class="grip"></span><span class="grip"></span><span class="grip"></span></div>
+        <i data-i="chevDown" class="i20" data-dc-id="scroll-notch-down"></i>
+      </div>
+    </div>
+
+    <div class="sec-row live" data-dc-id="brightness-row">
+      <div class="pair small well" data-dc-id="brightness-group">
+        <div class="cap raised" data-dc-id="brightness-down"><i data-i="sunDown"></i></div>
+        <div class="cap raised" data-dc-id="brightness-up"><i data-i="sunUp"></i></div>
+      </div>
+      <div class="mute raised" data-dc-id="mute"><i data-i="mute"></i></div>
+    </div>
+
+    <div class="transport live" data-dc-id="transport">
+      <div class="mbtn raised" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
+      <div class="bezel well" data-dc-id="play-bezel"><div class="play accent-cap" data-dc-id="play-pause"><i data-i="playPause" class="i32"></i></div></div>
+      <div class="mbtn raised" data-dc-id="next"><i data-i="next" class="i28"></i></div>
+    </div>
+
+    <div class="pair well vol live" data-dc-id="volume-group">
+      <div class="cap raised" data-dc-id="volume-down"><i data-i="volDown" class="i28"></i></div>
+      <div class="cap raised" data-dc-id="volume-up"><i data-i="volUp" class="i28"></i></div>
+    </div>
+  </main>
+  <nav class="rail" data-dc-id="mode-rail">
+    <div class="track well" data-dc-id="rail-track">
+      <div class="seg on raised" data-dc-id="rail-media"><i data-i="modeMedia"></i><span class="lb">Media</span></div>
+      <div class="seg" data-dc-id="rail-pad"><i data-i="modeMouse"></i><span class="lb">Mouse</span></div>
+      <div class="seg" data-dc-id="rail-keys"><i data-i="modeKeys"></i><span class="lb">Keys</span></div>
+      <div class="seg" data-dc-id="rail-macros"><i data-i="modeMacros"></i><span class="lb">Macros</span></div>
+    </div>
+  </nav>
+  <div class="navbar"></div>
+  <div class="scrim" data-dc-id="scrim"></div>
+  <section class="sheet" data-dc-id="device-picker-sheet">
+    <div class="handle"></div>
+    <div class="sh-head"><h2 class="t-headline">Devices</h2><div class="icon-btn" data-dc-id="picker-close"><i data-i="close"></i></div></div>
+    <p class="t-body-s muted" style="margin-bottom:14px">mote connects to the selected device and keeps looking for it while the app is open.</p>
+    <div class="list" data-dc-id="device-list">
+        <div class="row-item raised" data-dc-id="known-macbook">
+          <i data-i="laptop"></i>
+          <div class="tx"><div class="t-label">MacBook Pro</div><div class="sub"><span class="led amber" style="display:inline-block;margin-right:6px;vertical-align:1px;width:7px;height:7px"></span>Searching…</div></div>
+          <span class="radio on"></span>
+          <div class="icon-btn"><i data-i="more"></i></div>
+        </div>
+        <div class="row-item well" data-dc-id="known-macmini">
+          <i data-i="desktop"></i>
+          <div class="tx"><div class="t-label">Mac mini</div><div class="sub">Paired, not in range</div></div>
+          <span class="radio"></span>
+          <div class="icon-btn"><i data-i="more"></i></div>
+        </div>
+        <div class="row-item well" data-dc-id="known-ipad">
+          <i data-i="tablet"></i>
+          <div class="tx"><div class="t-label">iPad Air</div><div class="sub">Paired, not in range</div></div>
+          <span class="radio"></span>
+          <div class="icon-btn"><i data-i="more"></i></div>
+        </div>
+        <div class="row-item well" data-dc-id="known-tv">
+          <i data-i="tv"></i>
+          <div class="tx"><div class="t-label">Living room TV</div><div class="sub">Paired, not in range</div></div>
+          <span class="radio"></span>
+          <div class="icon-btn"><i data-i="more"></i></div>
+        </div>
+    </div>
+    <div class="btn-primary accent-cap" style="margin-top:18px" data-dc-id="pair-new"><i data-i="plus"></i>Pair new device</div>
+  </section>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

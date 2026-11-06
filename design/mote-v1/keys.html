@@ -5,110 +5,96 @@
 <title>mote — Keys</title>
 <link rel="stylesheet" href="mote.css">
 <style>
-  .keys { display: flex; flex-direction: column; height: 100%; }
-  .row { display: flex; gap: var(--gap-key); }
+  .keys { display: flex; flex-direction: column; height: 100%; padding-left: 0; padding-right: 0; }
+  .row { display: flex; gap: 4px; }
   .row > * { flex: 1 1 0; min-width: 0; }
-  .row .w15 { flex-grow: 1.6; }
-  .row .w2 { flex-grow: 2.1; }
-  .row .sp { flex-grow: 4.4; }
-  .row.indent { padding: 0 17px; }
-  .sec-head { display: flex; align-items: center; justify-content: space-between; height: 32px; color: var(--on-surface-subtle); }
+  .g15 { flex-grow: 1.5 !important; } .g2 { flex-grow: 2 !important; } .g5 { flex-grow: 5 !important; }
+  .upper { display: flex; flex-direction: column; gap: 6px; padding: 0 8px; }
+  .upper .key { height: 58px; border-radius: 10px; }
+  .sec-head { display: flex; align-items: center; justify-content: space-between; height: 28px; padding: 0 8px; color: var(--on-surface-subtle); }
   .sec-head .tog { display: inline-flex; align-items: center; gap: 4px; }
-  .upper { display: flex; flex-direction: column; gap: var(--gap-key); }
-  .lower { margin-top: auto; display: flex; flex-direction: column; gap: var(--gap-key); }
-  .chord {
-    height: 48px; margin-bottom: 6px; border-radius: var(--r-s);
-    background: var(--surface-1); border: 1px solid var(--outline);
-    display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px;
-  }
-  .chord .mini { height: 28px; min-width: 28px; padding: 0 6px; border-radius: 8px; display: grid; place-items: center;
-    background: var(--modifier-armed); color: var(--on-modifier); font: 600 14px/1 var(--font-mono); }
-  .chord .mini.lk { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3.5px var(--modifier-armed); }
-  .chord .plus { font: 500 12px/16px var(--font-mono); letter-spacing: .5px; color: var(--on-surface-muted); }
-  .chord .slot { width: 28px; height: 28px; border-radius: 8px; border: 1px dashed var(--outline); }
-  .chord .clr { margin-left: auto; height: 36px; padding: 0 12px; border-radius: var(--r-full); display: inline-flex; align-items: center; color: var(--on-surface-muted); }
-  .modrow { display: flex; gap: var(--gap); margin-top: 6px; }
-  .modrow .mod { flex: 1; }
+  .navblock { display: grid; grid-template-columns: 1fr 1fr 12px 1fr 1fr 1fr; grid-template-rows: 58px 58px; gap: 6px; margin-top: 4px; }
+  .navblock .gap { visibility: hidden; }
+  .lower { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+  .chord { height: 44px; margin: 0 8px; border-radius: 14px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; }
+  .chord .mini { height: 28px; min-width: 28px; padding: 0 7px; border-radius: 8px; display: grid; place-items: center; background: linear-gradient(180deg, var(--modifier-top), var(--modifier-bot)); color: var(--on-modifier); font: 600 15px/1 var(--font-ui); }
+  .chord .mini.lk { box-shadow: 0 0 0 2px var(--well), 0 0 0 3.5px var(--modifier-armed); }
+  .chord .plus { font: 500 13px/16px var(--font-ui); color: var(--on-surface-muted); }
+  .chord .slot { width: 28px; height: 28px; border-radius: 8px; border: 1px dashed var(--on-surface-subtle); }
+  .chord .clr { margin-left: auto; height: 32px; padding: 0 12px; border-radius: 10px; display: inline-flex; align-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface-muted); }
+  .deck { padding: 6px 4px 6px; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; gap: 4px; }
+  .deck .key { height: 50px; }
+  .modrow { display: flex; gap: 4px; }
+  .modrow .mod { flex: 1; min-width: 0; }
+  .key.mod { height: 50px; min-width: 0; border-radius: 7px; }
   .key.mod .g { font-size: 18px; line-height: 20px; }
   .key.mod .n { font-size: 10px; line-height: 12px; }
 </style>
 </head>
 <body>
 <div class="screen" data-dc-id="screen">
-  <div class="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>
-
+  <div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>
   <header class="topbar" data-dc-id="topbar">
-    <div class="pill" data-dc-id="connection-pill"><span class="dot"></span><span class="t-caps">MacBook Pro</span></div>
+    <div class="pill raised" data-dc-id="connection-pill">
+      <span class="led" data-dc-id="pill-led"></span>
+      <span class="name" data-dc-id="pill-name">MacBook Pro</span>
+      <i data-i="chevDown" class="i20 chev" data-dc-id="pill-chevron"></i>
+    </div>
     <div class="icon-btn" data-dc-id="menu"><i data-i="more"></i></div>
   </header>
-
   <main class="content keys live" data-dc-id="keys-content">
+    <div class="sec-head"><span class="t-caps">Function and navigation</span><span class="tog t-caps" data-dc-id="fn-collapse">Hide <i data-i="chevUp" class="i16"></i></span></div>
     <section class="upper" data-dc-id="upper-keys">
-      <div class="sec-head">
-        <span class="t-caps">Function keys</span>
-        <span class="tog t-caps" data-dc-id="fn-collapse">Hide <i data-i="chevUp" class="i16"></i></span>
-      </div>
-      <div class="row" data-dc-id="f-row-1">
-        <div class="key fn">esc</div><div class="key fn">F1</div><div class="key fn">F2</div><div class="key fn">F3</div><div class="key fn">F4</div><div class="key fn">F5</div><div class="key fn">F6</div>
-      </div>
-      <div class="row" data-dc-id="f-row-2">
-        <div class="key fn">F7</div><div class="key fn">F8</div><div class="key fn">F9</div><div class="key fn">F10</div><div class="key fn">F11</div><div class="key fn">F12</div><div class="key fn">del</div>
-      </div>
-      <div class="row" data-dc-id="nav-row" style="margin-top: 6px">
-        <div class="key fn">home</div><div class="key fn">end</div><div class="key fn">pg↑</div><div class="key fn">pg↓</div>
-        <div class="key tint" style="font-size:16px">←</div><div class="key tint" style="font-size:16px">↑</div><div class="key tint" style="font-size:16px">↓</div><div class="key tint" style="font-size:16px">→</div>
+      <div class="row" data-dc-id="f-row-1"><div class="key fn">esc</div><div class="key fn">F1</div><div class="key fn">F2</div><div class="key fn">F3</div><div class="key fn">F4</div><div class="key fn">F5</div><div class="key fn">F6</div></div>
+      <div class="row" data-dc-id="f-row-2"><div class="key fn">F7</div><div class="key fn">F8</div><div class="key fn">F9</div><div class="key fn">F10</div><div class="key fn">F11</div><div class="key fn">F12</div><div class="key fn">del</div></div>
+      <div class="navblock" data-dc-id="nav-row">
+        <div class="key fn">home</div><div class="key fn">pg up</div><span class="gap"></span><span class="gap"></span><div class="key" data-dc-id="arrow-up">↑</div><span class="gap"></span>
+        <div class="key fn">end</div><div class="key fn">pg dn</div><span class="gap"></span><div class="key" data-dc-id="arrow-left">←</div><div class="key" data-dc-id="arrow-down">↓</div><div class="key" data-dc-id="arrow-right">→</div>
       </div>
     </section>
 
     <section class="lower" data-dc-id="keyboard">
-      <div class="chord" data-dc-id="chord-preview">
-        <span class="mini lk" data-dc-id="chord-shift">⇧</span>
-        <span class="mini" data-dc-id="chord-cmd">⌘</span>
-        <span class="plus">+</span>
-        <span class="slot"></span>
-        <span class="plus">next key</span>
-        <span class="clr t-caps" data-dc-id="chord-clear">Clear</span>
+      <div class="chord well" data-dc-id="chord-preview">
+        <span class="mini lk" data-dc-id="chord-shift">⇧</span><span class="mini" data-dc-id="chord-cmd">⌘</span>
+        <span class="plus">+</span><span class="slot"></span><span class="plus">next key</span>
+        <span class="clr raised" data-dc-id="chord-clear">Clear</span>
       </div>
-
-      <div class="row" data-dc-id="row-numbers">
-        <div class="key"><span class="sub">!</span>1</div><div class="key"><span class="sub">@</span>2</div><div class="key"><span class="sub">#</span>3</div><div class="key"><span class="sub">$</span>4</div><div class="key"><span class="sub">%</span>5</div><div class="key"><span class="sub">^</span>6</div><div class="key"><span class="sub">&amp;</span>7</div><div class="key"><span class="sub">*</span>8</div><div class="key"><span class="sub">(</span>9</div><div class="key"><span class="sub">)</span>0</div>
-      </div>
-      <div class="row" data-dc-id="row-q">
-        <div class="key">Q</div><div class="key">W</div><div class="key">E</div><div class="key">R</div><div class="key">T</div><div class="key">Y</div><div class="key">U</div><div class="key">I</div><div class="key">O</div><div class="key">P</div>
-      </div>
-      <div class="row indent" data-dc-id="row-a">
-        <div class="key">A</div><div class="key">S</div><div class="key">D</div><div class="key">F</div><div class="key">G</div><div class="key">H</div><div class="key">J</div><div class="key">K</div><div class="key">L</div>
-      </div>
-      <div class="row" data-dc-id="row-z">
-        <div class="key mod locked w15" data-dc-id="mod-shift"><span class="g">⇧</span><span class="n">shift</span></div>
-        <div class="key">Z</div><div class="key">X</div><div class="key">C</div><div class="key">V</div><div class="key">B</div><div class="key">N</div><div class="key">M</div>
-        <div class="key wide w15" data-dc-id="key-backspace"><i data-i="backspace"></i></div>
-      </div>
-      <div class="row" data-dc-id="row-bottom">
-        <div class="key wide w15" data-dc-id="key-symbols">#+=</div>
-        <div class="key wide" data-dc-id="key-tab">⇥</div>
-        <div class="key">,</div>
-        <div class="key tint sp" data-dc-id="key-space"></div>
-        <div class="key">.</div>
-        <div class="key wide w2" data-dc-id="key-return"><i data-i="ret"></i></div>
-      </div>
-
-      <div class="modrow" data-dc-id="modifier-row">
-        <div class="mod disabled" data-dc-id="mod-fn"><span class="g">fn</span><span class="n">n/a</span></div>
-        <div class="mod" data-dc-id="mod-ctrl"><span class="g">⌃</span><span class="n">ctrl</span></div>
-        <div class="mod" data-dc-id="mod-opt"><span class="g">⌥</span><span class="n">opt</span></div>
-        <div class="mod armed" data-dc-id="mod-cmd"><span class="g">⌘</span><span class="n">cmd</span></div>
+      <div class="deck well" data-dc-id="key-deck">
+        <div class="row" data-dc-id="row-numbers"><div class="key"><span class="sub">!</span>1</div><div class="key"><span class="sub">@</span>2</div><div class="key"><span class="sub">#</span>3</div><div class="key"><span class="sub">$</span>4</div><div class="key"><span class="sub">%</span>5</div><div class="key"><span class="sub">^</span>6</div><div class="key"><span class="sub">&</span>7</div><div class="key"><span class="sub">*</span>8</div><div class="key"><span class="sub">(</span>9</div><div class="key"><span class="sub">)</span>0</div></div>
+        <div class="row" data-dc-id="row-q"><div class="key">Q</div><div class="key">W</div><div class="key">E</div><div class="key">R</div><div class="key">T</div><div class="key">Y</div><div class="key">U</div><div class="key">I</div><div class="key">O</div><div class="key">P</div></div>
+        <div class="row" data-dc-id="row-a"><div class="key">A</div><div class="key">S</div><div class="key">D</div><div class="key">F</div><div class="key">G</div><div class="key">H</div><div class="key">J</div><div class="key">K</div><div class="key">L</div><div class="key wide g15" data-dc-id="key-return"><i data-i="ret"></i></div></div>
+        <div class="row" data-dc-id="row-z">
+          <div class="key mod locked g15" data-dc-id="mod-shift"><span class="g">⇧</span><span class="n">shift</span></div>
+          <div class="key">Z</div><div class="key">X</div><div class="key">C</div><div class="key">V</div><div class="key">B</div><div class="key">N</div><div class="key">M</div>
+          <div class="key wide g15" data-dc-id="key-backspace"><i data-i="backspace"></i></div>
+        </div>
+        <div class="row" data-dc-id="row-bottom">
+          <div class="key wide g15" data-dc-id="key-symbols">#+=</div>
+          <div class="key wide" data-dc-id="key-tab">tab</div>
+          <div class="key">,</div>
+          <div class="key g5" data-dc-id="key-space"></div>
+          <div class="key">.</div>
+          <div class="key"><span class="sub">?</span>/</div>
+        </div>
+        <div class="modrow" data-dc-id="modifier-row">
+          <div class="mod disabled" data-dc-id="mod-fn"><span class="g">fn</span><span class="n">not sendable</span></div>
+          <div class="mod" data-dc-id="mod-ctrl"><span class="g">⌃</span><span class="n">control</span></div>
+          <div class="mod" data-dc-id="mod-opt"><span class="g">⌥</span><span class="n">option</span></div>
+          <div class="mod armed" data-dc-id="mod-cmd"><span class="g">⌘</span><span class="n">command</span></div>
+        </div>
       </div>
     </section>
   </main>
-
   <nav class="rail" data-dc-id="mode-rail">
-    <div class="seg" data-dc-id="rail-media"><span class="ind"><i data-i="modeMedia"></i></span><span class="t-caps">Media</span></div>
-    <div class="seg" data-dc-id="rail-pad"><span class="ind"><i data-i="modePad"></i></span><span class="t-caps">Pad</span></div>
-    <div class="seg on" data-dc-id="rail-keys"><span class="ind"><i data-i="modeKeys"></i></span><span class="t-caps">Keys</span></div>
-    <div class="seg" data-dc-id="rail-macros"><span class="ind"><i data-i="modeMacros"></i></span><span class="t-caps">Macros</span></div>
+    <div class="track well" data-dc-id="rail-track">
+      <div class="seg" data-dc-id="rail-media"><i data-i="modeMedia"></i><span class="lb">Media</span></div>
+      <div class="seg" data-dc-id="rail-pad"><i data-i="modeMouse"></i><span class="lb">Mouse</span></div>
+      <div class="seg on raised" data-dc-id="rail-keys"><i data-i="modeKeys"></i><span class="lb">Keys</span></div>
+      <div class="seg" data-dc-id="rail-macros"><i data-i="modeMacros"></i><span class="lb">Macros</span></div>
+    </div>
   </nav>
   <div class="navbar"></div>
+
 </div>
 <script src="icons.js"></script>
 </body>

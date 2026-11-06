@@ -1,58 +1,75 @@
-// Inline icon set (stand-in for Material Symbols Rounded, weight 500). Usage: <i data-i="play" class="i28"></i>
+// mote icon set (rev 1). One grammar: 24 grid, 1.75 stroke, round caps/joins, 2px corner radii,
+// fills only for transport glyphs and "on" states. Usage: <i data-i="play" class="i28"></i>
 (function () {
-  var S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  var S = 'fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"';
   var F = 'fill="currentColor"';
+  function s(d) { return '<path ' + S + ' d="' + d + '"/>'; }
+  function f(d) { return '<path ' + F + ' d="' + d + '"/>'; }
   var I = {
-    play: '<path ' + F + ' d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>',
-    pause: '<rect ' + F + ' x="6" y="5" width="4" height="14" rx="1.2"/><rect ' + F + ' x="14" y="5" width="4" height="14" rx="1.2"/>',
-    prev: '<path ' + F + ' d="M18 6.5v11a1 1 0 0 1-1.55.83L9 13.2a1.4 1.4 0 0 1 0-2.4l7.45-5.13A1 1 0 0 1 18 6.5z"/><rect ' + F + ' x="5" y="6" width="2.6" height="12" rx="1.2"/>',
-    next: '<path ' + F + ' d="M6 6.5v11a1 1 0 0 0 1.55.83L15 13.2a1.4 1.4 0 0 0 0-2.4L7.55 5.67A1 1 0 0 0 6 6.5z"/><rect ' + F + ' x="16.4" y="6" width="2.6" height="12" rx="1.2"/>',
-    minus: '<path ' + S + ' d="M6 12h12"/>',
-    plus: '<path ' + S + ' d="M12 6v12M6 12h12"/>',
-    speaker: '<path ' + S + ' d="M4 9.5h3l4.5-4v13L7 14.5H4z"/><path ' + S + ' d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
-    mute: '<path ' + S + ' d="M4 9.5h3l4.5-4v13L7 14.5H4z"/><path ' + S + ' d="M16 9.5l5 5M21 9.5l-5 5"/>',
-    sunMinus: '<circle ' + S + ' cx="12" cy="12" r="3.2"/><path ' + S + ' d="M12 4.5v1.2M12 18.3v1.2M4.5 12h1.2M18.3 12h1.2M6.7 6.7l.85.85M16.45 16.45l.85.85M6.7 17.3l.85-.85M16.45 7.55l.85-.85"/>',
-    sunPlus: '<circle ' + F + ' cx="12" cy="12" r="4"/><path ' + S + ' d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M5.3 18.7l1.5-1.5M17.2 6.8l1.5-1.5"/>',
-    more: '<circle ' + F + ' cx="12" cy="5.5" r="1.8"/><circle ' + F + ' cx="12" cy="12" r="1.8"/><circle ' + F + ' cx="12" cy="18.5" r="1.8"/>',
-    modeMedia: '<rect ' + S + ' x="3.5" y="3.5" width="17" height="17" rx="8.5"/><path ' + F + ' d="M10 8.6v6.8a.6.6 0 0 0 .9.5l5.3-3.4a.6.6 0 0 0 0-1L10.9 8.1a.6.6 0 0 0-.9.5z"/>',
-    modePad: '<rect ' + S + ' x="3.5" y="4.5" width="17" height="15" rx="3.5"/><path ' + S + ' d="M12 15.5v4"/>',
-    modeKeys: '<rect ' + S + ' x="2.5" y="6" width="19" height="12" rx="3"/><path ' + S + ' d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"/>',
-    modeMacros: '<rect ' + S + ' x="3.5" y="3.5" width="7" height="7" rx="2"/><rect ' + S + ' x="13.5" y="3.5" width="7" height="7" rx="2"/><rect ' + S + ' x="3.5" y="13.5" width="7" height="7" rx="2"/><path ' + S + ' d="M17 13.5v7M13.5 17h7"/>',
-    lock: '<rect ' + S + ' x="5" y="10.5" width="14" height="10" rx="2.5"/><path ' + S + ' d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
-    unlock: '<rect ' + S + ' x="5" y="10.5" width="14" height="10" rx="2.5"/><path ' + S + ' d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/>',
-    bluetooth: '<path ' + S + ' d="M7 7.5l10 9-5 4.5v-18l5 4.5-10 9"/>',
-    laptop: '<rect ' + S + ' x="4.5" y="5" width="15" height="10.5" rx="1.8"/><path ' + S + ' d="M2.5 19h19"/>',
-    desktop: '<rect ' + S + ' x="3" y="4" width="18" height="12" rx="2"/><path ' + S + ' d="M9 20h6M12 16v4"/>',
-    check: '<path ' + S + ' d="M5 12.5l4.5 4.5L19 7.5"/>',
-    close: '<path ' + S + ' d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
-    refresh: '<path ' + S + ' d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/>',
-    backspace: '<path ' + S + ' d="M9 5.5h10a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5H9L3.5 12z"/><path ' + S + ' d="M11.5 9.5l5 5M16.5 9.5l-5 5"/>',
-    ret: '<path ' + S + ' d="M19 5.5v6a2.5 2.5 0 0 1-2.5 2.5H5.5M9.5 10l-4 4 4 4"/>',
-    chevDown: '<path ' + S + ' d="M7 10l5 5 5-5"/>',
-    chevUp: '<path ' + S + ' d="M7 14l5-5 5 5"/>',
-    camera: '<path ' + S + ' d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle ' + S + ' cx="12" cy="12.5" r="3.5"/>',
-    windows: '<rect ' + S + ' x="3" y="5" width="8" height="6" rx="1.5"/><rect ' + S + ' x="13" y="5" width="8" height="6" rx="1.5"/><rect ' + S + ' x="3" y="13" width="8" height="6" rx="1.5"/><rect ' + S + ' x="13" y="13" width="8" height="6" rx="1.5"/>',
-    search: '<circle ' + S + ' cx="10.5" cy="10.5" r="6"/><path ' + S + ' d="M15 15l5 5"/>',
-    mic: '<rect ' + S + ' x="9" y="3.5" width="6" height="11" rx="3"/><path ' + S + ' d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5"/>',
-    present: '<rect ' + S + ' x="3" y="4.5" width="18" height="12" rx="2"/><path ' + F + ' d="M10 8.2v4.6a.5.5 0 0 0 .78.42l3.5-2.3a.5.5 0 0 0 0-.84l-3.5-2.3a.5.5 0 0 0-.78.42z"/><path ' + S + ' d="M9 20.5l3-4 3 4"/>',
-    power: '<path ' + S + ' d="M12 3.5v8M7.2 6.8a7 7 0 1 0 9.6 0"/>',
-    text: '<path ' + S + ' d="M5 6.5h14M12 6.5v12M9 18.5h6"/>',
-    apps: '<rect ' + S + ' x="4" y="4" width="16" height="16" rx="4.5"/><path ' + S + ' d="M9 15l3-7 3 7M10 13h4"/>',
-    spaces: '<rect ' + S + ' x="2.5" y="6" width="8" height="12" rx="2"/><rect ' + S + ' x="13.5" y="6" width="8" height="12" rx="2"/><path ' + S + ' d="M10.5 12h3"/>',
-    trash: '<path ' + S + ' d="M5 7h14M10 7V5h4v2M7 7l1 12.5h8L17 7"/>',
-    edit: '<path ' + S + ' d="M14.5 5.5l4 4L9 19H5v-4z"/>',
+    // transport (filled, softened corners)
+    play: f('M8.2 5.2v13.6c0 .8.86 1.28 1.53.86l10.6-6.8a1 1 0 0 0 0-1.72L9.73 4.34c-.67-.42-1.53.06-1.53.86z'),
+    playPause: f('M3.5 6.2v11.6c0 .7.76 1.13 1.36.77l8.9-5.8a.92.92 0 0 0 0-1.54l-8.9-5.8c-.6-.36-1.36.07-1.36.77z') + '<rect ' + F + ' x="15" y="5.5" width="2.4" height="13" rx="1.2"/><rect ' + F + ' x="19" y="5.5" width="2.4" height="13" rx="1.2"/>',
+    prev: f('M19 7v10c0 .8-.9 1.27-1.56.82L10.3 12.8a1 1 0 0 1 0-1.64l7.14-5c.66-.45 1.56.03 1.56.83z') + '<rect ' + F + ' x="5.2" y="6" width="2.4" height="12" rx="1.2"/>',
+    next: f('M5 7v10c0 .8.9 1.27 1.56.82l7.14-5.02a1 1 0 0 0 0-1.64l-7.14-5C5.9 5.71 5 6.19 5 7z') + '<rect ' + F + ' x="16.4" y="6" width="2.4" height="12" rx="1.2"/>',
+    // volume / brightness
+    volDown: s('M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5z') + s('M15 12h5'),
+    volUp: s('M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5z') + s('M15 12h5M17.5 9.5v5'),
+    mute: s('M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5z') + s('M15.5 9.5l5 5M20.5 9.5l-5 5'),
+    sunDown: '<circle ' + S + ' cx="12" cy="12" r="3"/>' + s('M12 5.5v.5M12 18v.5M5.5 12h.5M18 12h.5M7.4 7.4l.35.35M16.25 16.25l.35.35M7.4 16.6l.35-.35M16.25 7.75l.35-.35'),
+    sunUp: '<circle ' + F + ' cx="12" cy="12" r="3.6"/>' + s('M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7'),
+    // rail
+    modeMedia: s('M4 7.5A3.5 3.5 0 0 1 7.5 4h9A3.5 3.5 0 0 1 20 7.5v9a3.5 3.5 0 0 1-3.5 3.5h-9A3.5 3.5 0 0 1 4 16.5z') + f('M10 9.2v5.6c0 .5.55.8.97.52l4.3-2.8a.62.62 0 0 0 0-1.04l-4.3-2.8A.62.62 0 0 0 10 9.2z'),
+    modeMouse: s('M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z'),
+    modeKeys: s('M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z') +
+      f('M6 8.3h1.6v1.6H6zM9.2 8.3h1.6v1.6H9.2zM12.4 8.3H14v1.6h-1.6zM15.6 8.3h1.6v1.6h-1.6zM7.6 11.2h1.6v1.6H7.6zM10.8 11.2h1.6v1.6h-1.6zM14 11.2h1.6v1.6H14z') + s('M8 15.3h8'),
+    modeMacros: s('M4 6.5A2.5 2.5 0 0 1 6.5 4h2A2.5 2.5 0 0 1 11 6.5v2A2.5 2.5 0 0 1 8.5 11h-2A2.5 2.5 0 0 1 4 8.5zM13 6.5A2.5 2.5 0 0 1 15.5 4h2A2.5 2.5 0 0 1 20 6.5v2a2.5 2.5 0 0 1-2.5 2.5h-2A2.5 2.5 0 0 1 13 8.5zM4 15.5A2.5 2.5 0 0 1 6.5 13h2a2.5 2.5 0 0 1 2.5 2.5v2A2.5 2.5 0 0 1 8.5 20h-2A2.5 2.5 0 0 1 4 17.5z') + f('M16.9 12.6l-2.6 4h2.2l-.6 3.8 2.9-4.4h-2.2z'),
+    // ui
+    more: '<circle ' + F + ' cx="12" cy="5.5" r="1.6"/><circle ' + F + ' cx="12" cy="12" r="1.6"/><circle ' + F + ' cx="12" cy="18.5" r="1.6"/>',
+    chevDown: s('M7.5 10l4.5 4.5 4.5-4.5'),
+    chevUp: s('M7.5 14l4.5-4.5 4.5 4.5'),
+    chevRight: s('M10 7.5l4.5 4.5-4.5 4.5'),
+    close: s('M6.5 6.5l11 11M17.5 6.5l-11 11'),
+    check: s('M5 12.5l4.5 4.5L19 7.5'),
+    plus: s('M12 5.5v13M5.5 12h13'),
+    star: s('M12 4.2l2.3 4.7 5.2.75-3.75 3.65.88 5.15L12 16l-4.63 2.45.88-5.15L4.5 9.65l5.2-.75z'),
+    starFill: '<path ' + F + ' stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M12 4.2l2.3 4.7 5.2.75-3.75 3.65.88 5.15L12 16l-4.63 2.45.88-5.15L4.5 9.65l5.2-.75z"/>',
+    lock: s('M6 11.5A1.5 1.5 0 0 1 7.5 10h9a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 18.5zM8.75 10V7.75a3.25 3.25 0 0 1 6.5 0V10'),
+    unlock: s('M6 11.5A1.5 1.5 0 0 1 7.5 10h9a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 18.5zM8.75 10V7.75a3.25 3.25 0 0 1 6.3-1.1'),
+    bluetooth: s('M7 7.5l10 9-5 4.5v-18l5 4.5-10 9'),
+    laptop: s('M5 6.5A1.5 1.5 0 0 1 6.5 5h11A1.5 1.5 0 0 1 19 6.5V15H5zM3 18h18'),
+    desktop: s('M3.5 5.5A1.5 1.5 0 0 1 5 4h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 16H5a1.5 1.5 0 0 1-1.5-1.5zM9 20h6M12 16v4'),
+    tablet: s('M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19.5zM11 18h2'),
+    tv: s('M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 15.5zM8 20h8'),
+    refresh: s('M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4'),
+    backspace: s('M9 5.5h10a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5H9L3.5 12zM11.5 9.5l5 5M16.5 9.5l-5 5'),
+    ret: s('M19 5.5v6a2.5 2.5 0 0 1-2.5 2.5H5.5M9.5 10l-4 4 4 4'),
+    camera: s('M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z') + '<circle ' + S + ' cx="12" cy="12.5" r="3.5"/>',
+    windows: s('M3.5 6A1.5 1.5 0 0 1 5 4.5h4.5A1.5 1.5 0 0 1 11 6v4a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 10zM13 6a1.5 1.5 0 0 1 1.5-1.5H19A1.5 1.5 0 0 1 20.5 6v4a1.5 1.5 0 0 1-1.5 1.5h-4.5A1.5 1.5 0 0 1 13 10zM3.5 15A1.5 1.5 0 0 1 5 13.5h4.5A1.5 1.5 0 0 1 11 15v3.5A1.5 1.5 0 0 1 9.5 20H5a1.5 1.5 0 0 1-1.5-1.5zM13 15a1.5 1.5 0 0 1 1.5-1.5H19a1.5 1.5 0 0 1 1.5 1.5v3.5A1.5 1.5 0 0 1 19 20h-4.5a1.5 1.5 0 0 1-1.5-1.5z'),
+    search: '<circle ' + S + ' cx="10.5" cy="10.5" r="6"/>' + s('M15 15l5 5'),
+    spaceNext: s('M3 7.5A1.5 1.5 0 0 1 4.5 6h6A1.5 1.5 0 0 1 12 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 16.5zM15 12h6M18.5 9.5L21 12l-2.5 2.5'),
+    spacePrev: s('M21 7.5A1.5 1.5 0 0 0 19.5 6h-6A1.5 1.5 0 0 0 12 7.5v9a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5zM9 12H3M5.5 9.5L3 12l2.5 2.5'),
+    power: s('M12 3.5v8M7.2 6.8a7 7 0 1 0 9.6 0'),
+    apps: s('M4 8.5A4.5 4.5 0 0 1 8.5 4h7A4.5 4.5 0 0 1 20 8.5v7a4.5 4.5 0 0 1-4.5 4.5h-7A4.5 4.5 0 0 1 4 15.5zM9 15l3-7 3 7M10 13h4'),
+    trash: s('M5 7h14M10 7V5h4v2M7 7l1 12.5h8L17 7'),
+    edit: s('M14.5 5.5l4 4L9 19H5v-4z'),
+    target: '<circle ' + S + ' cx="12" cy="12" r="6.5"/><circle ' + F + ' cx="12" cy="12" r="1.8"/>' + s('M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3'),
+    click: s('M9 9.2l9.4 4.2c.55.25.5 1.05-.08 1.2l-3.6 1-1.7 3.5c-.26.55-1.06.5-1.22-.08z') + s('M7.5 3.5l.6 2.2M3.5 7.5l2.2.6M3.9 3.9l1.8 1.8'),
+    gear: '<circle ' + S + ' cx="12" cy="12" r="3"/>' + s('M12 3.5l1.6 1.9 2.4-.5.8 2.3 2.3.8-.5 2.4 1.9 1.6-1.9 1.6.5 2.4-2.3.8-.8 2.3-2.4-.5L12 20.5l-1.6-1.9-2.4.5-.8-2.3-2.3-.8.5-2.4L3.5 12l1.9-1.6-.5-2.4 2.3-.8.8-2.3 2.4.5z'),
+    haptic: s('M8.5 5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5v13A1.5 1.5 0 0 1 14 20h-4a1.5 1.5 0 0 1-1.5-1.5zM5 9v6M2.5 10.5v3M19 9v6M21.5 10.5v3'),
+    theme: '<circle ' + S + ' cx="12" cy="12" r="8"/>' + f('M12 4a8 8 0 0 1 0 16z'),
+    info: '<circle ' + S + ' cx="12" cy="12" r="8.5"/>' + s('M12 11v5.5') + '<circle ' + F + ' cx="12" cy="7.8" r="1.1"/>',
+    devices: s('M3 6.5A1.5 1.5 0 0 1 4.5 5h11A1.5 1.5 0 0 1 17 6.5V8M3 6.5V15h10M1.5 18H13M15 10.5a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1z'),
     finger1: '<circle ' + F + ' cx="12" cy="12" r="3.2"/>',
     finger2: '<circle ' + F + ' cx="8" cy="12" r="3"/><circle ' + F + ' cx="16" cy="12" r="3"/>',
     finger3: '<circle ' + F + ' cx="5.5" cy="12" r="2.6"/><circle ' + F + ' cx="12" cy="12" r="2.6"/><circle ' + F + ' cx="18.5" cy="12" r="2.6"/>',
-    hand: '<path ' + S + ' d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.6a5 5 0 0 1-3.9-1.9L4 13.7a1.4 1.4 0 0 1 2.1-1.8L8 14"/>',
-    wifiBars: '<path ' + F + ' d="M3 19h3v-3H3zM8 19h3v-6H8zM13 19h3v-9h-3zM18 19h3V7h-3z"/>',
-    battery: '<rect ' + S + ' x="3" y="7.5" width="16" height="9" rx="2"/><rect ' + F + ' x="5" y="9.5" width="10" height="5" rx="1"/><path ' + S + ' d="M21.5 10.5v3"/>'
+    hold: '<circle ' + F + ' cx="12" cy="12" r="3"/><circle ' + S + ' cx="12" cy="12" r="7"/>',
+    wifiBars: f('M3 19h3v-3H3zM8 19h3v-6H8zM13 19h3v-9h-3zM18 19h3V7h-3z'),
+    battery: s('M3 9.5A2 2 0 0 1 5 7.5h12a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM21.5 10.5v3') + '<rect ' + F + ' x="5" y="9.5" width="10" height="5" rx="1"/>'
   };
   document.querySelectorAll('i[data-i]').forEach(function (el) {
     var name = el.getAttribute('data-i');
-    if (!I[name]) return;
-    var svg = '<svg viewBox="0 0 24 24" aria-hidden="true" class="i ' + (el.className || '') + '"' +
-      (el.getAttribute('data-dc-id') ? ' data-dc-id="' + el.getAttribute('data-dc-id') + '"' : '') + '>' + I[name] + '</svg>';
-    el.outerHTML = svg;
+    if (!I[name]) { console.error('icon missing: ' + name); return; }
+    var id = el.getAttribute('data-dc-id');
+    el.outerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" class="i ' + (el.className || '') + '"' + (id ? ' data-dc-id="' + id + '"' : '') + '>' + I[name] + '</svg>';
   });
 })();

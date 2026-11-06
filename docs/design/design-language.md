@@ -248,3 +248,42 @@ Rail moves to the **left edge vertical** (72dp wide, same order); content gets f
 
 ## Sources (brief)
 Material 3 Expressive & M3 specs (m3.material.io, Google I/O/Android Developers blog 2025, motion springs, button groups, 48dp targets); Android `HapticFeedbackConstants`, `VibrationEffect.Composition` primitives (developer.android.com/develop/ui/views/haptics); Apple HIG (Liquid Glass, Materials, Haptics, Layout, 44pt targets, iOS 26 2025); Apple TV Remote (Control Center) and Google TV app UX; Unified Remote, Steam Link/Steam Deck (trackpad haptics) public docs; Nothing OS and Teenage Engineering OP-1/EP-133 interface conventions; WCAG 2.2 SC 1.4.3/1.4.11/2.5.8. Contrast ratios computed locally from the hex values in this file. Treat `accent-pressed` and `modifier-locked` shape as to-verify at implementation.
+
+## Revision 1 decisions (2026-11, from canvas review of design/mote-v1)
+
+These override the sections above where they conflict. `design/mote-v1/mote.css` holds the live token values.
+
+- **Scope: any Bluetooth host, not only Macs.** All copy is device-agnostic and names the selected host ("Searching for MacBook Pro…"). The connection pill becomes a **device selector** (LED, host name, chevron). Tapping it opens the device list sheet. While the app is in the foreground it keeps searching for the selected host on its own (an amber pulse shows this). There is no manual Reconnect button.
+- **Palette "Graphite" (dark, default)** replaces flat near-black: chassis gradient `#1C1E23`->`#121317`, `bg #15161A`, `surface-1 #1B1D22`, recessed `well #0D0E11`, key caps gradient `key-top #383B43`->`key-bot #2A2C32` with `key-edge #1A1B1F`. Text: `on-surface #ECEAE6`, `muted #A9A7A2`, `subtle #8D8B86` (all >= 4.5:1 on bg and on caps). Accent is a copper signal: `accent #FF8A3D` (cap gradient `#FFA463`->`#F06A1C`, `on-accent #2A1200`). `danger #FF6B66`. Semantics are unchanged: copper = primary/active, yellow = modifier, green/amber/red = link.
+- **Palette "Putty" (light)** keeps the 2.2 mapping, adding caps `#FFFFFF`->`#ECE9E3`, `well #DEDAD2`, `outline #D2CEC5`, `accent-container #F6DCC6`, `danger-container #F6D9D6`, and cap gradient `#D2600F`->`#A84200` around `accent #B34700`.
+- **Material (skeuomorphic, tasteful).** This replaces "Elevation: none via shadow".
+  - **Two primitives.** *Raised cap*: vertical gradient, 1dp top bevel highlight, 1dp bottom bevel, 1dp edge, and a soft drop shadow. *Recessed well*: darker fill with an inner shadow. Every control is a raised cap. Every container that holds controls is a well: the touchpad, keyboard deck, rail track, button pairs, the play bezel and the D-pad housing.
+  - **Pressed** inverts the cap gradient, swaps the drop shadow for an inner shadow, and moves the cap down 1dp. **Locked** modifiers stay pressed-in, with a ring.
+  - **Texture.** One hairline vertical "brushed" grain at 2-3% on the chassis only. No glass, blur or photoreal textures.
+  - **The accent cap is the only colored cap**: a convex copper disc in a recessed bezel. Use it for play/pause and primary actions.
+- **Typography: mono dropped.** JetBrains Mono is gone. Everything is set in the UI sans (Inter, falling back to Roboto), keycaps included: `key` 18/22 w500, `key-s` 13/16 w500. Uppercase `caps` (11/16 w600, +0.7 tracking) is used only for small section overlines.
+- **Mode rail:** a recessed track holding 4 segments. The selected segment is a raised cap with a copper icon. Labels are sentence case, 12sp. **Modes renamed: Media / Mouse / Keys / Macros** ("Pad" became "Mouse", with a pointer icon). In landscape the rail sits on the left and the device selector is a compact cap at its top. There is no top bar in landscape.
+- **Icons:** our own inline set on a 24 grid with 1.75 stroke, round caps and joins. Fills are reserved for transport glyphs and on-states. This replaces Material Symbols for v1 drafts.
+- **Media layout (top to bottom):**
+  - Favourites strip: starred macros, 4 caps.
+  - Navigation row: esc/space column, D-pad, scroll lever. This sits in the upper zone because it isn't the focus.
+  - Brightness pair plus mute.
+  - Transport, which is the focus and sits in the prime thumb zone: a 96dp copper play/pause in a 112dp bezel, with equal 64dp prev/next.
+  - Volume: two caps, 50/50, with no readout. HID is one-way, so we can't know the host's volume level anyway.
+  - **D-pad center** is a plain concentric "OK" cap.
+- **Scroll lever** (new component): a 56x208 well with a spring-loaded thumb.
+  - Drag up or down to scroll, with speed proportional to displacement after a 6dp deadzone.
+  - `TICK` haptic each time the speed band changes. The thumb springs back to center (`spatial-fast`) on release.
+  - Tapping the top or bottom chevron sends one notch.
+- **Macros:**
+  - Tiles get a star; starred macros also show on Media.
+  - Tint becomes a small colored stripe on the cap's top edge plus a tinted icon, not a wash.
+  - Action types: Shortcut / Text / Sequence / **Click at point**. App launch is a Sequence preset.
+  - Click at point stores X,Y. It is set by capturing the current pointer position or by typing numbers. It runs by slamming the pointer to the top-left corner, then moving by the offset. That is approximate under pointer acceleration, and the UI says so. The optional Mac helper makes it exact.
+  - Macros that need pointer input (e.g. Screenshot area) switch to Mouse automatically and show a banner ("Drag to select, tap to capture", with Esc). They return to Macros when done.
+- **Pairing** only makes the phone discoverable (with a countdown) and gives instructions. Android's own system prompt confirms the passkey, so mote no longer shows a code.
+- **Overflow menu (⋯)** opens a sheet with Theme, Manage devices, Haptics, Settings and About.
+- **Keys:**
+  - The main keyboard is a laptop-style deck: an edge-to-edge well, 4dp gutters, 50dp keys, no keypad gaps.
+  - The function/navigation section uses 58dp keys and an inverted-T arrow cluster.
+  - Modifiers are labelled control/option/command. fn is shown disabled ("not sendable").

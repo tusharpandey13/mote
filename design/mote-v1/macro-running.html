@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mote — Macro running</title>
+<link rel="stylesheet" href="mote.css">
+<style>
+  .pad-wrap { display: flex; flex-direction: column; height: 100%; gap: 12px; }
+  .touchpad { flex: 1; }
+  .hints { position: absolute; left: 24px; right: 24px; bottom: 28px; display: grid; grid-template-columns: 36px 1fr; row-gap: 14px; column-gap: 8px; align-items: center; color: var(--on-surface-subtle); }
+  .hints .f { display: flex; justify-content: center; opacity: .85; }
+  .hints .h { font: 400 14px/20px var(--font-ui); }
+  .hints .h b { font-weight: 600; color: var(--on-surface-muted); }
+  .hints-hide { position: absolute; right: 12px; top: 12px; height: 32px; padding: 0 12px 0 8px; border-radius: var(--r-full); display: inline-flex; align-items: center; gap: 4px; color: var(--on-surface-muted); font: 600 12px/1 var(--font-ui); }
+  .strip { height: 60px; display: grid; grid-template-columns: 1fr 72px 1fr; gap: 8px; padding: 0; }
+  .strip > div { border-radius: 18px; display: grid; place-items: center; color: var(--on-surface-muted); font: 600 14px/1 var(--font-ui); }
+  .banner { position: absolute; left: 12px; right: 12px; top: 12px; border-radius: 20px; padding: 14px 14px 14px 18px; display: flex; gap: 12px; align-items: center; z-index: 2; }
+  .banner .bar { position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .banner .tx { flex: 1; }
+  .banner .esc { height: 44px; padding: 0 14px; border-radius: 14px; display: grid; place-items: center; font: 600 14px/1 var(--font-ui); }
+  .toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; height: 36px; padding: 0 14px; border-radius: 18px; display: inline-flex; align-items: center; gap: 8px; font: 500 13px/1 var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
+  .sel { position: absolute; left: 70px; top: 250px; width: 210px; height: 150px; border: 1.5px dashed var(--on-surface-muted); border-radius: 4px; background: rgba(255,138,61,.06); }
+</style>
+</head>
+<body>
+<div class="screen" data-dc-id="screen">
+  <div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>
+  <header class="topbar" data-dc-id="topbar">
+    <div class="pill raised" data-dc-id="connection-pill">
+      <span class="led" data-dc-id="pill-led"></span>
+      <span class="name" data-dc-id="pill-name">MacBook Pro</span>
+      <i data-i="chevDown" class="i20 chev" data-dc-id="pill-chevron"></i>
+    </div>
+    <div class="icon-btn" data-dc-id="menu"><i data-i="more"></i></div>
+  </header>
+  <main class="content pad-wrap live" data-dc-id="pad-content">
+    <div class="touchpad" data-dc-id="touchpad">
+      <div class="banner raised" data-dc-id="macro-banner"><span class="bar"></span>
+          <div class="tx"><div class="t-label">Screenshot area</div><div class="t-body-s muted" data-dc-id="macro-hint">Drag to select, tap to capture</div></div>
+          <div class="esc raised" data-dc-id="macro-cancel">Esc</div></div>
+        <span class="sel" data-dc-id="selection-preview"></span>
+        <span class="glow" style="left: 280px; top: 400px" data-dc-id="touch-glow"></span>
+        <div class="toast well" data-dc-id="mode-toast"><i data-i="modeMouse" class="i16"></i>Switched to Mouse. Back to Macros when done.</div>
+    </div>
+    <div class="strip" data-dc-id="button-strip">
+      <div class="raised" data-dc-id="left-click">Left</div>
+      <div class="raised" data-dc-id="drag-lock"><i data-i="unlock"></i></div>
+      <div class="raised" data-dc-id="right-click">Right</div>
+    </div>
+  </main>
+  <nav class="rail" data-dc-id="mode-rail">
+    <div class="track well" data-dc-id="rail-track">
+      <div class="seg" data-dc-id="rail-media"><i data-i="modeMedia"></i><span class="lb">Media</span></div>
+      <div class="seg on raised" data-dc-id="rail-pad"><i data-i="modeMouse"></i><span class="lb">Mouse</span></div>
+      <div class="seg" data-dc-id="rail-keys"><i data-i="modeKeys"></i><span class="lb">Keys</span></div>
+      <div class="seg" data-dc-id="rail-macros"><i data-i="modeMacros"></i><span class="lb">Macros</span></div>
+    </div>
+  </nav>
+  <div class="navbar"></div>
+
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

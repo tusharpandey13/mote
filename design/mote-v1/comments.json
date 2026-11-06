@@ -1,5 +1,582 @@
 {
   "version": 1,
-  "nextNumber": 1,
-  "comments": []
+  "nextNumber": 25,
+  "comments": [
+    {
+      "id": "c-512cf5e39358",
+      "number": 1,
+      "body": "this is not the focus, should be up in the screen away from usual tap region",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "dpad",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(3) > svg:nth-of-type(1)",
+        "tag": "svg",
+        "text": "",
+        "html": "<svg class=\"dpad\" viewBox=\"0 0 208 208\" data-dc-id=\"dpad\">\n        <circle class=\"base\" cx=\"104\" cy=\"104\" r=\"103.5\"></circle>\n        <g data-dc-id=\"dpad-up\"><path class=\"arm\" d=\"M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z\"></path><path class=\"tri\" d=\"M104 25l9 12h-18z\" stroke-linejoin=\"round\"></path></g>\n        <g data-dc-id=\"dpad-right\" transform=\"rotate(90 104 104)\"><path class=\"arm\" d=\"M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z\"></path><path class=\"tri\" d=\"M104 25l9 12h-18z\"></path></g>\n        <g data-dc-id=\"dpad-down\" transform=\"rotate(180 104 104)\"><path class=\"arm\" d=\"M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z\"></path><path class=\"tri\" d=\"M104 25l9 12h-18z\"></path></g>\n        <g data-dc-id=\"dpad-left\" transform=\"rotate(270 104 104)\"><path class=\"arm\" d=\"M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z\"></path><path class=\"tri\" d=\"M104 25l9 12h-18z\"></path></g>\n        <g class=\"divs\">\n          <line class=\"div\" x1=\"75.7\" y1=\"75.7\" x2=\"36.1\" y2=\"36.1\"></line>\n          <line class=\"div\" x1=\"132.3\" y1=\"75.7\" x2=\"171.9\" y2=\"36.1\"></line>\n     ",
+        "rect": {
+          "x": 101.99905395507812,
+          "y": 503.01324462890625,
+          "width": 207.99905395507812,
+          "height": 207.99905395507812
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793968957004,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "D-pad moved up into the nav row near the top, out of the thumb zone."
+    },
+    {
+      "id": "c-cf6f5dafde2f",
+      "number": 2,
+      "body": "this is the focus, play button should be bigger, next and prev can be same sized.\n\nplay looks ugly rn",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "transport",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"transport\" data-dc-id=\"transport\">\n      <div class=\"mbtn raised\" data-dc-id=\"prev\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"currentColor\" d=\"M18 6.5v11a1 1 0 0 1-1.55.83L9 13.2a1.4 1.4 0 0 1 0-2.4l7.45-5.13A1 1 0 0 1 18 6.5z\"></path><rect fill=\"currentColor\" x=\"5\" y=\"6\" width=\"2.6\" height=\"12\" rx=\"1.2\"></rect></svg></div>\n      <div class=\"mbtn primary\" data-dc-id=\"play-pause\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"currentColor\" d=\"M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z\"></path></svg></div>\n      <div class=\"mbtn raised\" data-dc-id=\"next\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"currentColor\" d=\"M6 6.5v11a1 1 0 0 0 1.55.83L15 13.2a1.4 1.4 0 0 0 0-2.4L7.55 5.67A1 1 0 0 0 6 6.5z\"></path><rect fill=\"currentColor\" x=\"16.4\" y=\"6\" width=\"2.6\" height=\"12\" rx=\"1.2\"></rect></svg></div>\n    </div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 399.0244140625,
+          "width": 380.00390625,
+          "height": 71.99555969238281
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793968992419,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Transport in prime thumb zone: 96dp copper play/pause in a recessed bezel; prev/next equal 64dp."
+    },
+    {
+      "id": "c-67719e4febc8",
+      "number": 3,
+      "body": "can we have simply a + and - buttons here, sharing 50% 50% width instead of this text in middle",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "volume-group",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "+2 VOLUME",
+        "html": "<div class=\"group\" data-dc-id=\"volume-group\">\n        <div class=\"half\" data-dc-id=\"volume-down\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6 12h12\"></path></svg></div>\n        <div class=\"readout\" data-dc-id=\"volume-readout\">\n          <span class=\"t-display\">+2</span>\n          <span class=\"t-caps\">Volume</span>\n        </div>\n        <div class=\"half\" data-dc-id=\"volume-up\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 6v12M6 12h12\"></path></svg></div>\n      </div>",
+        "rect": {
+          "x": 91.98600769042969,
+          "y": 739.0117797851562,
+          "width": 304.0145263671875,
+          "height": 63.993675231933594
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969027653,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Volume is now two caps − / +, 50/50, no middle text. Brightness uses the same pattern."
+    },
+    {
+      "id": "c-9b88da9f3f54",
+      "number": 4,
+      "body": "some favourited macros need to be present on the media screen as well.",
+      "anchor": {
+        "artboardId": "macros",
+        "dcId": "macros-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "Macros Tap to run. Hold to edit or drag. Screenshot area ⌘⇧4 Mission Control ⌃↑ Spotlight ⌘ space Next Space ⌃→ Zoom mute ⌘⇧A Play slideshow ⌥⌘P Type email 21 chars Open Safari 3 steps Tap again ⌃⌘Q l",
+        "html": "<main class=\"content macros live\" data-dc-id=\"macros-content\">\n    <div class=\"mhead\" data-dc-id=\"macros-header\">\n      <h1 class=\"t-headline\">Macros</h1>\n      <div class=\"icon-btn\" data-dc-id=\"macros-edit\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14.5 5.5l4 4L9 19H5v-4z\"></path></svg></div>\n    </div>\n    <p class=\"t-body subtle hint\" data-dc-id=\"macros-hint\">Tap to run. Hold to edit or drag.</p>\n\n    <div class=\"grid\" data-dc-id=\"macro-grid\">\n      <div class=\"tile\" data-tint=\"blue\" data-dc-id=\"macro-screenshot\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z\"></path><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12.5\" r=\"3.5\"></circle></svg><div><div class=\"nm\">Screenshot area</div><div class=\"ch\">⌘⇧4</div></div></div>\n      <div class=\"tile\" data-tint=\"indigo\"",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 731.0098876953125
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969157469,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Favourites strip on Media shows 4 starred macros; star on tiles and a star toggle in the editor header."
+    },
+    {
+      "id": "c-65ab5bcb3f91",
+      "number": 5,
+      "body": "also want the feature to add clicks on a certain coordinate on screen as a custom macro",
+      "anchor": {
+        "artboardId": "macro-editor",
+        "dcId": "macro-editor-sheet",
+        "path": "body > div:nth-of-type(1) > section:nth-of-type(1)",
+        "tag": "section",
+        "text": "Edit macro NAME Screenshot area LOOK ACTION Shortcut Text Sequence App ⌘ ⇧ 4 Press the shortcut now RE-RECORD Confirm before run First tap arms, second tap runs Save macro",
+        "html": "<section class=\"sheet\" data-dc-id=\"macro-editor-sheet\">\n    <div class=\"handle\" data-dc-id=\"sheet-handle\"></div>\n    <div class=\"sh-head\">\n      <h2 class=\"t-headline\" data-dc-id=\"editor-title\">Edit macro</h2>\n      <div class=\"icon-btn\" data-dc-id=\"editor-delete\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M5 7h14M10 7V5h4v2M7 7l1 12.5h8L17 7\"></path></svg></div>\n    </div>\n\n    <span class=\"t-caps lbl\">Name</span>\n    <div class=\"field\" data-dc-id=\"field-name\"><span class=\"t-title\">Screenshot area</span></div>\n\n    <span class=\"t-caps lbl\">Look</span>\n    <div class=\"look\" data-dc-id=\"field-look\">\n      <div class=\"prev\" data-dc-id=\"icon-picker\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z\"></path><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12.5\" r=\"3.5\"></circle",
+        "rect": {
+          "x": 0,
+          "y": 247.00289916992188,
+          "width": 411.9971618652344,
+          "height": 667.9932861328125
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969189836,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Editor gains a 'Click' action: X/Y fields, Capture pointer position, plus a caveat line on the slam-to-corner method's precision."
+    },
+    {
+      "id": "c-5189e8579e2b",
+      "number": 6,
+      "body": "move notification to middle of screen vertically. instead of me mashing reconnect button, app should auto-scan for selected device (in a list, selected from the top pill maybe) while the app is active. keys should work with any bt device, not just a mac.",
+      "anchor": {
+        "artboardId": "disconnected",
+        "dcId": "disconnected-card",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1)",
+        "tag": "section",
+        "text": "MacBook Pro is not connected The Mac may be asleep or out of range. Nothing you press is sent until it reconnects. Reconnect Pair a Mac",
+        "html": "<section class=\"lost\" data-dc-id=\"disconnected-card\">\n      <h2 class=\"t-title\" data-dc-id=\"disconnected-title\">MacBook Pro is not connected</h2>\n      <p class=\"t-body\" data-dc-id=\"disconnected-body\">The Mac may be asleep or out of range. Nothing you press is sent until it reconnects.</p>\n      <div class=\"acts\">\n        <div class=\"btn-primary\" data-dc-id=\"reconnect\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4\"></path></svg>Reconnect</div>\n        <div class=\"btn-secondary\" data-dc-id=\"pair-another\">Pair a Mac</div>\n      </div>\n    </section>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 103.98169708251953,
+          "width": 380.00390625,
+          "height": 189.79869079589844
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969381949,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Card centered; auto-search 'Searching for <device>…' with a pulsing ring; Reconnect removed; new device-picker artboard; copy is device-agnostic."
+    },
+    {
+      "id": "c-8125fd048a8b",
+      "number": 7,
+      "body": "not sure if android takes care of this but ok",
+      "anchor": {
+        "artboardId": "pairing",
+        "dcId": "pairing-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "Pair with your Mac WAITING FOR MAC TO CONFIRM 482 913 Appears on the Mac as Pixel 8 Visible 1:52 On your Mac, open System Settings, then Bluetooth. Under Nearby Devices, click Connect next to Pixel 8.",
+        "html": "<main class=\"content pair\" data-dc-id=\"pairing-content\">\n    <h1 class=\"t-headline\" data-dc-id=\"pair-title\">Pair with your Mac</h1>\n\n    <section class=\"code\" data-dc-id=\"pair-code\">\n      <div class=\"top\"><span class=\"dot\"></span><span class=\"t-caps\">Waiting for Mac to confirm</span></div>\n      <div class=\"digits\" data-dc-id=\"pair-digits\">482<span> </span>913</div>\n      <div class=\"meta\"><span class=\"t-key-s\">Appears on the Mac as Pixel 8</span><span class=\"t-key-s\" data-dc-id=\"visible-timer\">Visible 1:52</span></div>\n    </section>\n\n    <ol class=\"steps\" data-dc-id=\"pair-steps\">\n      <li class=\"done\"><span class=\"n\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M5 12.5l4.5 4.5L19 7.5\"></path></svg></span><span class=\"t-body\">On your Mac, open System Settings, then Bluetooth.</span></li>\n      <li class=\"done\"><span class=\"n\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M5 12.5l4.5 4.5L19 7.5\"></path></svg></span><span class=\"t-body\">Under Nea",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 803.0054321289062
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969401364,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Pairing only makes the phone discoverable (countdown + steps); the code is confirmed in Android's own prompt, so our code display is gone."
+    },
+    {
+      "id": "c-e2f165080e8f",
+      "number": 8,
+      "body": "light mode looks better, dark looks ugly rn. find good dark color scemes.",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "media-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "BRIGHTNESS esc space +2 VOLUME",
+        "html": "<main class=\"content media live\" data-dc-id=\"media-content\">\n    <div class=\"bright-row\" data-dc-id=\"brightness-row\">\n      <div class=\"group small\" data-dc-id=\"brightness-group\">\n        <div class=\"half\" data-dc-id=\"brightness-down\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12\" r=\"3.2\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 4.5v1.2M12 18.3v1.2M4.5 12h1.2M18.3 12h1.2M6.7 6.7l.85.85M16.45 16.45l.85.85M6.7 17.3l.85-.85M16.45 7.55l.85-.85\"></path></svg></div>\n        <span class=\"t-caps subtle\">Brightness</span>\n        <div class=\"half\" data-dc-id=\"brightness-up\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"4\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M5.3 18.7l1.5-1.5M17.2 6.8l1.5-1.5\"></path></svg></div>\n      </div>\n    </div>\n\n    <div class=\"transport\" data-dc-id",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 731.0098876953125
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969441483,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Dark theme replaced by 'Graphite': blue-black brushed chassis, graphite caps, copper accent; AA contrast."
+    },
+    {
+      "id": "c-5b09a0a69521",
+      "number": 9,
+      "body": "lose the mono font",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "space",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "space",
+        "html": "<div class=\"mbtn s56 raised\" data-dc-id=\"space\">space</div>",
+        "rect": {
+          "x": 334.0037536621094,
+          "y": 655.0133666992188,
+          "width": 55.998924255371094,
+          "height": 55.998924255371094
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969456848,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Mono font removed everywhere, keycaps included."
+    },
+    {
+      "id": "c-d7b296e107b5",
+      "number": 10,
+      "body": "can we have skeumorphic design? something interesting",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "media-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "BRIGHTNESS esc space +2 VOLUME",
+        "html": "<main class=\"content media live\" data-dc-id=\"media-content\">\n    <div class=\"bright-row\" data-dc-id=\"brightness-row\">\n      <div class=\"group small\" data-dc-id=\"brightness-group\">\n        <div class=\"half\" data-dc-id=\"brightness-down\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12\" r=\"3.2\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 4.5v1.2M12 18.3v1.2M4.5 12h1.2M18.3 12h1.2M6.7 6.7l.85.85M16.45 16.45l.85.85M6.7 17.3l.85-.85M16.45 7.55l.85-.85\"></path></svg></div>\n        <span class=\"t-caps subtle\">Brightness</span>\n        <div class=\"half\" data-dc-id=\"brightness-up\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"4\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M5.3 18.7l1.5-1.5M17.2 6.8l1.5-1.5\"></path></svg></div>\n      </div>\n    </div>\n\n    <div class=\"transport\" data-dc-id",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 731.0098876953125
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969474065,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Skeuomorphic material applied across all screens, both themes: raised caps, recessed wells."
+    },
+    {
+      "id": "c-906f19888a03",
+      "number": 11,
+      "body": "this looks ugly",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "rail-media",
+        "path": "body > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "MEDIA",
+        "html": "<div class=\"seg on\" data-dc-id=\"rail-media\"><span class=\"ind\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><rect fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" x=\"3.5\" y=\"3.5\" width=\"17\" height=\"17\" rx=\"8.5\"></rect><path fill=\"currentColor\" d=\"M10 8.6v6.8a.6.6 0 0 0 .9.5l5.3-3.4a.6.6 0 0 0 0-1L10.9 8.1a.6.6 0 0 0-.9.5z\"></path></svg></span><span class=\"t-caps\">Media</span></div>",
+        "rect": {
+          "x": 0,
+          "y": 819.9149780273438,
+          "width": 102.99751281738281,
+          "height": 71.08268737792969
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969484782,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Rail redesigned as a recessed track; selected mode is a raised cap with a copper icon."
+    },
+    {
+      "id": "c-98cc0714b54e",
+      "number": 12,
+      "body": "should be \"mouse\" with a pointer icon",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "rail-pad",
+        "path": "body > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "PAD",
+        "html": "<div class=\"seg\" data-dc-id=\"rail-pad\"><span class=\"ind\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><rect fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" x=\"3.5\" y=\"4.5\" width=\"17\" height=\"15\" rx=\"3.5\"></rect><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 15.5v4\"></path></svg></span><span class=\"t-caps\">Pad</span></div>",
+        "rect": {
+          "x": 102.99751281738281,
+          "y": 819.9149780273438,
+          "width": 102.99751281738281,
+          "height": 71.08268737792969
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969497548,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "PAD renamed 'Mouse' with a pointer icon."
+    },
+    {
+      "id": "c-672ec431b41d",
+      "number": 13,
+      "body": "icon is bad",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "rail-keys",
+        "path": "body > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(3)",
+        "tag": "div",
+        "text": "KEYS",
+        "html": "<div class=\"seg\" data-dc-id=\"rail-keys\"><span class=\"ind\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><rect fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" x=\"2.5\" y=\"6\" width=\"19\" height=\"12\" rx=\"3\"></rect><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8\"></path></svg></span><span class=\"t-caps\">Keys</span></div>",
+        "rect": {
+          "x": 205.99502563476562,
+          "y": 819.9149780273438,
+          "width": 102.99751281738281,
+          "height": 71.08268737792969
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969503632,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "New keyboard icon with key rows and spacebar."
+    },
+    {
+      "id": "c-2bdfa222e737",
+      "number": 14,
+      "body": "bad icon",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "dpad-center",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(3) > svg:nth-of-type(1) > g:nth-of-type(6)",
+        "tag": "g",
+        "text": "",
+        "html": "<g data-dc-id=\"dpad-center\">\n          <circle class=\"center\" cx=\"104\" cy=\"104\" r=\"36\"></circle>\n          <circle class=\"center-hi\" cx=\"104\" cy=\"104\" r=\"35.5\" clip-path=\"inset(0 0 60% 0)\"></circle>\n          <path d=\"M115 95v5a3 3 0 0 1-3 3H94m4.5-4.5L94 103l4.5 4.5\" fill=\"none\" stroke=\"var(--on-surface)\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path>\n        </g>",
+        "rect": {
+          "x": 169.99874877929688,
+          "y": 571.012939453125,
+          "width": 71.99967956542969,
+          "height": 71.99967956542969
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969518832,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "D-pad center is now a plain concentric OK cap."
+    },
+    {
+      "id": "c-64636881f490",
+      "number": 15,
+      "body": "content of this ?",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "menu",
+        "path": "body > div:nth-of-type(1) > header:nth-of-type(1) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"icon-btn\" data-dc-id=\"menu\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"5.5\" r=\"1.8\"></circle><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"1.8\"></circle><circle fill=\"currentColor\" cx=\"12\" cy=\"18.5\" r=\"1.8\"></circle></svg></div>",
+        "rect": {
+          "x": 356.00537109375,
+          "y": 35.99421310424805,
+          "width": 47.997039794921875,
+          "height": 47.997039794921875
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969538432,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "⋯ opens a sheet with Theme, Manage devices, Haptics, Settings, About (new menu-sheet artboard)."
+    },
+    {
+      "id": "c-e861b2b41f98",
+      "number": 16,
+      "body": "this bar is taking up space, no use.\ncan be an overlay thing, or, since phone is horizontal, can move to the left tab-like area somehow, taking up some space horizontally. idk",
+      "anchor": {
+        "artboardId": "pad-landscape",
+        "dcId": "topbar",
+        "path": "body > div:nth-of-type(1) > div:nth-of-type(1) > header:nth-of-type(1)",
+        "tag": "header",
+        "text": "MACBOOK PRO",
+        "html": "<header class=\"land-top\" data-dc-id=\"topbar\">\n      <div class=\"pill\" data-dc-id=\"connection-pill\"><span class=\"dot\"></span><span class=\"t-caps\">MacBook Pro</span></div>\n      <div class=\"icon-btn\" data-dc-id=\"menu\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"5.5\" r=\"1.8\"></circle><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"1.8\"></circle><circle fill=\"currentColor\" cx=\"12\" cy=\"18.5\" r=\"1.8\"></circle></svg></div>\n    </header>",
+        "rect": {
+          "x": 95.99407958984375,
+          "y": 7.994751930236816,
+          "width": 795.0035400390625,
+          "height": 47.997039794921875
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969602265,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Top bar removed in landscape; device LED + name sit at the top of the left rail; ⋯ floats in the pad corner."
+    },
+    {
+      "id": "c-d74f782d5537",
+      "number": 17,
+      "body": "lose the keypad-like keys. make them wide, flat rectangular box keys, no wasted space.",
+      "anchor": {
+        "artboardId": "keys",
+        "dcId": "row-q",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(3)",
+        "tag": "div",
+        "text": "Q W E R T Y U I O P",
+        "html": "<div class=\"row\" data-dc-id=\"row-q\">\n        <div class=\"key\">Q</div><div class=\"key\">W</div><div class=\"key\">E</div><div class=\"key\">R</div><div class=\"key\">T</div><div class=\"key\">Y</div><div class=\"key\">U</div><div class=\"key\">I</div><div class=\"key\">O</div><div class=\"key\">P</div>\n      </div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 541.0328979492188,
+          "width": 380.00390625,
+          "height": 43.996097564697266
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969654698,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Edge-to-edge laptop-style deck: flat rectangular 50dp keys, 4dp gutters."
+    },
+    {
+      "id": "c-ef6df9d0e819",
+      "number": 18,
+      "body": "we have extra space below these, these can be bigger",
+      "anchor": {
+        "artboardId": "keys",
+        "dcId": "upper-keys",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1)",
+        "tag": "section",
+        "text": "FUNCTION KEYS HIDE esc F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 del home end pg↑ pg↓ ← ↑ ↓ →",
+        "html": "<section class=\"upper\" data-dc-id=\"upper-keys\">\n      <div class=\"sec-head\">\n        <span class=\"t-caps\">Function keys</span>\n        <span class=\"tog t-caps\" data-dc-id=\"fn-collapse\">Hide <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7 14l5-5 5 5\"></path></svg></span>\n      </div>\n      <div class=\"row\" data-dc-id=\"f-row-1\">\n        <div class=\"key fn\">esc</div><div class=\"key fn\">F1</div><div class=\"key fn\">F2</div><div class=\"key fn\">F3</div><div class=\"key fn\">F4</div><div class=\"key fn\">F5</div><div class=\"key fn\">F6</div>\n      </div>\n      <div class=\"row\" data-dc-id=\"f-row-2\">\n        <div class=\"key fn\">F7</div><div class=\"key fn\">F8</div><div class=\"key fn\">F9</div><div class=\"key fn\">F10</div><div class=\"key fn\">F11</div><div class=\"key fn\">F12</div><div class=\"key fn\">del</div>\n      </div>\n      <div class=\"row\" data-dc-id=\"nav-row\" style=\"margin-top: 6px\">\n        <div class=\"key fn\">home</div><div class=\"key fn\">end</div><div class=\"key fn\">pg↑</div><div class=\"key fn\">pg↓</div>\n        <div class=\"key tint\" style=\"font-size:16px\">←</div><div class",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 95.98694610595703,
+          "width": 380.00390625,
+          "height": 187.9729461669922
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969683868,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Function/nav keys enlarged to 58dp; arrows use an inverted-T cluster."
+    },
+    {
+      "id": "c-8ea3aa90073e",
+      "number": 19,
+      "body": "how would this work ? user journey?",
+      "anchor": {
+        "artboardId": "macros",
+        "dcId": "macro-screenshot",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "Screenshot area ⌘⇧4",
+        "html": "<div class=\"tile\" data-tint=\"blue\" data-dc-id=\"macro-screenshot\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z\"></path><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12.5\" r=\"3.5\"></circle></svg><div><div class=\"nm\">Screenshot area</div><div class=\"ch\">⌘⇧4</div></div></div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 383.0634460449219,
+          "width": 121.3333740234375,
+          "height": 101.98479461669922
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969704231,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "New macro-running artboard: tap → ⌘⇧4, app switches to Mouse with a 'Drag to select, tap to capture / Esc' banner, then returns to Macros."
+    },
+    {
+      "id": "c-68268aaefe47",
+      "number": 20,
+      "body": "remove",
+      "anchor": {
+        "artboardId": "macros",
+        "dcId": "macro-type-email",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(7)",
+        "tag": "div",
+        "text": "Type email 21 chars",
+        "html": "<div class=\"tile\" data-tint=\"sand\" data-dc-id=\"macro-type-email\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M5 6.5h14M12 6.5v12M9 18.5h6\"></path></svg><div><div class=\"nm\">Type email</div><div class=\"ch\">21 chars</div></div></div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 603.0225219726562,
+          "width": 121.3333740234375,
+          "height": 95.99407958984375
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969711398,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Removed 'Type email'."
+    },
+    {
+      "id": "c-e0a2b72c4386",
+      "number": 21,
+      "body": "remove",
+      "anchor": {
+        "artboardId": "macros",
+        "dcId": "macro-zoom-mute",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(5)",
+        "tag": "div",
+        "text": "Zoom mute ⌘⇧A",
+        "html": "<div class=\"tile\" data-tint=\"teal\" data-dc-id=\"macro-zoom-mute\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><rect fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" x=\"9\" y=\"3.5\" width=\"6\" height=\"11\" rx=\"3\"></rect><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5\"></path></svg><div><div class=\"nm\">Zoom mute</div><div class=\"ch\">⌘⇧A</div></div></div>",
+        "rect": {
+          "x": 145.32476806640625,
+          "y": 493.0429992675781,
+          "width": 121.34050750732422,
+          "height": 101.98479461669922
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969716314,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Removed 'Zoom mute'."
+    },
+    {
+      "id": "c-bbad5a00c6c2",
+      "number": 22,
+      "body": "remove",
+      "anchor": {
+        "artboardId": "macros",
+        "dcId": "macro-slideshow",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(6)",
+        "tag": "div",
+        "text": "Play slideshow ⌥⌘P",
+        "html": "<div class=\"tile\" data-tint=\"violet\" data-dc-id=\"macro-slideshow\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><rect fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" x=\"3\" y=\"4.5\" width=\"18\" height=\"12\" rx=\"2\"></rect><path fill=\"currentColor\" d=\"M10 8.2v4.6a.5.5 0 0 0 .78.42l3.5-2.3a.5.5 0 0 0 0-.84l-3.5-2.3a.5.5 0 0 0-.78.42z\"></path><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9 20.5l3-4 3 4\"></path></svg><div><div class=\"nm\">Play slideshow</div><div class=\"ch\">⌥⌘P</div></div></div>",
+        "rect": {
+          "x": 274.6600341796875,
+          "y": 493.0429992675781,
+          "width": 121.3333740234375,
+          "height": 101.98479461669922
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969720914,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Removed 'Play slideshow'."
+    },
+    {
+      "id": "c-29a5bc598d73",
+      "number": 23,
+      "body": "prev space button ?",
+      "anchor": {
+        "artboardId": "macros",
+        "dcId": "macro-next-space",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4)",
+        "tag": "div",
+        "text": "Next Space ⌃→",
+        "html": "<div class=\"tile\" data-tint=\"indigo\" data-dc-id=\"macro-next-space\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i ic\"><rect fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" x=\"2.5\" y=\"6\" width=\"8\" height=\"12\" rx=\"2\"></rect><rect fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" x=\"13.5\" y=\"6\" width=\"8\" height=\"12\" rx=\"2\"></rect><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M10.5 12h3\"></path></svg><div><div class=\"nm\">Next Space</div><div class=\"ch\">⌃→</div></div></div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 493.0429992675781,
+          "width": 121.3333740234375,
+          "height": 101.98479461669922
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969735048,
+      "sentAt": 1793969742524,
+      "resolvedAt": 1793970244092,
+      "resolution": "Added 'Prev Space ⌃←' next to 'Next Space ⌃→'."
+    },
+    {
+      "id": "c-f66b9d42413e",
+      "number": 24,
+      "body": "need scroll down and scroll up buttons, or a single joystick like control i can hold and drag up/down",
+      "anchor": {
+        "artboardId": "disconnected",
+        "dcId": "media-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "MacBook Pro is not connected The Mac may be asleep or out of range. Nothing you press is sent until it reconnects. Reconnect Pair a Mac BRIGHTNESS esc space VOLUME",
+        "html": "<main class=\"content media offline\" data-dc-id=\"media-content\">\n    <section class=\"lost\" data-dc-id=\"disconnected-card\">\n      <h2 class=\"t-title\" data-dc-id=\"disconnected-title\">MacBook Pro is not connected</h2>\n      <p class=\"t-body\" data-dc-id=\"disconnected-body\">The Mac may be asleep or out of range. Nothing you press is sent until it reconnects.</p>\n      <div class=\"acts\">\n        <div class=\"btn-primary\" data-dc-id=\"reconnect\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4\"></path></svg>Reconnect</div>\n        <div class=\"btn-secondary\" data-dc-id=\"pair-another\">Pair a Mac</div>\n      </div>\n    </section>\n\n    <div class=\"bright-row live\" data-dc-id=\"brightness-row\">\n      <div class=\"group small\" data-dc-id=\"brightness-group\">\n        <div class=\"half\" data-dc-id=\"brightness-down\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12\" r=\"3.2\"></circle><path fill=\"none\" stroke=\"currentColor\" str",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 731.0098876953125
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793969912963,
+      "sentAt": 1793969914852,
+      "resolvedAt": 1793970244092,
+      "resolution": "Added a spring-loaded scroll lever (scroll-lever) beside the D-pad: hold-drag scrolls faster the further you pull, end chevrons step one notch; mirrored on the disconnected screen."
+    }
+  ]
 }
