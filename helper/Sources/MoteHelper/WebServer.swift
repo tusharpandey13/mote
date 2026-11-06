@@ -78,6 +78,8 @@ private final class HTTPConnection {
     private var session: Session?
     private var wsMessage = Data()
     private var done = false
+    private var unsent = 0                 // WebSocket bytes queued on the connection, not yet taken by the kernel
+    static let maxUnsent = 1 << 20
 
     init(conn: NWConnection, peer: String, server: WebServer) { self.conn = conn; self.peer = peer; self.server = server }
 
@@ -240,10 +242,18 @@ private final class HTTPConnection {
     }
 
     private func sendFrame(opcode: UInt8, payload: Data) {
+        guard !done else { return }
         var h = Data([0x80 | opcode])
         if payload.count < 126 { h.append(UInt8(payload.count)) }
         else if payload.count <= 0xffff { h.append(126); h.append(UInt8(payload.count >> 8)); h.append(UInt8(payload.count & 0xff)) }
         else { h.append(127); for i in (0..<8).reversed() { h.append(UInt8((UInt64(payload.count) >> (UInt64(i) * 8)) & 0xff)) } }
-        conn.send(content: h + payload, completion: .contentProcessed { _ in })
+        // A peer that doesn't read (e.g. floods pings) would make NWConnection queue replies without bound.
+        let n = h.count + payload.count
+        unsent += n
+        guard unsent <= HTTPConnection.maxUnsent else {
+            log("wifi: \(peer) isn't reading replies, closing")
+            conn.cancel(); return
+        }
+        conn.send(content: h + payload, completion: .contentProcessed { [weak self] _ in self?.unsent -= n })
     }
 }
