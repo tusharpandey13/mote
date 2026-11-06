@@ -49,6 +49,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -128,6 +129,9 @@ private fun Root(theme: ThemeChoice) {
     val s by Hid.state.collectAsState()
     val macros by Macros.flow(ctx).collectAsState(initial = Macros.defaults)
     var mode by rememberSaveable { mutableStateOf(Mode.MEDIA) }
+    // keeps each mode's rememberSaveable state (typed text, toggles) while another mode is shown.
+    // Keyed by name: an enum key is Java-serialized and is dropped when restoring after process death.
+    val modeState = rememberSaveableStateHolder()
     var deviceSheet by remember { mutableStateOf(false) }
     var menuSheet by remember { mutableStateOf(false) }
     var pointerBanner by remember { mutableStateOf(false) }
@@ -201,7 +205,7 @@ private fun Root(theme: ThemeChoice) {
                             (slideOutHorizontally(Motion.spatialDefault()) { -it / 8 * dir } + fadeOut(Motion.exit()))
                     },
                     label = "mode",
-                ) { m -> when (m) {
+                ) { m -> modeState.SaveableStateProvider(m.name) { when (m) {
                     Mode.MEDIA -> MediaScreen(macros.filter { it.star }, runMacro, onEditFavourites = { mode = Mode.MACROS })
                     Mode.MOUSE -> MouseScreen(
                         banner = pointerBanner,
@@ -209,7 +213,7 @@ private fun Root(theme: ThemeChoice) {
                     )
                     Mode.KEYS -> KeysScreen()
                     Mode.MACROS -> MacrosScreen(macros, runMacro, saveMacros)
-                } }
+                } } }
             }
             ModeRail(mode) { mode = it }
         }
