@@ -69,23 +69,8 @@ import kotlin.math.abs
 // ---------------------------------------------------------------------------------------------
 // data seam
 
-/**
- * What the helper reports about Spaces (1-based [current]). Mirrors the `net/` API being added in
- * parallel (`Remote.spaces: StateFlow<SpacesState?>`, `Remote.spacesGoto(i)`); reconcile at merge by
- * pointing [SpacesSource] at Remote. Null state = the transport can't see Spaces (Bluetooth).
- */
-data class SpacesState(val count: Int, val current: Int, val thumbnails: Map<Int, ImageBitmap> = emptyMap())
-
-interface SpacesApi {
-    val spaces: StateFlow<SpacesState?>
-    fun spacesGoto(i: Int)
-}
-
-/** Until the net/ API lands no transport reports Spaces, so the UI runs the Bluetooth path. */
-object SpacesSource : SpacesApi {
-    override val spaces: StateFlow<SpacesState?> = MutableStateFlow<SpacesState?>(null).asStateFlow()
-    override fun spacesGoto(i: Int) {}
-}
+// Helper Spaces come from [Remote.spaces] / [Remote.spacesGoto] (net/, protocol 1.3); null state =
+// the transport can't see Spaces (Bluetooth, pre-1.3 helper, helper count unknown): use [BtSpaces].
 
 /**
  * Bluetooth Spaces: the Mac can't tell us the current desktop, so we track the last one we jumped to
@@ -134,7 +119,7 @@ object BtSpaces {
 fun SpacesCarousel(cardWidth: Dp = 104.dp, modifier: Modifier = Modifier) {
     val c = LocalMote.current
     val cfg = LocalSettings.current
-    val helper by SpacesSource.spaces.collectAsState()
+    val helper = Remote.spaces.collectAsState().value?.takeIf { it.count > 0 }
     val btCurrent by BtSpaces.current.collectAsState()
     val count = helper?.count ?: cfg.desktopCount
     val current = helper?.current ?: btCurrent
@@ -151,8 +136,8 @@ fun SpacesCarousel(cardWidth: Dp = 104.dp, modifier: Modifier = Modifier) {
         ) {
             items(count) { i ->
                 val n = i + 1
-                SpaceCard(n, n == current, cardWidth, helper != null, helper?.thumbnails?.get(n)) {
-                    if (helper != null) SpacesSource.spacesGoto(n) else BtSpaces.goto(n, cfg)
+                SpaceCard(n, n == current, cardWidth, helper != null, helper?.thumbs?.get(n)?.image) {
+                    if (helper != null) Remote.spacesGoto(n) else BtSpaces.goto(n, cfg)
                 }
             }
         }
@@ -230,7 +215,7 @@ fun SpacesSheet(onClose: () -> Unit) {
     val c = LocalMote.current
     val ctx = LocalContext.current
     val cfg = LocalSettings.current
-    val helper by SpacesSource.spaces.collectAsState()
+    val helper = Remote.spaces.collectAsState().value?.takeIf { it.count > 0 }
     val scope = rememberCoroutineScope()
     var later by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {

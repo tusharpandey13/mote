@@ -9,6 +9,7 @@ final class Hub {
     let pairing = Pairing()
     let limiter = RateLimiter()
     let injector: Injector
+    let spaces: Spaces
     private(set) var sessions: [Session] = []
     private var macroGen = 0
     private(set) var macroRunning = false
@@ -31,12 +32,15 @@ final class Hub {
         self.store = DeviceStore(service: config.keychainService, memoryOnly: config.memoryStore)
         self.settings = Settings(config: config)
         self.injector = Injector(dryRun: config.dryRun)
+        self.spaces = Spaces(config: config, settings: settings, injector: injector)
+        spaces.onChange = { [weak self] in self?.broadcastSpaces(); self?.onChange?() }
         pairing.onChange = { [weak self] in self?.onChange?() }
         // Accessibility can be granted at any time in System Settings; poll and tell clients.
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self else { return }
             let now = AXIsProcessTrusted()
             if now != self.axTrusted { self.axTrusted = now; self.broadcastState(); self.onChange?() }
+            if self.sessions.contains(where: { $0.spacesSub }) { self.spaces.poll() }
         }
     }
 
@@ -56,8 +60,15 @@ final class Hub {
         for s in authedSessions { s.send(["t": "state", "paused": paused, "ax": inputReady]) }
     }
 
+    /// Sends the `spaces` state to every subscribed session (protocol 1.3).
+    func broadcastSpaces() {
+        let st = spaces.state()
+        for s in authedSessions where s.spacesSub { s.send(st) }
+    }
+
     func revokeAll() {
         store.revokeAll()
+        spaces.clear()
         for s in sessions where s.authed { s.revoke() }
         log("all devices revoked")
         onChange?()
@@ -71,6 +82,7 @@ final class Hub {
         switch m["t"] as? String {
         case "macro": try runMacro(m["steps"])
         case "cancel": cancelMacro()
+        case "spaces.goto": try spaces.goto(m.int("i"))
         default: try injector.exec(m)
         }
     }
@@ -123,6 +135,7 @@ final class Session {
     private let nonce = randomHex(16)
     private(set) var authed = false
     private(set) var deviceName = ""
+    private(set) var spacesSub = false   // subscribed to `spaces` state (protocol 1.3)
     private var unauthStrikes = 0
     private var closed = false
     private var authDeadline: Timer?
@@ -197,8 +210,24 @@ final class Session {
                 if unauthStrikes > 20 { close() }
                 return
             }
+            if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
             do { try hub.input(m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
         }
+    }
+
+    /// Spaces state and thumbnails (protocol 1.3): reads, not input, so pause and Accessibility don't apply.
+    private func spaces(_ t: String, _ m: [String: Any]) {
+        if t == "spaces.sub" {
+            guard (m["on"] as? Bool) ?? true else { spacesSub = false; return }
+            spacesSub = true
+            hub.spaces.subscribed()
+            send(hub.spaces.state())
+            return
+        }
+        guard transport != "BLE" else { err("unsupported", "Space thumbnails need Wi-Fi or Tailscale", ref: t); return }
+        guard let i = try? m.int("i") else { err("bad", "missing number 'i'", ref: t); return }
+        guard let reply = hub.spaces.thumbMessage(i) else { err("notfound", "no thumbnail for desktop \(i)", ref: t); return }
+        send(reply)
     }
 
     private func pair(_ m: [String: Any]) {

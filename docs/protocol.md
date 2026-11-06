@@ -1,4 +1,4 @@
-# Mote helper protocol, v1.2
+# Mote helper protocol, v1.3
 
 One JSON message protocol shared by both transports of the Mote Helper (macOS menu-bar app):
 
@@ -6,6 +6,8 @@ One JSON message protocol shared by both transports of the Mote Helper (macOS me
 - **BLE**: GATT service on the Mac (the helper is the peripheral, the phone is the central). Same JSON, fragmented (see [BLE framing](#ble-framing)).
 
 All messages are JSON objects with a type field `t`. Unknown fields are ignored. Unknown `t` gets an `err`. The protocol version is announced in `hello` (`"v": 1`); a peer that sees a different major version closes the connection. Minor versions only add optional fields, so `v` stays 1.
+
+Changes in 1.3 (backward compatible): Spaces: `spaces.sub` / `spaces` state, `spaces.thumb` thumbnails and `spaces.goto` (section 2, spaces). Error code `notfound`. A 1.2 helper answers `spaces.*` with `err` `unknown`; clients treat that as "no Spaces support".
 
 Changes in 1.2 (backward compatible): `consumer` gains `action` (`down` / `up`) and the keys `fast` / `rewind`, for hold-to-seek (section 2, consumer).
 
@@ -40,7 +42,7 @@ client                                   helper
 | `err` | helper -> client | `code`, `msg`, optional `retryAfter` (seconds), optional `ref` (the `t` that failed) |
 | `ping` / `pong` | both | optional `n` (echoed) |
 
-Error codes: `auth` (bad/unknown token), `code` (wrong pairing code), `pairing-closed`, `rate` (too many attempts, see `retryAfter`), `unauth` (input before auth), `paused`, `ax` (Accessibility not granted), `bad` (malformed), `unknown` (unknown `t`), `revoked`, `unsupported` (e.g. no way to set brightness).
+Error codes: `auth` (bad/unknown token), `code` (wrong pairing code), `pairing-closed`, `rate` (too many attempts, see `retryAfter`), `unauth` (input before auth), `paused`, `ax` (Accessibility not granted), `bad` (malformed), `unknown` (unknown `t`), `revoked`, `unsupported` (e.g. no way to set brightness), `notfound` (1.3: no thumbnail for that Space).
 
 The client keeps `{id, token}` (web remote: `localStorage`, per origin; Android app: keyed by `hostId`, token in the Android Keystore). Reconnects use `auth` only; the token never crosses the wire again after `paired`.
 
@@ -118,6 +120,42 @@ Typed with `CGEventKeyboardSetUnicodeString`, so it is layout-independent and ha
 
 Gesture tiles (the Spaces "hold & slide") are client-side: each slide step sends `key` ⌃← / ⌃→, a tap sends ⌃↑.
 
+### spaces (protocol 1.3)
+
+macOS Spaces ("desktops") on the **main display**, for the app's Spaces carousel. All four messages need an authenticated session (`err` `unauth` otherwise).
+
+```json
+{"t": "spaces.sub", "on": true}
+{"t": "spaces", "count": 4, "current": 2, "thumbs": [3, 0, 7, 0], "capture": "on"}
+{"t": "spaces.thumb", "i": 3}
+{"t": "spaces.thumb", "i": 3, "v": 7, "w": 320, "h": 200, "mime": "image/jpeg", "data": "/9j/4AAQ..."}
+{"t": "spaces.goto", "i": 1}
+```
+
+| Message | Direction | Fields |
+|---|---|---|
+| `spaces.sub` | client -> helper | `on` (bool, default true). `true`: the helper replies with `spaces` now and sends it again on every change while subscribed. `false`: stop (no reply). Closing the session unsubscribes. |
+| `spaces` | helper -> client | `count`: desktops on the main display (0 = unknown). `current`: 1-based index of the current desktop (0 = unknown, or a full-screen app's Space is showing). `thumbs`: `count` integers, the version of the cached thumbnail per desktop (index 1 first; 0 = none yet, "not visited"). `capture`: `on`, `off` (the user turned "Share Space thumbnails" off), `denied` (no Screen Recording permission yet), `unavailable` (macOS < 14 or no capture API). |
+| `spaces.thumb` | client -> helper | `i`: 1-based desktop index. |
+| `spaces.thumb` | helper -> client | `i`, `v` (version, as in `thumbs`), `w`, `h` (pixels), `mime` (`image/jpeg`), `data` (base64). `err` `notfound` if there is none for `i`, `bad` for a malformed `i`, `unsupported` over BLE. |
+| `spaces.goto` | client -> helper | `i`: 1-based desktop index. No reply on success. Input rules apply (`paused`, `ax`). `err` `bad` if `i` is outside 1..`count` (1..16 when the count is unknown), `unsupported` if the current Space is unknown and there is no Switch-to-Desktop shortcut for `i`. |
+
+`spaces` is sent when a client subscribes, when the Space changes (`NSWorkspace.activeSpaceDidChangeNotification`), when a thumbnail is captured, and when the toggle, permission or cache changes. Only full desktops count: full-screen app Spaces are skipped in `count` and `current`. A client fetches a thumbnail when its `thumbs` version differs from the one it has; versions only increase and are only meaningful within one helper run, so clients drop their cache when the connection ends.
+
+**Index and count** come from private CoreGraphics (SkyLight) functions, `CGSCopyManagedDisplaySpaces` and `CGSGetActiveSpace`, looked up with `dlsym` at run time. If macOS removes them, the helper reports `count: 0`, `current: 0` and keeps working (`goto` then needs the ⌃N shortcuts).
+
+**Thumbnails** are captured with ScreenCaptureKit (`SCScreenshotManager`, macOS 14+), main display only, about 600 ms after each Space change (after the slide animation), and once when a client subscribes. JPEG, 320 px wide, quality 0.6; if a frame would make the message larger than 60 KiB the helper re-encodes it at quality 0.4, then 0.25, so a `spaces.thumb` message always fits the existing 64 KiB message cap (no cap was raised). Capturing starts after the first `spaces.sub` of a helper run and covers every Space visited from then on. Over BLE the `spaces` state works but `spaces.thumb` returns `unsupported` (too slow, and BLE writes aren't encrypted).
+
+**Screen Recording permission** is requested lazily: the first `spaces.sub` (not launch) triggers the macOS prompt. Until it is granted `capture` is `denied`; macOS may need the helper restarted after granting. The menu shows "Space thumbnails: allowed" or "Space thumbnails: grant…" (opens System Settings), a "Share Space thumbnails" toggle (persisted, default on) and "Clear Space thumbnails".
+
+**`goto`**: if "Switch to Desktop N" (`com.apple.symbolichotkeys`, keys 118-126 for N = 1-9) is enabled, the helper sends that shortcut (as configured, ⌃N by default). Otherwise it steps with ⌃← / ⌃→ from the current index, |target − current| times, 80 ms apart. In `--dry-run` it logs `DRY spaces goto=N from=M via=shortcut|step` and the `DRY key` lines instead.
+
+**Privacy.** Thumbnails are pictures of the screen: anything on the desktop (mail, messages, passwords in view) can be in them.
+
+- They travel like every other message: **unencrypted on Wi-Fi/LAN** (anyone who can sniff the network can see them) and WireGuard-encrypted over Tailscale. Only authenticated sessions get them.
+- They are kept **in memory only**, never written to disk (no cache file; a persisted cache wasn't needed because the helper recaptures on the next visit). Quitting the helper, "Clear Space thumbnails", turning "Share Space thumbnails" off, and "Revoke all devices" drop them.
+- Turn "Share Space thumbnails" off (or deny Screen Recording) to get the numbered-card carousel without pictures.
+
 ## 3. BLE transport
 
 | | UUID |
@@ -154,6 +192,7 @@ The helper turns network messages into keystrokes and clicks on the Mac, so an u
 | "Something is typing on my Mac" | Menu > "Pause input" (kill switch) drops all input at once and cancels a running macro. The menu lists connected clients. |
 | Exposure beyond the LAN | The listener refuses cellular interfaces, and every connection whose remote address isn't loopback, RFC 1918, link-local or IPv6 ULA/link-local is closed before any byte is read. Tailscale's ranges (100.64/10, which carriers also use for CGNAT, and `fd7a:115c:a1e0::/48`) are refused unless "Allow Tailscale connections" is on. Nothing is forwarded or exposed via UPnP. |
 | A web page in the phone's (or Mac's) browser driving the helper (cross-site WebSocket hijacking, DNS rebinding) | The WebSocket upgrade needs an `Origin` equal to the page's own `http://<Host>` (native clients send none) and a `Host` that is `<name>.local`, an IP literal or `localhost`; with Tailscale allowed, also `*.ts.net`. Tailnet IP literals in `Host` are refused while Tailscale is off. A foreign page has neither the token (stored per origin) nor the code. |
+| Screen contents leaking | Space thumbnails (1.3) go only to authenticated sessions, need Screen Recording permission requested on first use, can be switched off in the menu, and live in memory only (see section 2, spaces). |
 | Resource exhaustion | ≤ 32 concurrent connections (8 per address), 10 s to send the HTTP request, 5 min to authenticate, 8 KiB HTTP headers, 64 KiB messages, 1 MiB of unread replies (a peer that doesn't read is dropped), macro limits above, static files only (no directory listing, no path traversal). |
 
 ### Tailscale
@@ -185,5 +224,7 @@ MOTE_TAILNET=1 node helper/tests/smoke.mjs 8791 <code>
 ```
 
 Test-only flags: `--port 0` binds any free port (the log line `wifi: listening on :N` has the real one); `--stdin-control` (honoured only with `--dry-run`) reads `pair` (open a pairing window, print `PAIRING CODE: nnnnnn`), `revoke`, `pause`, `resume` from stdin, standing in for the menu in headless runs. `e2e/web/` uses both.
+
+`--fake-spaces N` (honoured only with `--dry-run`) simulates N desktops (current 1) with generated solid-colour thumbnails and no Screen Recording permission, so tests never capture the real screen; `spaces.goto` then also switches the fake current desktop.
 
 `--dry-run` logs every input (`DRY key usage=80 mods=1 ...`) instead of posting events, so tests never type into the session. `--memory-store` keeps paired devices out of the Keychain; `--keychain-service NAME` uses a separate Keychain item.

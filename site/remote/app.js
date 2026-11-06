@@ -430,7 +430,7 @@
   // ---------------------------------------------------------------- mouse: touchpad
   const pad = $('#touchpad'), glow = $('#glow'), chip = $('#chip-last');
   const pts = new Map();
-  let g = null, lastTapAt = 0, sAcc = { x: 0, y: 0 }, sRaf = 0, locked = false;
+  let g = null, lastTapAt = -Infinity, sAcc = { x: 0, y: 0 }, sRaf = 0, locked = false;
   const lastGesture = (t) => { chip.textContent = t; };
   function queueScroll(dx, dy) {
     sAcc.x += dx; sAcc.y += dy;
@@ -492,8 +492,10 @@
     clearTimeout(g.lp); glow.hidden = true;
     if (e.type === 'pointerup' && !g.moved && !g.done && e.timeStamp - g.t0 < 500) {
       if (g.max === 1) {
+        // e.timeStamp counts from page load, so "no previous tap" must be -Infinity, not 0: with 0, a first tap
+        // within 300 ms of load was sent as a double click.
         const dbl = e.timeStamp - lastTapAt < 300;
-        lastTapAt = dbl ? 0 : e.timeStamp;
+        lastTapAt = dbl ? -Infinity : e.timeStamp;
         click('left', dbl ? 2 : 1); buzz(10); lastGesture(dbl ? 'Double click' : 'Click');
       } else if (g.max === 2) { click('right'); buzz(15); lastGesture('Right click'); }
     }

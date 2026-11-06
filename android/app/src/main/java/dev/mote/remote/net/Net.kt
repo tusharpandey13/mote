@@ -51,7 +51,8 @@ object Net {
     val http by lazy { helperHttpClient() }
     private lateinit var app: Context
 
-    val bt: Transport = TestSeam.transport ?: BtHidTransport(scope) // tests install a fake
+    private val btHid = BtHidTransport(scope)
+    val bt: Transport = TestSeam.transport ?: btHid // tests install a fake
     private val _active = MutableStateFlow(bt)
     val active: StateFlow<Transport> = _active.asStateFlow()
 

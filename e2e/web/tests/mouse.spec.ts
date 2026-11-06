@@ -44,9 +44,27 @@ test.describe('Mouse pane', () => {
   });
 
   test('tap -> left click', async ({ page, helper }) => {
+    await pauseClock(page); // the 500 ms hold timer must not turn a slow tap into a right click
     const from = helper.mark();
-    await t.start(o); await t.end();
+    await t.tap(o);
     await helper.waitFor(DRY.button('left', 'click', 1), { from });
+    await expect(chip(page)).toHaveText('Click');
+    expect(helper.since(from, DRY.anyButton)).toHaveLength(1);
+  });
+
+  test('first tap soon after page load is a single click', async ({ page, helper }) => {
+    // Regression: lastTapAt started at 0 and e.timeStamp counts from page load, so a first tap within 300 ms of
+    // load was sent as count=2. Pin the timestamps to model that tap deterministically.
+    const from = helper.mark();
+    await page.locator('#touchpad').evaluate((pad, [x, y]) => {
+      for (const [type, ts] of [['pointerdown', 100], ['pointerup', 120]] as const) {
+        const ev = new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y });
+        Object.defineProperty(ev, 'timeStamp', { value: ts });
+        pad.dispatchEvent(ev);
+      }
+    }, o);
+    await helper.waitFor(DRY.anyButton, { from });
+    expect(helper.since(from, DRY.anyButton).map((m) => m[0].replace(/^.*DRY /, ''))).toEqual(['button left click count=1']);
     await expect(chip(page)).toHaveText('Click');
   });
 
@@ -65,9 +83,9 @@ test.describe('Mouse pane', () => {
   });
 
   test('2-finger tap -> right click', async ({ page, helper }) => {
+    await pauseClock(page);
     const from = helper.mark();
-    await t.start(o, [o[0] + 40, o[1]]);
-    await t.end();
+    await t.tap(o, [o[0] + 40, o[1]]);
     await helper.waitFor(DRY.button('right', 'click'), { from });
     await expect(chip(page)).toHaveText('Right click');
     expect(helper.since(from, /DRY /)).toHaveLength(1);

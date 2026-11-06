@@ -14,6 +14,9 @@ export class Touch {
   start(...pts: [number, number][]) { return this.send('touchStart', pts); }
   move(...pts: [number, number][]) { return this.send('touchMove', pts); }
   end() { return this.send('touchEnd', []); }
+  /** Touch down and up, sent back to back (not awaited in between) so a loaded runner can't stretch the tap
+   * past the 500 ms tap/hold limit, which the page measures with real event timestamps. */
+  tap(...pts: [number, number][]) { return Promise.all([this.start(...pts), this.end()]); }
   /** Moves all fingers by (dx, dy) in `steps` equal integer steps; returns the final points. */
   async drag(from: [number, number][], dx: number, dy: number, steps: number) {
     let pts = from;
@@ -74,6 +77,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   page: async ({ page }, use) => {
     await page.clock.install(); // time flows normally until a test pauses it
+    // CPU_THROTTLE=4 npx playwright test ...: slow the page down (CDP) to shake out timing flakes.
+    if (process.env.CPU_THROTTLE) await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: +process.env.CPU_THROTTLE });
     await use(page);
   },
 
