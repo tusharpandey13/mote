@@ -56,7 +56,7 @@ val Silver = MoteColors(
     rubTop = Color(0xFFD3D5D9), rubBot = Color(0xFFC3C6CB), rubWall = Color(0xFF9EA2A9),
     metal = listOf(Color(0xFFFDFDFE), Color(0xFFD4D7DC), Color(0xFFBFC3C9), Color(0xFFE6E8EB)),
     metalEdge = Color(0xFF8D9198), metalInk = Color(0xFF3A3D43),
-    glassTop = Color(0xEBFFFFFF), glassBot = Color(0xDBE2E8F0), glassInk = Color(0xFF1C1D20), glassGlow = Color(0x3840A0FF),
+    glassTop = Color(0xEBFFFFFF), glassBot = Color(0xDBE2E8F0), glassInk = Color(0xFF1C1D20), glassGlow = Color(0x2640A0FF),
     glossTop = 0.95f, glossMid = 0.35f, glassSpec = 0.9f, glassRim = 0.25f,
     engraveLabel = Color(0xFFC4C7CC), engraveDark = Color(0x6B141C28), engraveLight = Color(0xFFFFFFFF),
 )

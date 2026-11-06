@@ -281,7 +281,11 @@ fun MoteSheet(onDismiss: () -> Unit, content: @Composable (close: () -> Unit) ->
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val close: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { onDismiss() } }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, containerColor = c.surface1) { content(close) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss, sheetState = state, containerColor = c.surface1,
+        // rev 4: the handle is a small recessed slot, not a printed bar
+        dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 8.dp).size(36.dp, 5.dp).well(RoundedCornerShape(3.dp))) },
+    ) { content(close) }
 }
 
 /** First-run (and Bluetooth-off) gate: shown instead of the remote until Bluetooth is usable. */

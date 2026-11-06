@@ -56,6 +56,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.mote.remote.data.Macro
 import dev.mote.remote.data.Step
 import dev.mote.remote.net.Remote
@@ -91,18 +92,19 @@ fun MacrosScreen(macros: List<Macro>, run: (Macro) -> Unit, save: (List<Macro>) 
         LazyVerticalGrid(
             GridCells.Fixed(3),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp),
             modifier = Modifier.weight(1f),
         ) {
             items(macros, key = { it.id }, span = { GridItemSpan(if (it.kind == Macro.Kind.SPACES) 2 else 1) }) { m ->
-                Box(Modifier.height(88.dp)) {
+                Box(Modifier.height(96.dp)) {
                     when {
                         editMode -> Cap(Modifier.fillMaxSize(), RoundedCornerShape(20.dp), needsLink = false, haptic = Haptic.TICK,
                             description = "Edit ${m.name}", onClick = { editing = m }) { TileFace(m, compact = false, editing = true) }
                         m.kind == Macro.Kind.SPACES -> SpacesTile(Modifier.fillMaxSize(), compact = false)
                         else -> MacroTile(m, Modifier.fillMaxSize(), compact = false, onRun = run)
                     }
-                    if (m.star || editMode) {
+                    run {
                         Box(Modifier.align(Alignment.TopEnd).size(40.dp).let {
                             if (editMode) it.clickable { save(macros.map { x -> if (x.id == m.id) x.copy(star = !x.star) else x }) } else it
                         }, contentAlignment = Alignment.Center) {
@@ -113,9 +115,14 @@ fun MacrosScreen(macros: List<Macro>, run: (Macro) -> Unit, save: (List<Macro>) 
                 }
             }
             item(key = "+") {
-                Cap(Modifier.height(88.dp), RoundedCornerShape(20.dp), needsLink = false, haptic = Haptic.TICK, description = "New macro",
-                    onClick = { editing = Macro(name = "", icon = "apps") }) {
-                    MIcon("plus", c.muted, size = 28.dp)
+                Cap(Modifier.height(96.dp), RoundedCornerShape(20.dp), needsLink = false, haptic = Haptic.TICK, description = "New macro",
+                    flat = true, onClick = { editing = Macro(name = "", icon = "apps") }) {
+                    Box(Modifier.fillMaxSize().well(RoundedCornerShape(20.dp), fill = false), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            MIcon("plus", c.muted, size = 28.dp)
+                            Text("New macro", style = T.label.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = c.muted)
+                        }
+                    }
                 }
             }
         }
@@ -141,11 +148,12 @@ private fun TileFace(m: Macro, compact: Boolean, editing: Boolean = false, armed
             Text(if (armed) "Tap again" else m.name, style = T.small, color = if (armed) c.danger else c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     } else {
-        Column(Modifier.fillMaxSize().padding(12.dp)) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
             MIcon(if (editing) "edit" else m.icon, if (armed) c.danger else c.ink, size = 24.dp)
             Spacer(Modifier.weight(1f))
-            Text(if (armed) "Tap again" else m.name, style = T.label, color = if (armed) c.danger else c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(m.hint, style = T.keyS, color = c.muted, maxLines = 1)
+            Text(if (armed) "Tap again" else m.name, style = T.label.copy(fontSize = 16.sp, lineHeight = 18.sp), color = if (armed) c.danger else c.ink,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(m.hint, style = T.body.copy(fontSize = 14.sp, lineHeight = 16.sp), color = c.muted, maxLines = 1)
         }
     }
 }
@@ -255,16 +263,21 @@ fun SpacesTile(modifier: Modifier, compact: Boolean) {
             },
         contentAlignment = Alignment.Center,
     ) {
+        if (!compact) MIcon("spaces", c.ink, size = 24.dp, modifier = Modifier.align(Alignment.TopStart).padding(12.dp).alpha(dim))
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp).offset { IntOffset(nudge.value.roundToInt(), 0) }.alpha(dim),
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp).then(if (compact) Modifier else Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp))
+                .offset { IntOffset(nudge.value.roundToInt(), 0) }.alpha(dim),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MIcon("chevLeft", if (flash < 0) lerp(c.muted, c.accent, flashAlpha.value) else c.muted, size = 20.dp)
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Column(Modifier.alpha(1f - flashAlpha.value), horizontalAlignment = Alignment.CenterHorizontally) {
-                    MIcon("spaces", c.ink, size = if (compact) 20.dp else 24.dp)
-                    Text("Spaces", style = T.small, color = c.ink)
-                    Text("hold & slide", style = T.caps, color = c.subtle)
+                if (compact) Column(Modifier.alpha(1f - flashAlpha.value), horizontalAlignment = Alignment.CenterHorizontally) {
+                    MIcon("spaces", c.ink, size = 20.dp)
+                    Text("Spaces", style = T.label, color = c.ink)
+                    Text("hold & slide", style = T.keyS.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Normal), color = c.muted)
+                } else Column(Modifier.fillMaxWidth().padding(start = 4.dp).alpha(1f - flashAlpha.value)) {
+                    Text("Spaces", style = T.label.copy(fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = c.muted)
+                    Text("hold & slide ⌃← ⌃→, tap ⌃↑", style = T.body.copy(fontSize = 14.sp, lineHeight = 18.sp), color = c.muted, maxLines = 1)
                 }
                 if (flashAlpha.value > 0f) {
                     Text(if (flash < 0) "← Space" else "Space →", style = T.label, color = c.accent, modifier = Modifier.alpha(flashAlpha.value))

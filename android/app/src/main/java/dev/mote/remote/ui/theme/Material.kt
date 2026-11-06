@@ -60,7 +60,7 @@ object Textures {
             val a = lattice[y0 % g][x0 % g]; val b = lattice[y0 % g][(x0 + 1) % g]
             val c = lattice[(y0 + 1) % g][x0 % g]; val d = lattice[(y0 + 1) % g][(x0 + 1) % g]
             val v = (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty
-            val grey = (0.5f + (rnd.nextFloat() - 0.5f) * 0.75f + (v - 0.5f) * 0.35f).coerceIn(0f, 1f)
+            val grey = (0.5f + (rnd.nextFloat() - 0.5f) * 0.6f + (v - 0.5f) * 0.08f).coerceIn(0f, 1f)
             val l = (grey * 255).toInt()
             px[y * n + x] = (230 shl 24) or (l shl 16) or (l shl 8) or l
         }
@@ -143,7 +143,7 @@ fun DrawScope.drawGrain(brush: Brush, alpha: Float) {
     drawRect(brush, alpha = alpha, blendMode = BlendMode.Overlay)
 }
 
-private fun noiseScale(density: Float) = (density / 2f).coerceAtLeast(1f)
+private fun noiseScale(density: Float) = (density / 2.4f).coerceAtLeast(1f)
 
 // ---------------------------------------------------------------------------------------------
 // materials
@@ -230,8 +230,8 @@ fun Modifier.raised(
         }
 }
 
-/** Recessed well: darker fill, inner shadow at the top lip, 1dp light bottom edge. */
-fun Modifier.well(shape: Shape): Modifier = composed {
+/** Recessed well: darker fill (optional), inner shadow at the top lip, 1dp light bottom edge. */
+fun Modifier.well(shape: Shape, fill: Boolean = true): Modifier = composed {
     val c = LocalMote.current
     this
         .clip(shape)
@@ -242,7 +242,7 @@ fun Modifier.well(shape: Shape): Modifier = composed {
             val bottom = crescent(p, -1.dp.toPx())
             val bottomHi = if (c.dark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.85f)
             onDrawWithContent {
-                drawRect(c.well)
+                if (fill) drawRect(c.well)
                 drawInnerShadow(p, frame, inner)
                 drawPath(bottom, bottomHi)
                 drawContent()
@@ -258,7 +258,7 @@ fun Modifier.chassis(): Modifier = composed {
     val c = LocalMote.current
     this.drawWithCache {
         val base = Brush.verticalGradient(listOf(c.chassisTop, c.chassisBot))
-        val hair = Textures.brush(Textures.hairline)
+        val hair = Textures.brush(Textures.hairline, density)
         val hairTint = ColorFilter.tint(c.grain.copy(alpha = 1f), BlendMode.SrcIn)
         val grain = Textures.brush(Textures.noise, noiseScale(density))
         val cx = size.width / 2; val cy = size.height * 0.38f
@@ -301,7 +301,7 @@ fun Modifier.metal(shape: Shape, pressed: Boolean = false): Modifier = composed 
             val p = outlinePath(shape)
             val m = c.metal
             val fill = Brush.verticalGradient(0f to m[0], 0.48f to m[1], 0.52f to m[2], 1f to m[3])
-            val lines = Textures.brush(Textures.brushed)
+            val lines = Textures.brush(Textures.brushed, density)
             val hi = crescent(p, 1.dp.toPx())
             val lo = crescent(p, -1.dp.toPx())
             val edge = outlinePath(shape, 0.5.dp.toPx())

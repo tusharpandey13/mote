@@ -236,7 +236,7 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
                 val armShade = Color.Black.copy(alpha = if (c.dark) 0.22f else 0.07f)
                 val divider = if (c.dark) Color.Black.copy(alpha = 0.45f) else c.rubWall.copy(alpha = 0.55f)
                 val tri = Path().apply {
-                    moveTo(ctr.x, ctr.y - 77 * k); lineTo(ctr.x + 7 * k, ctr.y - 67.5f * k); lineTo(ctr.x - 7 * k, ctr.y - 67.5f * k); close()
+                    moveTo(ctr.x, ctr.y - 79 * k); lineTo(ctr.x + 9.5f * k, ctr.y - 66 * k); lineTo(ctr.x - 9.5f * k, ctr.y - 66 * k); close()
                 }
                 val armRect = Rect(ctr, 96 * k)
                 onDrawBehind {
@@ -246,7 +246,7 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
                     Arm.entries.filter { it != Arm.CENTER }.forEachIndexed { i, arm ->
                         rotate(i * 90f, ctr) {
                             if (pressed == arm) drawArc(armShade, 225f, 90f, true, armRect.topLeft, armRect.size)
-                            drawPath(tri, if (pressed == arm) c.accent else c.muted)
+                            drawPath(tri, if (pressed == arm) c.accent else c.ink.copy(alpha = 0.78f))
                         }
                     }
                     for (i in 0 until 4) rotate(45f + i * 90f, ctr) {
@@ -259,6 +259,6 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        Text("OK", style = T.label.copy(fontSize = 15.sp), color = if (pressed == Arm.CENTER) c.accent else c.ink)
+        Text("OK", style = T.label.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold), color = if (pressed == Arm.CENTER) c.accent else c.ink)
     }
 }
