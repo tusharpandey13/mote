@@ -112,7 +112,7 @@ class SoftShadow(color: Color, blurPx: Float, dx: Float = 0f, dy: Float) {
 
 fun DrawScope.drawShadow(path: Path, s: SoftShadow, alpha: Float = 1f) {
     if (alpha <= 0.01f) return
-    s.paint.alpha = 255 // shadow alpha comes from the shadow colour
+    // the paint itself stays transparent; a translucent shadow colour supplies the shadow's alpha
     drawIntoCanvas { cv ->
         if (alpha < 0.99f) cv.nativeCanvas.saveLayerAlpha(null, (alpha * 255).toInt())
         cv.nativeCanvas.drawPath(path.asAndroidPath(), s.paint)
