@@ -5,19 +5,21 @@
 DS=files/datastore/mote.preferences_pb
 HERE_PB="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/prefs_pb.py"
 
-# put_store LOCAL_FILE : replace the app's DataStore file while the app is stopped
+# put_store LOCAL_FILE [STORE_PATH] : replace a DataStore file while the app is stopped.
+# Stores: mote (macros, theme, BT host), mote_settings (UiPrefs), hosts (Wi-Fi helper hosts).
 put_store() {
+  local ds=${2:-$DS}
   sh_ am force-stop "$PKG"
   a push "$1" /data/local/tmp/mote-ds >/dev/null
-  sh_ run-as "$PKG" sh -c "'mkdir -p files/datastore && cat /data/local/tmp/mote-ds > $DS'"
+  sh_ run-as "$PKG" sh -c "'mkdir -p files/datastore && cat /data/local/tmp/mote-ds > $ds'"
   sh_ rm -f /data/local/tmp/mote-ds
 }
 
-st_case() { # name, then a function that writes the payload to $1
+st_case() { # name, generator (writes the payload to $1), [store path]
   local name=$1 gen=$2 f="$OUT/tmp-ds"
   mark
   "$gen" "$f"
-  put_store "$f"
+  put_store "$f" "${3:-}"
   launch; pause 3
   shot "storage-$name"
   # visit every mode so the macro list is composed
@@ -38,6 +40,10 @@ g_hostile()  { # valid JSON with hostile values: unknown keys/icons/mods, empty 
     macros_json='{"v":99,"macros":[{"id":"a","name":"","icon":"nope","star":true,"steps":[{"t":"chord","mods":["hyper"],"key":"nokey"},{"t":"delay","ms":-5},{"t":"bogus"}]},{"id":"a","name":"dup id","star":true,"kind":"spaces"},{"id":"b","name":"'"$big"'","star":true,"steps":[{"t":"text","s":"ü😀"}]}]}' > "$1"
 }
 
+# wrong types / out-of-range values for UiPrefs and hosts keys (all written as strings)
+g_settings() { python3 -I "$HERE_PB" pointer_speed=fast right_click=MIDDLE haptic_strength=99 desktop_count=-3 > "$1"; }
+g_hosts() { python3 -I "$HERE_PB" helper_hosts='[{"id":1,"name":null,"addr":"::::"},{]' selection='{"kind":"wifi","id":"gone"}' wifi_chosen=yes > "$1"; }
+
 scenario_storage() {
   if ! sh_ run-as "$PKG" true >/dev/null 2>&1; then
     record storage SKIP 0 0 "build not debuggable (run-as unavailable)"; return
@@ -47,6 +53,10 @@ scenario_storage() {
   st_case truncated g_truncate
   st_case bad-json g_badjson
   st_case hostile-values g_hostile
+  st_case settings-garbage g_garbage files/datastore/mote_settings.preferences_pb
+  st_case settings-hostile g_settings files/datastore/mote_settings.preferences_pb
+  st_case hosts-garbage g_garbage files/datastore/hosts.preferences_pb
+  st_case hosts-hostile g_hosts files/datastore/hosts.preferences_pb
   # delete: remove the file (and the directory) entirely
   mark; sh_ am force-stop "$PKG"; sh_ run-as "$PKG" rm -rf files/datastore
   launch; pause 2; sh_ am force-stop "$PKG"; launch; pause 2

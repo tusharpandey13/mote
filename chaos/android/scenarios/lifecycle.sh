@@ -97,8 +97,9 @@ lc_rtl() {
   # The remote mirrors physical controls: an RTL locale must not swap mouse L/R (or prev/next, vol -/+).
   local note="" l r
   tap_rail Mouse; pause 1
-  l=$(ui_x L); r=$(ui_x R)
-  if [ -n "$l" ] && [ -n "$r" ] && [ "$l" -gt "$r" ]; then note="RTL mirrors mouse buttons (R left of L)"; fi
+  l=$(ui_x "Left button"); r=$(ui_x "Right button")
+  if [ -z "$l" ] || [ -z "$r" ]; then note="mouse buttons not found in RTL"
+  elif [ "$l" -gt "$r" ]; then note="RTL mirrors mouse buttons (Right left of Left)"; fi
   sh_ cmd locale set-app-locales "$PKG" --locales "" >/dev/null 2>&1
   local h; h=$(healthy); [ -n "$h" ] && note="${note:+$note; }$h"
   finish lifecycle-rtl "$note"

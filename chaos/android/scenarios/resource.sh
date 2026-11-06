@@ -2,7 +2,7 @@
 # Resource chaos: Doze, standby buckets, battery saver, airplane mode, network flaps, memory pressure,
 # runtime-permission revocation.
 
-GATE_TEXT="Mote connects over Bluetooth"
+GATE_TEXT="How do you want to connect?"
 
 rs_doze() {
   mark; launch; pause 1; home; pause 1

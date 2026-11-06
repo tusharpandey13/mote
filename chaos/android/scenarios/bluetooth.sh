@@ -27,7 +27,7 @@ scenario_bluetooth() {
   sh_ cmd bluetooth_manager enable >/dev/null 2>&1; pause 5
   shot bt-after-storm
   alive || note="${note:+$note; }app died during storm"
-  ui_has "Mote connects over Bluetooth" && note="${note:+$note; }gate still shown with Bluetooth on"
+  ui_has "How do you want to connect?" && note="${note:+$note; }gate still shown with Bluetooth on"
   # background: with no host connected the service must stop itself
   home; pause 5
   local c; c=$(svc_count)

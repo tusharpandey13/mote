@@ -42,6 +42,8 @@ for f in "$HERE"/scenarios/*.sh; do . "$f"; done
 a get-state 2>/dev/null | grep -q device || { echo "$SERIAL not online" >&2; exit 2; }
 a wait-for-device
 until [ "$(sh_ getprop sys.boot_completed | tr -d '\r')" = 1 ]; do sleep 2; done
+# root adbd on emulators so ANR traces in /data/anr can be pulled (no-op on user builds)
+case $SERIAL in emulator-*) a root >/dev/null 2>&1; sleep 2; a wait-for-device ;; esac
 
 if [ "$BUILD" = 1 ]; then
   log "building debug APK"
@@ -59,6 +61,8 @@ sh_ settings put global window_animation_scale 0.5 >/dev/null
 sh_ svc power stayon true
 sh_ input keyevent KEYCODE_WAKEUP; sh_ wm dismiss-keyguard >/dev/null 2>&1
 trap 'restore_device; sh_ svc power stayon false' EXIT
+# Fresh app state: earlier runs (or monkey tapping "Use Wi-Fi") persist a Wi-Fi choice that hides the gate.
+sh_ pm clear "$PKG" >/dev/null
 restore_device
 
 # Fixed order; monkey takes the largest share so it goes last and absorbs leftover budget.

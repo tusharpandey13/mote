@@ -22,7 +22,12 @@ rnd() {
 }
 pause() { sleep "${1:-1}"; }
 
-launch() { sh_ am start -W -n "$ACT" >/dev/null 2>&1; }
+# am start -W can block forever (seen after monkey left Chrome's first-run screen on top): cap at 10 s
+launch() {
+  sh_ am start -W -n "$ACT" >/dev/null 2>&1 & local p=$! i=0
+  while kill -0 "$p" 2>/dev/null && [ "$i" -lt 20 ]; do sleep 0.5; i=$((i + 1)); done
+  kill "$p" 2>/dev/null; wait "$p" 2>/dev/null; return 0
+}
 home() { sh_ input keyevent KEYCODE_HOME; }
 pid() { sh_ pidof "$PKG" 2>/dev/null | tr -d '\r'; }
 alive() { [ -n "$(pid)" ]; }
@@ -60,7 +65,12 @@ harvest() {
   a logcat -d -b main,system,crash -v threadtime > "$f" 2>/dev/null
   local c n d
   c=$(grep -A2 'FATAL EXCEPTION' "$f" | grep -c "Process: $PKG," || true)
-  n=$(grep -c "ANR in $PKG" "$f" || true)
+  n=$(grep -c "ActivityManager: ANR in $PKG" "$f" || true) # Monkey echoes the same ANR; count once
+  # keep the newest ANR trace (main + RenderThread stacks); /data/anr is readable on rooted emulators only
+  if [ "$n" -gt 0 ]; then
+    local t; t=$(sh_ ls -t /data/anr 2>/dev/null | tr -d '\r' | grep '^anr_' | head -n 1 || true)
+    [ -n "$t" ] && a pull "/data/anr/$t" "$OUT/logs/$1.anr.txt" >/dev/null 2>&1
+  fi
   d=$(( $(dropbox_count) - ${DROPBOX_T0:-0} ))
   [ "$d" -gt "$c" ] && c=$d # dropbox catches crashes that rolled out of the logcat ring
   grep -A25 'FATAL EXCEPTION' "$f" > "$OUT/logs/$1.crash.txt" 2>/dev/null || true
@@ -74,13 +84,14 @@ record() {
   log "RESULT $1: $2 (crashes=$3 anrs=$4) $5"
 }
 
-# finish NAME [extra-failure-note] : harvest + record; status FAIL if crash/ANR or note given.
+# finish NAME [failure-note] [info-note] : harvest + record; FAIL on crash/ANR or a failure note.
 finish() {
-  local name=$1 note=${2:-} c n
+  local name=$1 note=${2:-} info=${3:-} c n
   read -r c n <<<"$(harvest "$name")"
   local status=PASS
   if [ "$c" -gt 0 ] || [ "$n" -gt 0 ] || [ -n "$note" ]; then status=FAIL; fi
-  record "$name" "$status" "$c" "$n" "${note:-ok}"
+  local msg=${note:-ok}; [ -n "$info" ] && msg="$msg; $info"
+  record "$name" "$status" "$c" "$n" "$msg"
 }
 
 # Restore a sane device state (called between scenarios and on exit).
