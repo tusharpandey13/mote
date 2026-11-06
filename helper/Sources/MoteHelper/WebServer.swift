@@ -23,10 +23,10 @@ final class WebServer {
         params.prohibitedInterfaceTypes = [.cellular]
         let l = try NWListener(using: params, on: NWEndpoint.Port(rawValue: hub.config.port)!)
         l.service = NWListener.Service(name: Host.computerName, type: "_mote._tcp")
-        l.stateUpdateHandler = { [weak self] st in
+        l.stateUpdateHandler = { [weak self, weak l] st in
             guard let self else { return }
             switch st {
-            case .ready: self.status = "listening on :\(self.hub.config.port)"
+            case .ready: self.status = "listening on :\(l?.port?.rawValue ?? self.hub.config.port)"   // real port with --port 0
             case .failed(let e): self.status = "failed: \(e)"
             default: break
             }

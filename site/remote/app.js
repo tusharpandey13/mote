@@ -306,7 +306,13 @@
     const inp = $('#k-text');
     const s = inp.value + (retBox.checked ? '\n' : '');
     if (!s || !authed) return;
-    send({ t: 'text', s: s.slice(0, 2000) });
+    // The protocol caps a text message at 2000 UTF-16 units: send longer text in pieces, never splitting a character.
+    let part = '';
+    for (const ch of s) {
+      if (part.length + ch.length > 2000) { send({ t: 'text', s: part }); part = ''; }
+      part += ch;
+    }
+    send({ t: 'text', s: part });
     inp.value = '';
     buzz(10);
   });
@@ -323,7 +329,7 @@
   const lever = $('#lever'), thumb = $('#lever-thumb');
   let lv = null;
   lever.addEventListener('pointerdown', (e) => {
-    if (!authed) return;
+    if (!authed || lv) return; // one finger drives the lever; a second one would start a second ticker
     e.preventDefault();
     try { lever.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
     lv = { id: e.pointerId, y0: e.clientY, d: 0, max: Math.max(20, (lever.clientHeight - thumb.offsetHeight) / 2 - 6) };

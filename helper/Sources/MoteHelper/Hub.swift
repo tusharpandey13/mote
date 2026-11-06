@@ -105,7 +105,10 @@ final class Hub {
         run(0)
     }
 
-    func cancelMacro() { macroGen += 1; macroRunning = false }
+    func cancelMacro() {
+        if macroRunning { log("macro: cancelled") }
+        macroGen += 1; macroRunning = false
+    }
 }
 
 /// One client connection on either transport. Speaks the protocol; never injects before `authed`.

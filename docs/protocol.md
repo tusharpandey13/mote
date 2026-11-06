@@ -155,4 +155,6 @@ $B --dry-run --headless --no-ble --memory-store --open-pairing --port 8791   # p
 node helper/tests/smoke.mjs 8791 <code>                                       # auth, guards, rate limit, dry-run input
 ```
 
+Test-only flags: `--port 0` binds any free port (the log line `wifi: listening on :N` has the real one); `--stdin-control` (honoured only with `--dry-run`) reads `pair` (open a pairing window, print `PAIRING CODE: nnnnnn`), `revoke`, `pause`, `resume` from stdin, standing in for the menu in headless runs. `e2e/web/` uses both.
+
 `--dry-run` logs every input (`DRY key usage=80 mods=1 ...`) instead of posting events, so tests never type into the session. `--memory-store` keeps paired devices out of the Keychain; `--keychain-service NAME` uses a separate Keychain item.

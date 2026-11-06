@@ -30,10 +30,30 @@ hub.onChange = refresh
 web?.onChange = refresh
 ble?.onChange = refresh
 
-if config.openPairing || (!config.headless && hub.store.devices.isEmpty) {
+func openPairing() {
     hub.pairing.open()
     if let code = hub.pairing.code { print("PAIRING CODE: \(code)"); fflush(stdout) }
     menu?.showPairing()
+}
+if config.openPairing || (!config.headless && hub.store.devices.isEmpty) { openPairing() }
+
+// Test-only: stand in for the menu-bar actions in headless e2e tests. Dry-run only, so it can never drive real input.
+if config.stdinControl {
+    if !config.dryRun { log("--stdin-control needs --dry-run; ignoring it") } else {
+        Thread.detachNewThread {
+            while let line = readLine() {
+                DispatchQueue.main.async {
+                    switch line.trimmingCharacters(in: .whitespaces) {
+                    case "pair": openPairing()
+                    case "revoke": hub.revokeAll()
+                    case "pause": hub.paused = true
+                    case "resume": hub.paused = false
+                    case let c: log("stdin-control: unknown command '\(c)'")
+                    }
+                }
+            }
+        }
+    }
 }
 
 signal(SIGTERM) { _ in exit(0) }
