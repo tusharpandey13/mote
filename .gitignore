@@ -30,3 +30,4 @@ keystore.properties
 .LSOverride
 ._*
 .claude/settings.local.json
+.claude/worktrees/
