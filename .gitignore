@@ -1,0 +1,31 @@
+# Gradle
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Kotlin / Android Studio / IntelliJ
+.kotlin/
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local config (SDK paths, signing)
+local.properties
+*.jks
+*.keystore
+keystore.properties
+
+# Logs / temp
+*.log
+*.tmp
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
