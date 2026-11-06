@@ -1,0 +1,54 @@
+name: README shots
+
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main]
+    paths: ['design/**', 'tools/readme-shots/**', 'README.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: readme-shots
+  cancel-in-progress: false
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/web/package-lock.json
+      - run: sudo apt-get install -y --no-install-recommends pngquant
+      - run: npm ci
+        working-directory: e2e/web
+      - uses: actions/cache@v4
+        id: pw
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('e2e/web/package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e/web
+      - run: node tools/readme-shots/shots.mjs
+      - name: Commit changed images and redeploy the site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add -A docs/assets/readme site/og.png
+          if git diff --cached --quiet; then echo "images up to date"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: refresh README screenshots [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          # GITHUB_TOKEN pushes and [skip ci] trigger nothing; deploy Pages explicitly (og.png lives in site/).
+          gh workflow run pages.yml --ref main

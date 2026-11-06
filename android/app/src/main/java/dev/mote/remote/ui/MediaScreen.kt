@@ -5,6 +5,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import dev.mote.remote.ui.theme.Rubber
@@ -62,24 +63,36 @@ import kotlin.math.hypot
 fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites: () -> Unit) {
     val c = LocalMote.current
     BoxWithConstraints(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 12.dp)) {
-        // fixed: favourites 110, brightness 54 + 24, transport 20 + 112; the control cluster absorbs the rest
-        val cluster = (maxHeight - 340.dp).coerceIn(196.dp, 256.dp)
+        // fixed: favourites ~200, brightness 74 + 24, transport 20 + 112; the control cluster absorbs the rest
+        val showSpaces = favourites.any { it.kind == Macro.Kind.SPACES }
+        val cluster = (maxHeight - (if (showSpaces) 448 else 336).dp).coerceIn(196.dp, 256.dp)
         val slot = cluster - 24.dp
         val dpad = (cluster - 48.dp).coerceAtMost(208.dp)
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+            // the Edit chip's 48dp touch target overhangs this 32dp row
+            Row(Modifier.fillMaxWidth().height(32.dp).padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 MIcon("starFill", c.subtle, size = 16.dp)
                 Spacer(Modifier.width(6.dp))
                 Text("FAVOURITES", style = T.caps, color = c.subtle, modifier = Modifier.weight(1f))
-                EditCap(onClick = onEditFavourites)
+                EditCap(compact = true, onClick = onEditFavourites)
             }
-            Spacer(Modifier.height(6.dp))
-            FavouriteStrip(favourites, run, onAdd = onEditFavourites)
+            Spacer(Modifier.height(8.dp))
+            if (showSpaces) {
+                // rev 6 #60: Spaces is a carousel row of its own at the top of Favourites
+                CarouselCaption("Spaces", "swipe or tap a desktop")
+                Spacer(Modifier.height(4.dp))
+                SpacesCarousel()
+                Spacer(Modifier.height(8.dp))
+            }
+            FavouriteStrip(favourites.filter { it.kind != Macro.Kind.SPACES }, run, onAdd = onEditFavourites)
             Spacer(Modifier.weight(1f))
-            Pair(Modifier.height(54.dp)) {
-                Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(14.dp), haptic = Haptic.TICK, description = "Brightness down",
+            Row(
+                Modifier.fillMaxWidth().height(74.dp).well(RoundedCornerShape(22.dp)).padding(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(17.dp), haptic = Haptic.TICK, description = "Brightness down",
                     repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_DOWN) }) { Arrowed("sunDown", "arrowDown") }
-                Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(14.dp), haptic = Haptic.TICK, description = "Brightness up",
+                Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(17.dp), haptic = Haptic.TICK, description = "Brightness up",
                     repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_UP) }) { Arrowed("sunUp", "arrowUp") }
             }
             Spacer(Modifier.height(24.dp))
@@ -101,14 +114,17 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
                         upDescription = "Volume up", downDescription = "Volume down", thumbDescription = "Volume lever",
                         rates = intArrayOf(0, 3, 5, 8, 12), thumb = { MIcon("speaker", c.metalInk, size = 20.dp) },
                         onNotch = { up -> Remote.consumer(if (up) Consumer.VOL_UP else Consumer.VOL_DOWN) },
+                        // rev 6 #62: mute is a 44dp cap in the base of the volume well
+                        base = {
+                            Cap(Modifier.size(44.dp), CircleShape, description = "Mute", onClick = { Remote.consumer(Consumer.MUTE) }) {
+                                MIcon("mute", c.ink, size = 20.dp)
+                            }
+                        },
                     )
                 }
-                // round mute cap at the D-pad's lower right, beside the volume slider's minus end
-                Cap(Modifier.align(Alignment.BottomEnd).padding(end = 66.dp, bottom = 30.dp).size(48.dp), CircleShape,
-                    description = "Mute", onClick = { Remote.consumer(Consumer.MUTE) }) { MIcon("mute", c.ink, size = 22.dp) }
             }
             Spacer(Modifier.height(20.dp))
-            // one family: three glass caps in one recessed channel; play is wider and taller
+            // rev 6 #67: three glass caps on one 96dp baseline; prev/next 76dp wide, play fills the rest
             Row(
                 Modifier.fillMaxWidth().well(RoundedCornerShape(30.dp), bezel = true).padding(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
@@ -138,7 +154,7 @@ private fun SeekCap(icon: String, description: String, skip: Int, seek: Int) {
         onDispose { if (hold.cancel() == SeekHold.Out.SEEK_STOP) Remote.consumerHold(seek, false) }
     }
     Cap(
-        Modifier.size(72.dp), RoundedCornerShape(22.dp), tone = Tone.GLASS, description = description, forcePressed = seeking,
+        Modifier.size(76.dp, 96.dp), RoundedCornerShape(24.dp), tone = Tone.GLASS, description = description, forcePressed = seeking,
         onDown = {
             hold.down(now())
             timer = scope.launch {
@@ -168,27 +184,14 @@ private fun Arrowed(sun: String, arrow: String) {
     }
 }
 
-/** A recessed well holding a row of caps (button pair/group). */
-@Composable
-private fun Pair(modifier: Modifier, content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
-    Row(
-        modifier.fillMaxWidth().well(RoundedCornerShape(20.dp)).padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        content = content,
-    )
-}
-
 @Composable
 private fun FavouriteStrip(favs: List<Macro>, run: (Macro) -> Unit, onAdd: () -> Unit) {
     val c = LocalMote.current
-    Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth().height(52.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         var used = 0
-        favs.forEach { m ->
-            val span = if (m.kind == Macro.Kind.SPACES) 2 else 1
-            if (used + span > 4) return@forEach
-            used += span
-            if (m.kind == Macro.Kind.SPACES) SpacesTile(Modifier.weight(span.toFloat()).fillMaxHeight(), compact = true)
-            else MacroTile(m, Modifier.weight(span.toFloat()).fillMaxHeight(), compact = true, onRun = run)
+        favs.take(4).forEach { m ->
+            used += 1
+            MacroTile(m, Modifier.weight(1f).fillMaxHeight(), compact = true, onRun = run)
         }
         // the strip never looks broken: the free space is one dashed "+ Add favourite" slot
         if (used < 4) {
@@ -216,6 +219,7 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
     val linked = LocalLinked.current
     val scope = rememberCoroutineScope()
     var pressed by remember { mutableStateOf<Arm?>(null) }
+    val okDepth = androidx.compose.animation.core.animateFloatAsState(if (pressed == Arm.CENTER) 1f else 0f, Motion.press, label = "ok")
     val linkedNow = androidx.compose.runtime.rememberUpdatedState(linked)
     Box(
         Modifier
@@ -265,7 +269,6 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
                 val ringFrame = frameAround(ring, 12 * k)
                 val ringShade = SoftShadow(c.wellShade, 4.dp.toPx(), dy = 2.dp.toPx())
                 val okCap = Rubber(c, ctr, 35 * k, density)
-                val okPressed = Rubber(c, ctr, 35 * k, density, pressed = true)
                 val armShade = Color.Black.copy(alpha = if (c.dark) 0.22f else 0.07f)
                 val divider = if (c.dark) Color.Black.copy(alpha = 0.45f) else c.rubWall.copy(alpha = 0.55f)
                 val tri = Path().apply {
@@ -286,11 +289,19 @@ private fun DPad(size: androidx.compose.ui.unit.Dp) {
                     }
                     drawCircle(c.well, 42 * k, ctr)
                     drawInnerShadow(ring, ringFrame, ringShade)
-                    with(if (pressed == Arm.CENTER) okPressed else okCap) { draw() }
+                    with(okCap) { draw(okDepth.value) }
                 }
             },
         contentAlignment = Alignment.Center,
     ) {
-        Text("OK", style = T.label.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold), color = if (pressed == Arm.CENTER) c.accent else c.ink)
+        // rev 6 #66: the legend follows the cap (translate 1.5dp, scale 0.96) and dims to muted when pressed
+        Text(
+            "OK", style = T.label.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold),
+            color = androidx.compose.ui.graphics.lerp(c.ink, c.muted, okDepth.value),
+            modifier = Modifier.graphicsLayer {
+                translationY = Rubber.legendOffsetDp(okDepth.value) * density
+                val s = Rubber.legendScale(okDepth.value); scaleX = s; scaleY = s
+            },
+        )
     }
 }

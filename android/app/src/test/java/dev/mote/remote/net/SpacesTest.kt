@@ -55,21 +55,4 @@ class SpacesTest {
         assertNull(Proto.parse("""{"t":"spaces.thumb","i":"x","v":7,"data":"AAAA"}"""))
     }
 
-    @Test fun navUsesCtrlNumberWhenEnabled() {
-        assertEquals(listOf("3" to Mod.CTRL), SpacesNav.keys(3, 1, 4, ctrlNumberShortcuts = true))
-        // Desktop 10+ has no ⌃N shortcut: steps instead.
-        assertEquals(List(2) { "right" to Mod.CTRL }, SpacesNav.keys(12, 10, 12, ctrlNumberShortcuts = true))
-    }
-
-    @Test fun navStepsWithCtrlArrows() {
-        assertEquals(List(2) { "right" to Mod.CTRL }, SpacesNav.keys(3, 1, 4, false))
-        assertEquals(List(3) { "left" to Mod.CTRL }, SpacesNav.keys(1, 4, 4, false))
-        assertEquals(emptyList<Pair<String, Int>>(), SpacesNav.keys(2, 2, 4, false))
-    }
-
-    @Test fun navClampsTarget() {
-        assertEquals(List(3) { "right" to Mod.CTRL }, SpacesNav.keys(9, 1, 4, false))
-        assertEquals(List(1) { "left" to Mod.CTRL }, SpacesNav.keys(0, 2, 4, false))
-        assertEquals(listOf("4" to Mod.CTRL), SpacesNav.keys(7, 1, 4, true))
-    }
 }

@@ -1,13 +1,8 @@
 package dev.mote.remote.net
 
-import dev.mote.remote.data.UiSettings
 import dev.mote.remote.hid.Hid
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -60,20 +55,17 @@ interface Transport {
 
     /** Mac Spaces (protocol 1.3) with thumbnails; null when unknown (Bluetooth, older helper, not linked). */
     val spaces: StateFlow<SpacesState?> get() = NO_SPACES
-    /** Switch the Mac to the 1-based desktop [index]. */
-    fun spacesGoto(index: Int)
+    /**
+     * Switch the Mac to the 1-based desktop [index] (helper: `spaces.goto`). No-op by default: over
+     * Bluetooth the UI drives ⌃N / ⌃←⌃→ itself (`ui/BtSpaces`), since HID gets no Spaces feedback.
+     */
+    fun spacesGoto(index: Int) {}
 }
 
 private val NO_SPACES: StateFlow<SpacesState?> = MutableStateFlow(null)
 
 /** Bluetooth HID: a thin wrapper over [Hid], which stays the owner of the HID registration and pipe. */
-class BtHidTransport(private val scope: CoroutineScope) : Transport {
-    /** Settings used by [spacesGoto] (desktop count, ⌃N shortcuts); kept current by [Net.init]. */
-    @Volatile var settings = UiSettings()
-    /** The desktop this side believes is showing: HID gets no feedback, so it is only a guess. */
-    @Volatile private var believedSpace = 1
-    private val spaceSteps = Mutex() // back-to-back gotos run in order, never interleaved
-
+class BtHidTransport(scope: CoroutineScope) : Transport {
     override val caps = Caps.HID
     override val linked: StateFlow<Boolean> = Hid.state.map { it.isConnected }.stateIn(scope, SharingStarted.Eagerly, false)
     override val mods: StateFlow<Hid.Mods> get() = Hid.mods
@@ -90,18 +82,4 @@ class BtHidTransport(private val scope: CoroutineScope) : Transport {
     override fun click(mask: Int) = Hid.click(mask)
     override fun scroll(wheel: Int, pan: Int) = Hid.scroll(wheel, pan)
     override fun clickAt(x: Float, y: Float) = false
-
-    /** ⌃N or ⌃← / ⌃→ steps from the believed current desktop, [SPACE_STEP_MS] apart. */
-    override fun spacesGoto(index: Int) {
-        val s = settings
-        val keys = SpacesNav.keys(index, believedSpace, s.desktopCount, s.ctrlNumberShortcuts)
-        believedSpace = index.coerceIn(1, s.desktopCount)
-        scope.launch {
-            spaceSteps.withLock { keys.forEachIndexed { i, (key, mods) -> if (i > 0) delay(SPACE_STEP_MS); Hid.tapAwait(key, mods) } }
-        }
-    }
-
-    companion object {
-        const val SPACE_STEP_MS = 80L
-    }
 }

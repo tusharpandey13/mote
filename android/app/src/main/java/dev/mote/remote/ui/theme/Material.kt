@@ -187,7 +187,7 @@ fun Modifier.raised(
         .graphicsLayer {
             // press: sink 1dp and shrink to 0.96 (design 5.1)
             translationY = depth * 1.dp.toPx()
-            val s = 1f - 0.04f * depth
+            val s = 1f - (if (shape == androidx.compose.foundation.shape.CircleShape) 0.06f else 0.04f) * depth
             scaleX = s; scaleY = s
         }
         .drawWithCache {
@@ -349,15 +349,21 @@ fun Modifier.metal(shape: Shape, pressed: Boolean = false): Modifier = composed 
  * below, the fill gradient, and a full-circle bevel (white@90% -> clear by 35% -> black@22%).
  * Callers build the brushes once in drawWithCache and pass them in.
  */
-class Rubber(c: MoteColors, center: Offset, r: Float, density: Float, val pressed: Boolean = false) {
+class Rubber(c: MoteColors, center: Offset, r: Float, private val density: Float) {
     private val wallDy = 3 * density
-    val contact = SoftShadow(c.dshadow, 8 * density, dy = 6 * density)
-    val contactPath = Path().apply { addOval(Rect(center, r)) }
-    val wall = c.rubWall
-    val fill = Brush.verticalGradient(listOf(c.rubTop, c.rubBot), startY = center.y - r, endY = center.y + r)
-    val fillPressed = Brush.verticalGradient(listOf(c.rubBot, c.rubTop), startY = center.y - r, endY = center.y + r)
-    val bevel = Brush.verticalGradient(
+    private val contact = SoftShadow(c.dshadow, 8 * density, dy = 6 * density)
+    private val pressedShadow = SoftShadow(c.dshadow, 2 * density, dy = 1 * density)
+    private val contactPath = Path().apply { addOval(Rect(center, r)) }
+    private val wall = c.rubWall
+    private val fill = Brush.verticalGradient(listOf(c.rubTop, c.rubBot), startY = center.y - r, endY = center.y + r)
+    private val fillPressed = Brush.verticalGradient(listOf(c.rubBot, c.rubTop), startY = center.y - r, endY = center.y + r)
+    private val bevel = Brush.verticalGradient(
         0f to Color(0xE6FFFFFF), 0.35f to Color.Transparent, 0.7f to Color.Transparent, 1f to Color(0x38000000),
+        startY = center.y - r, endY = center.y + r,
+    )
+    /** components.dpad.press.pressedBevel: dark top, light bottom (pushed in). */
+    private val bevelPressed = Brush.verticalGradient(
+        0f to Color(0x4D000000), 0.40f to Color.Transparent, 0.75f to Color.Transparent, 1f to Color(0x8CFFFFFF),
         startY = center.y - r, endY = center.y + r,
     )
     private val grain = Textures.brush(Textures.grain, density)
@@ -366,15 +372,27 @@ class Rubber(c: MoteColors, center: Offset, r: Float, density: Float, val presse
     private val rad = r
     private val bevelW = 1.5f * density
 
-    fun DrawScope.draw(pressedNow: Boolean = pressed) {
-        drawShadow(contactPath, contact, if (pressedNow) 0.6f else 1f)
-        val sink = if (pressedNow) wallDy * 0.5f else 0f
-        drawCircle(wall, rad, Offset(ctr.x, ctr.y + wallDy))
-        translate(top = sink) {
-            drawCircle(if (pressedNow) fillPressed else fill, rad, ctr)
-            drawCircle(grain, rad, ctr, alpha = grainA, blendMode = BlendMode.Overlay)
-            drawCircle(bevel, rad - bevelW / 2, ctr, style = Stroke(bevelW))
+    /**
+     * [depth] 0 = rest, 1 = pressed: the cap moves down 1.5dp and scales to 0.96, the side wall
+     * shrinks from 3dp to 1dp and the bevel inverts. Callers move the legend by [legendOffset]/[legendScale].
+     */
+    fun DrawScope.draw(depth: Float = 0f) {
+        drawShadow(contactPath, contact, 1f - depth)
+        if (depth > 0f) drawShadow(contactPath, pressedShadow, depth)
+        drawCircle(wall, rad, Offset(ctr.x, ctr.y + wallDy - (wallDy - density) * depth))
+        val s = 1f - 0.04f * depth
+        translate(top = 1.5f * density * depth) {
+            scale(s, s, ctr) {
+                drawCircle(if (depth > 0.5f) fillPressed else fill, rad, ctr)
+                drawCircle(grain, rad, ctr, alpha = grainA, blendMode = BlendMode.Overlay)
+                drawCircle(if (depth > 0.5f) bevelPressed else bevel, rad - bevelW / 2, ctr, style = Stroke(bevelW))
+            }
         }
+    }
+
+    companion object {
+        fun legendOffsetDp(depth: Float) = 1.5f * depth
+        fun legendScale(depth: Float) = 1f - 0.04f * depth
     }
 }
 
