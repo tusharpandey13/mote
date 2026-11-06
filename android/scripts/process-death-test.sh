@@ -43,9 +43,14 @@ done
 adb shell cmd bluetooth_manager enable >/dev/null 2>&1 || adb shell svc bluetooth enable >/dev/null 2>&1 || true
 
 launch
-xy=$(wait_for text Keys) || fail "remote UI not shown (is Bluetooth on?)"
-adb shell input tap $xy
-xy=$(wait_for class android.widget.EditText) || fail "Keys text box not found"
+n=0; xy=""
+while [ -z "$xy" ] && [ $n -lt 5 ]; do # retry: the first tap can land while the UI is still settling
+  k=$(wait_for text Keys) || fail "remote UI not shown (is Bluetooth on?)"
+  adb shell input tap $k
+  xy=$(wait_for class android.widget.EditText 5) || xy=""
+  n=$((n + 1))
+done
+[ -n "$xy" ] || fail "Keys text box not found"
 adb shell input tap $xy
 sleep 1
 adb shell input text $TEXT
