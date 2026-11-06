@@ -22,6 +22,25 @@ android {
         targetSdk = 35
         versionCode = 2
         versionName = "0.1.1"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Fresh process + cleared data per test. The physical-HID suite is opt-in (see README).
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
+        if (project.hasProperty("moteHid")) {
+            testInstrumentationRunnerArguments["annotation"] = "dev.mote.remote.hid.PhysicalHid"
+        } else {
+            testInstrumentationRunnerArguments["notAnnotation"] = "dev.mote.remote.hid.PhysicalHid"
+        }
+    }
+
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+        animationsDisabled = true
+    }
+
+    sourceSets {
+        // Physical-device HID suite lives apart from the emulator suite.
+        getByName("androidTest").java.directories.add("src/androidTest/hid")
     }
 
     signingConfigs {
@@ -65,4 +84,15 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.datastore.preferences)
     testImplementation(libs.junit)
+
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.uiautomator)
+    androidTestUtil(libs.androidx.test.orchestrator)
+    androidTestUtil(libs.androidx.test.services)
+    debugImplementation(libs.compose.ui.test.manifest)
 }
