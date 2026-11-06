@@ -45,7 +45,11 @@ data class Macro(
 }
 
 object Macros {
-    private const val VERSION = 1
+    /** 2: favourites follow design rev 3+ (Spaces only by default); see [migrate]. */
+    private const val VERSION = 2
+
+    /** The favourites every install had before v2: Spaces + Spotlight + Lock filled the 4-column strip. */
+    private val OLD_DEFAULT_FAVOURITES = setOf("spaces", "spotlight", "lock")
 
     /** Revision 4 defaults: only Spaces is starred; esc left Media and lives here as "Escape". */
     val defaults: List<Macro> = listOf(
@@ -60,7 +64,30 @@ object Macros {
         Macro(id = "hideothers", name = "Hide others", icon = "windows", steps = listOf(Step.Chord(Mod.ALT or Mod.CMD, "h"))),
     )
 
-    fun flow(c: Context): Flow<List<Macro>> = Prefs.macrosJson(c).map { it?.let(::decode) ?: defaults }
+    fun flow(c: Context): Flow<List<Macro>> = Prefs.macrosJson(c).map { it?.let(::load) ?: defaults }
+
+    /** Decodes stored JSON and applies [migrate] for older format versions. */
+    fun load(json: String): List<Macro>? {
+        val list = decode(json) ?: return null
+        val v = runCatching { JSONObject(json).optInt("v", 1) }.getOrDefault(1)
+        return if (v < 2) migrate(list) else list
+    }
+
+    /**
+     * v1 -> v2: if the stored favourites are still exactly the old defaults, keep only Spaces starred
+     * (the strip then shows the "+ Add favourite" slot, so newly starred macros appear) and add the
+     * Escape macro that replaced Media's esc cap. Any other favourites are the user's choice: untouched.
+     * Applied on every read of a v1 list; the next save writes v2, which is never migrated again.
+     */
+    fun migrate(list: List<Macro>): List<Macro> {
+        if (list.filter { it.star }.map { it.id }.toSet() != OLD_DEFAULT_FAVOURITES) return list
+        val out = list.map { if (it.id == "spaces") it else it.copy(star = false) }.toMutableList()
+        if (out.none { it.id == "escape" }) {
+            val esc = defaults.first { it.id == "escape" }
+            out.add((out.indexOfFirst { it.id == "spotlight" } + 1).coerceIn(0, out.size), esc)
+        }
+        return out
+    }
 
     suspend fun save(c: Context, list: List<Macro>) = Prefs.setMacrosJson(c, encode(list))
 
