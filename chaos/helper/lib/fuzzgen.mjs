@@ -17,7 +17,7 @@ const WEIRD_NUM = ['1e400', '-1e400', '1e-400', '-0', '9007199254740993', '18446
 const BAD_TOKENS = ['NaN', 'Infinity', '-Infinity', 'undefined', '0x10', '01', '1.', '.5', '+1', "'x'", 'tru', 'nul'];
 const STR_ESC = ['\\ud800', '\\udfff', '\\ud83d', '\\u0000', '\\u001f', '\\uffff', '\\ufeff', '\\u202e'];
 const TYPES = ['hello', 'pair', 'paired', 'auth', 'authed', 'state', 'err', 'ping', 'pong', 'key', 'text', 'move', 'button',
-  'scroll', 'clickAt', 'consumer', 'macro', 'cancel', 'wait'];
+  'scroll', 'clickAt', 'consumer', 'macro', 'cancel', 'wait', 'spaces.sub', 'spaces.thumb', 'spaces.goto'];
 
 function weird(r, depth = 0) {
   switch (r.int(0, 13)) {
@@ -60,6 +60,9 @@ function message(r, ctx) {
     consumer: () => ({ key: r.pick(['play', 'next', 'prev', 'volup', 'voldown', 'mute', 'brightup', 'brightdown', 'nope']) }),
     macro: () => ({ steps: r.chance(0.1) ? Array.from({ length: r.int(60, 70) }, step) : Array.from({ length: r.int(0, 6) }, step) }),
     wait: () => ({ ms: r.pick([0, 100, 5000, 5001]) }),
+    'spaces.sub': () => ({ on: r.pick([true, false, 1, null]) }),
+    'spaces.thumb': () => ({ i: r.pick([1, 2, 0, -1, 17, 2 ** 40, 'x']) }),
+    'spaces.goto': () => ({ i: r.pick([1, 2, 0, -1, 16, 17, 2 ** 40, 'x']) }),
   };
   const m = { t, ...(Object.hasOwn(base, t) ? base[t]() : {}) };
   // Never send real-looking brightness or click storms more than the fuzzer needs; all of it is dry-run anyway.

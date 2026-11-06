@@ -45,16 +45,23 @@ class HelperIntegrationTest {
         return null
     }
 
-    @Before fun startHelper() {
+    @Before fun startHelper() = spawn()
+
+    /** Starts a helper with [extra] args; both its stdout and stderr go to [log]. */
+    private fun spawn(vararg extra: String) {
         val bin = helperBinary()
         assumeTrue("helper not built; run helper/build.sh", bin != null)
         // --port 0: the helper binds any free port and logs it (no race with other helpers on this Mac).
-        proc = ProcessBuilder(bin!!.path, "--dry-run", "--headless", "--no-ble", "--memory-store", "--open-pairing", "--port", "0").start()
-        Thread { proc.errorStream.bufferedReader().forEachLine { log += it } }.apply { isDaemon = true }.start()
-        val out = proc.inputStream.bufferedReader()
-        code = generateSequence { out.readLine() }.first { it.startsWith("PAIRING CODE:") }.substringAfter(":").trim()
+        val args = listOf(bin!!.path, "--dry-run", "--headless", "--no-ble", "--memory-store", "--open-pairing", "--port", "0") + extra
+        proc = ProcessBuilder(args).start()
+        val p = proc
+        Thread { p.errorStream.bufferedReader().forEachLine { log += it } }.apply { isDaemon = true }.start()
+        Thread { p.inputStream.bufferedReader().forEachLine { log += it } }.apply { isDaemon = true }.start()
+        code = waitFor("PAIRING CODE:").substringAfter("PAIRING CODE:").trim()
         port = Regex("""listening on :(\d+)""").find(waitFor("wifi: listening on :"))!!.groupValues[1].toInt()
     }
+
+    private fun seen(fragment: String, timeoutMs: Long): String? = runCatching { waitFor(fragment, timeoutMs) }.getOrNull()
 
     @After fun stopHelper() {
         scope.cancel()
@@ -119,6 +126,36 @@ class HelperIntegrationTest {
 
         t.stop()
         assertEquals(WsStatus.Idle, t.status.value)
+    }
+
+    /** Protocol 1.3 Spaces against `--fake-spaces 4` (4 desktops, current 1, solid-colour JPEG thumbnails). */
+    @Test fun spacesStateThumbnailsAndGoto() = runBlocking {
+        proc.destroy(); proc.waitFor()
+        log.clear()
+        // An older helper may not know the flag (exits or ignores it): skip rather than fail.
+        val started = runCatching { spawn("--fake-spaces", "4") }.isSuccess
+        assumeTrue("helper without --fake-spaces; rebuild helper", started && seen("fake spaces: 4", 3000) != null)
+
+        val p = pairWith(http, "127.0.0.1", port, code, "jvm spaces")
+        val token = p.token.copyOf()
+        val t = WsTransport(http, scope, p.hostId, {
+            WsTarget(listOf("127.0.0.1"), port, p.deviceId) { Proto.hmacHex(token, it) }
+        })
+        t.start()
+        val jpeg = { b: ByteArray -> b.size > 2 && b[0] == 0xFF.toByte() && b[1] == 0xD8.toByte() }
+        val s = withTimeout(10_000) {
+            t.spaces.first { it != null && it.count == 4 && it.current == 1 && it.thumbs[1]?.jpeg?.let(jpeg) == true }
+        }!!
+        assertEquals("on", s.capture)
+        assertEquals(4, s.versions.size)
+
+        t.spacesGoto(3)
+        waitFor("DRY spaces goto=3")
+        val after = withTimeout(10_000) { t.spaces.first { it != null && it.current == 3 && it.thumbs[3]?.jpeg?.let(jpeg) == true } }!!
+        assertEquals(4, after.count)
+
+        t.stop()
+        assertEquals(null, t.spaces.value)
     }
 
     @Test fun wrongTokenFailsWithAuthAndStops() = runBlocking {

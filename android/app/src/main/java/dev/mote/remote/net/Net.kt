@@ -50,7 +50,8 @@ object Net {
     val http by lazy { helperHttpClient() }
     private lateinit var app: Context
 
-    val bt: Transport = BtHidTransport(scope)
+    private val btHid = BtHidTransport(scope)
+    val bt: Transport = btHid
     private val _active = MutableStateFlow(bt)
     val active: StateFlow<Transport> = _active.asStateFlow()
 

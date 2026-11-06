@@ -28,9 +28,14 @@ if !config.headless {
 let refresh: () -> Void = { menu?.refresh() }
 hub.onChange = refresh
 web?.onChange = refresh
+var shareThumbs = hub.settings.shareSpaceThumbnails
 hub.settings.onChange = {
     if !hub.settings.allowTailscale { web?.dropTailnetPeers() }
+    if hub.settings.shareSpaceThumbnails != shareThumbs { shareThumbs = hub.settings.shareSpaceThumbnails; hub.spaces.shareToggled() }
     refresh()
+}
+if let n = config.fakeSpaces {
+    if config.dryRun { log("fake spaces: \(n)") } else { log("--fake-spaces needs --dry-run; ignoring it") }
 }
 log("hostId \(hub.settings.hostId), tailscale connections \(hub.settings.allowTailscale ? "allowed" : "refused")")
 ble?.onChange = refresh

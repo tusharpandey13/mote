@@ -2,6 +2,7 @@ package dev.mote.remote.net
 
 import dev.mote.remote.hid.Hid
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -51,7 +52,17 @@ interface Transport {
     fun scroll(wheel: Int, pan: Int)
     /** Normalised point on the main display. False when the transport can't do it. */
     fun clickAt(x: Float, y: Float): Boolean
+
+    /** Mac Spaces (protocol 1.3) with thumbnails; null when unknown (Bluetooth, older helper, not linked). */
+    val spaces: StateFlow<SpacesState?> get() = NO_SPACES
+    /**
+     * Switch the Mac to the 1-based desktop [index] (helper: `spaces.goto`). No-op by default: over
+     * Bluetooth the UI drives ⌃N / ⌃←⌃→ itself (`ui/BtSpaces`), since HID gets no Spaces feedback.
+     */
+    fun spacesGoto(index: Int) {}
 }
+
+private val NO_SPACES: StateFlow<SpacesState?> = MutableStateFlow(null)
 
 /** Bluetooth HID: a thin wrapper over [Hid], which stays the owner of the HID registration and pipe. */
 class BtHidTransport(scope: CoroutineScope) : Transport {

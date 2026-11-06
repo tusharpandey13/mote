@@ -18,6 +18,8 @@ object Remote {
 
     val linked: StateFlow<Boolean> = Net.active.flatMapLatest { it.linked }.stateIn(Net.scope, SharingStarted.Eagerly, false)
     val mods: StateFlow<Hid.Mods> = Net.active.flatMapLatest { it.mods }.stateIn(Net.scope, SharingStarted.Eagerly, Hid.Mods())
+    /** Mac Spaces with thumbnails from the active transport; null over Bluetooth or a pre-1.3 helper. */
+    val spaces: StateFlow<SpacesState?> = Net.active.flatMapLatest { it.spaces }.stateIn(Net.scope, SharingStarted.Eagerly, null)
     val caps: StateFlow<Caps> = Net.active.map { it.caps }.stateIn(Net.scope, SharingStarted.Eagerly, Caps.HID)
 
     fun setMods(m: Hid.Mods) = t.setMods(m)
@@ -33,4 +35,6 @@ object Remote {
     fun click(mask: Int) = t.click(mask)
     fun scroll(wheel: Int, pan: Int) = t.scroll(wheel, pan)
     fun clickAt(x: Float, y: Float): Boolean = t.clickAt(x, y)
+    /** Switch the Mac to the 1-based desktop [index] (helper `spaces.goto`, or ⌃N / ⌃arrows over Bluetooth). */
+    fun spacesGoto(index: Int) = t.spacesGoto(index)
 }

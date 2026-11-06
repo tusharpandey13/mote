@@ -86,6 +86,18 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         } else if hub.settings.allowTailscale {
             _ = add("Tailscale: not detected (is it running?)")
         }
+        let cap = hub.spaces.captureStatus
+        if hub.config.dryRun && hub.config.fakeSpaces == nil {
+            _ = add("Space thumbnails: off (dry run)")
+        } else if cap == "unavailable" {
+            _ = add("Space thumbnails: need macOS 14")
+        } else if hub.spaces.permitted {
+            _ = add("Space thumbnails: allowed")
+        } else {
+            _ = add("Space thumbnails: grant…", #selector(grantScreenRecording))
+        }
+        _ = add("Share Space thumbnails", #selector(toggleShareThumbs), state: hub.settings.shareSpaceThumbnails)
+        _ = add("Clear Space thumbnails", #selector(clearThumbs))
         _ = add("Wi-Fi: \(web?.status ?? "off")")
         _ = add("Bluetooth: \(ble?.status ?? "off")")
         menu.addItem(.separator())
@@ -119,6 +131,12 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     @objc func startPairing() { hub.pairing.open(); showPairing() }
     @objc func stopPairing() { hub.pairing.close() }
     @objc func togglePause() { hub.paused.toggle() }
+    @objc func toggleShareThumbs() { hub.settings.shareSpaceThumbnails.toggle() }
+    @objc func clearThumbs() { hub.spaces.clear() }
+    @objc func grantScreenRecording() {
+        hub.spaces.requestPermission()
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+    }
     @objc func toggleTailscale() { hub.settings.allowTailscale.toggle(); refreshTailnet() }
 
     /// Re-reads the MagicDNS name in the background (Tailscale may start after the helper).
