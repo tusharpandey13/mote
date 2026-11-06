@@ -16,7 +16,6 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
-import java.net.ServerSocket
 import java.util.Collections
 
 /**
@@ -49,12 +48,12 @@ class HelperIntegrationTest {
     @Before fun startHelper() {
         val bin = helperBinary()
         assumeTrue("helper not built; run helper/build.sh", bin != null)
-        port = ServerSocket(0).use { it.localPort }
-        proc = ProcessBuilder(bin!!.path, "--dry-run", "--headless", "--no-ble", "--memory-store", "--open-pairing", "--port", "$port").start()
+        // --port 0: the helper binds any free port and logs it (no race with other helpers on this Mac).
+        proc = ProcessBuilder(bin!!.path, "--dry-run", "--headless", "--no-ble", "--memory-store", "--open-pairing", "--port", "0").start()
         Thread { proc.errorStream.bufferedReader().forEachLine { log += it } }.apply { isDaemon = true }.start()
         val out = proc.inputStream.bufferedReader()
         code = generateSequence { out.readLine() }.first { it.startsWith("PAIRING CODE:") }.substringAfter(":").trim()
-        waitFor("listening on :$port")
+        port = Regex("""listening on :(\d+)""").find(waitFor("wifi: listening on :"))!!.groupValues[1].toInt()
     }
 
     @After fun stopHelper() {
@@ -130,6 +129,20 @@ class HelperIntegrationTest {
         t.start()
         val st = withTimeout(10_000) { t.status.first { it is WsStatus.Failed } }
         assertEquals("auth", (st as WsStatus.Failed).code)
+    }
+
+    @Test fun aDifferentMacAtTheSameAddressIsSkippedNotAuthed() = runBlocking {
+        val p = pairWith(http, "127.0.0.1", port, code, "jvm other")
+        val token = p.token.copyOf()
+        // Saved under another hostId (as if this IP now belongs to a different Mac).
+        val t = WsTransport(http, scope, "0000000000000000", {
+            WsTarget(listOf("127.0.0.1"), port, p.deviceId) { Proto.hmacHex(token, it) }
+        })
+        t.start()
+        Thread.sleep(2500)
+        assertTrue("never ready against the wrong host", t.status.value !is WsStatus.Ready)
+        assertTrue("no auth attempt reached the other Mac", synchronized(log) { log.none { "auth failed" in it || "authed jvm other" in it } })
+        t.stop()
     }
 
     @Test fun wrongPairingCodeIsRejected() = runBlocking {
