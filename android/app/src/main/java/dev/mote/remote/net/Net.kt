@@ -1,5 +1,6 @@
 package dev.mote.remote.net
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
@@ -33,6 +34,7 @@ import kotlinx.coroutines.launch
  * host only asks [Hid] to stop reconnecting.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@SuppressLint("StaticFieldLeak") // holds only the application context
 object Net {
     private val Context.store by preferencesDataStore("hosts")
     private val HOSTS = stringPreferencesKey("helper_hosts")
