@@ -66,6 +66,7 @@ import dev.mote.remote.data.Macros
 import dev.mote.remote.data.Prefs
 import dev.mote.remote.data.ThemeChoice
 import dev.mote.remote.data.UiPrefs
+import androidx.compose.runtime.DisposableEffect
 import dev.mote.remote.data.UiSettings
 import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.HidState
@@ -108,7 +109,9 @@ fun MoteApp() {
     }
     val settings by UiPrefs.flow(ctx).collectAsState(initial = UiSettings())
     MoteTheme(if (dark) Titanium else Silver) {
-        CompositionLocalProvider(LocalHaptics provides rememberHaptics(), LocalSettings provides settings) { Root(choice) }
+        val haptics = rememberHaptics()
+        SideEffect { haptics.cfg = settings }
+        CompositionLocalProvider(LocalHaptics provides haptics, LocalSettings provides settings) { Root(choice) }
     }
 }
 
@@ -133,8 +136,14 @@ private fun Root(theme: ThemeChoice) {
     // Single source of truth for adapter / permissions / bonded hosts: feeds the gate, the pill and the device sheet.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val bt by remember(lifecycle) { Bt.observe(ctx, lifecycle) }.collectAsStateWithLifecycle(remember { Bt.snapshot(ctx) })
-    LaunchedEffect(bt.gate) { if (bt.gate == BtGate.READY) HidService.start(ctx) }
+    // Debug builds only: `am start ... --ez mote.demo true` skips the first-run gate so every screen
+    // can be screenshotted on an emulator (input stays inert without a host).
+    val demo = remember { isDemo(ctx) }
+    LaunchedEffect(bt.gate) { if (bt.gate == BtGate.READY && !demo) HidService.start(ctx) }
     LaunchedEffect(bt) { Hid.envChanged() } // bond/ACL/adapter change or resume: fresh reconnect budget
+    val settings = LocalSettings.current
+    var page by rememberSaveable { mutableStateOf<MenuPage?>(null) }
+    val updateSettings: (UiSettings) -> Unit = { n -> scope.launch { UiPrefs.save(ctx, n) } }
 
     val enableLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
     var openSettings by remember { mutableStateOf(false) } // permission permanently denied: only Settings can grant it
@@ -155,7 +164,7 @@ private fun Root(theme: ThemeChoice) {
             else -> permLauncher.launch(requestedPermissions())
         }
     }
-    if (bt.gate != BtGate.READY && !wifiChosen && link == null) {
+    if (bt.gate != BtGate.READY && !wifiChosen && link == null && !demo) {
         BtGateScreen(bt.gate, openSettings, gateAction, onWifi = { Net.chooseWifi(); addHost = true; deviceSheet = true })
         return
     }
@@ -177,8 +186,35 @@ private fun Root(theme: ThemeChoice) {
     }
     val saveMacros: (List<Macro>) -> Unit = { list -> scope.launch { Macros.save(ctx, list) } }
 
-    CompositionLocalProvider(LocalLinked provides linked) {
+    // Settings: clear sticky modifiers on mode switch; release them after 30 s without a change
+    LaunchedEffect(mode) { if (settings.clearModsOnSwitch) Remote.setMods(Hid.Mods()) }
+    val mods by Remote.mods.collectAsState()
+    LaunchedEffect(mods, settings.releaseModsIdle) {
+        if (settings.releaseModsIdle && mods.active != 0) { kotlinx.coroutines.delay(30_000); Remote.setMods(Hid.Mods()) }
+    }
+    // Settings: keep the screen on while connected; extra dim lowers this window's brightness
+    val view = LocalView.current
+    val linkedUi = linked || demo
+    DisposableEffect(linkedUi, settings.keepScreenOn) {
+        view.keepScreenOn = linkedUi && settings.keepScreenOn
+        onDispose { view.keepScreenOn = false }
+    }
+    DisposableEffect(settings.extraDim) {
+        val w = (ctx as? Activity)?.window
+        w?.attributes = w?.attributes?.apply { screenBrightness = if (settings.extraDim) 0.02f else -1f }
+        onDispose { w?.attributes = w?.attributes?.apply { screenBrightness = -1f } }
+    }
+
+    CompositionLocalProvider(LocalLinked provides linkedUi) {
         Column(Modifier.fillMaxSize().chassis().systemBarsPadding().imePadding()) {
+          val p = page
+          if (p != null) {
+            when (p) {
+                MenuPage.SETTINGS -> SettingsPage(onBack = { page = null }, update = updateSettings)
+                MenuPage.HAPTICS -> HapticsPage(onBack = { page = null }, update = updateSettings)
+                MenuPage.ABOUT -> AboutPage(onBack = { page = null })
+            }
+          } else {
             Row(
                 Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -212,13 +248,27 @@ private fun Root(theme: ThemeChoice) {
                 } }
             }
             ModeRail(mode) { mode = it }
+          }
         }
 
         if (deviceSheet) MoteSheet(onDismiss = { deviceSheet = false; addHost = false }) { close ->
             HostSheet(s, bt, addHost, onBtSetup = gateAction, onPickBt = { host -> HidService.start(ctx); Hid.select(host) }, close = close)
         }
         if (menuSheet) MoteSheet(onDismiss = { menuSheet = false }) { close ->
-            MenuSheet(theme, onTheme = { t -> scope.launch { Prefs.setTheme(ctx, t) } }, onPair = { close(); deviceSheet = true })
+            val name = s.connected?.name ?: s.selected?.name
+            val others = bt.hosts.count { it.name != name }
+            val summary = when {
+                name == null -> if (bt.hosts.isEmpty()) "No paired devices" else "${bt.hosts.size} paired"
+                others == 0 -> name
+                else -> "$name and $others other${if (others == 1) "" else "s"}"
+            }
+            MenuSheet(
+                theme, summary,
+                onTheme = { t -> scope.launch { Prefs.setTheme(ctx, t) } },
+                onDevices = { close(); deviceSheet = true },
+                onPage = { pg -> close(); page = pg },
+                onClose = close,
+            )
         }
     }
 }
@@ -265,31 +315,15 @@ private fun BtGateScreen(gate: BtGate, openSettings: Boolean, onAction: () -> Un
     }
 }
 
+private fun isDemo(c: Context): Boolean {
+    if (c.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) return false
+    return (c as? Activity)?.intent?.getBooleanExtra("mote.demo", false) == true
+}
+
 @Composable
 fun PrimaryButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val c = LocalMote.current
     Cap(modifier.fillMaxWidth().height(56.dp), RoundedCornerShape(18.dp), tone = Tone.PRIMARY, needsLink = false, description = label, onClick = onClick) {
         Text(label, style = T.label, color = c.onPrim)
-    }
-}
-@Composable
-private fun MenuSheet(theme: ThemeChoice, onTheme: (ThemeChoice) -> Unit, onPair: () -> Unit) {
-    val c = LocalMote.current
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Theme", style = T.title, color = c.ink)
-        Row(Modifier.fillMaxWidth().well(RoundedCornerShape(18.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            ThemeChoice.entries.forEach { t ->
-                Cap(
-                    Modifier.weight(1f).height(48.dp), RoundedCornerShape(14.dp), needsLink = false, haptic = Haptic.TICK,
-                    flat = t != theme, description = t.name, onClick = { onTheme(t) },
-                ) {
-                    Text(t.name.lowercase().replaceFirstChar { it.uppercase() }, style = T.label, color = if (t == theme) c.accent else c.muted)
-                }
-            }
-        }
-        PrimaryButton("Manage devices", onClick = onPair)
-        val ctx = LocalContext.current
-        val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() }
-        Text("Mote $version · Bluetooth HID remote", style = T.small, color = c.subtle)
     }
 }

@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import dev.mote.remote.data.Macro
 import dev.mote.remote.data.Step
 import dev.mote.remote.net.Remote
+import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.Key
 import dev.mote.remote.hid.Mod
 import dev.mote.remote.ui.theme.LocalMote
