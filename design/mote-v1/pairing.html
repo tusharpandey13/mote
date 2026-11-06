@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mote — Pairing</title>
+<link rel="stylesheet" href="mote.css">
+<style>
+  .screen { grid-template-rows: var(--status-h) var(--top-h) 1fr var(--nav-h); }
+  .pair { display: flex; flex-direction: column; height: 100%; padding-top: 4px; }
+  .back { display: flex; align-items: center; gap: 4px; }
+  .back .icon-btn { margin-left: -12px; color: var(--on-surface); }
+  .code {
+    border-radius: var(--r-l); background: var(--surface-2); border: 1px solid var(--outline);
+    padding: 20px 20px 18px; margin-top: 16px;
+  }
+  .code .top { display: flex; align-items: center; gap: 10px; color: var(--link-connecting); }
+  .code .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--link-connecting); animation: pulse 1200ms ease-in-out infinite alternate; }
+  .code .digits { font: 600 48px/56px var(--font-mono); letter-spacing: 4px; margin: 14px 0 4px; }
+  .code .digits span { color: var(--on-surface-subtle); }
+  .code .meta { display: flex; justify-content: space-between; color: var(--on-surface-muted); }
+  ol.steps { list-style: none; margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+  ol.steps li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start; }
+  ol.steps .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 600 13px/1 var(--font-mono); background: var(--surface-3); color: var(--on-surface-muted); }
+  ol.steps li.done .n { background: var(--link-connected); color: var(--bg); }
+  ol.steps li.now .n { background: var(--accent); color: var(--on-accent); }
+  ol.steps .t-body { color: var(--on-surface-muted); }
+  ol.steps li.now .t-body { color: var(--on-surface); }
+  .known { margin-top: auto; }
+  .known .t-caps { color: var(--on-surface-subtle); display: block; margin-bottom: 8px; }
+  .dev { display: flex; align-items: center; gap: 14px; height: 64px; padding: 0 4px 0 14px; border-radius: var(--r-m); background: var(--surface-1); border: 1px solid var(--outline); margin-bottom: 8px; }
+  .dev .nm { flex: 1; }
+  .dev .nm .t-key-s { color: var(--on-surface-muted); font-family: var(--font-ui); font-size: 13px; letter-spacing: 0; }
+  .dev .sd { width: 8px; height: 8px; border-radius: 50%; }
+  .cancel { margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="screen" data-dc-id="screen">
+  <div class="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>
+
+  <header class="topbar" data-dc-id="topbar">
+    <div class="back"><div class="icon-btn" data-dc-id="back"><i data-i="close"></i></div><span class="t-title">Connection</span></div>
+    <div class="pill pairing" data-dc-id="connection-pill"><span class="dot"></span><span class="t-caps state">Pairing</span></div>
+  </header>
+
+  <main class="content pair" data-dc-id="pairing-content">
+    <h1 class="t-headline" data-dc-id="pair-title">Pair with your Mac</h1>
+
+    <section class="code" data-dc-id="pair-code">
+      <div class="top"><span class="dot"></span><span class="t-caps">Waiting for Mac to confirm</span></div>
+      <div class="digits" data-dc-id="pair-digits">482<span>&thinsp;</span>913</div>
+      <div class="meta"><span class="t-key-s">Appears on the Mac as Pixel 8</span><span class="t-key-s" data-dc-id="visible-timer">Visible 1:52</span></div>
+    </section>
+
+    <ol class="steps" data-dc-id="pair-steps">
+      <li class="done"><span class="n"><i data-i="check" class="i16"></i></span><span class="t-body">On your Mac, open System Settings, then Bluetooth.</span></li>
+      <li class="done"><span class="n"><i data-i="check" class="i16"></i></span><span class="t-body">Under Nearby Devices, click Connect next to Pixel 8.</span></li>
+      <li class="now"><span class="n">3</span><span class="t-body">Check the Mac shows 482 913, then accept on both.</span></li>
+    </ol>
+
+    <section class="known" data-dc-id="known-macs">
+      <span class="t-caps">Known Macs</span>
+      <div class="dev" data-dc-id="known-macbook">
+        <i data-i="laptop"></i>
+        <div class="nm"><div class="t-label">MacBook Pro</div><div class="t-key-s">Last connected today, 9:12</div></div>
+        <span class="sd" style="background: var(--link-disconnected)"></span>
+        <div class="icon-btn"><i data-i="more"></i></div>
+      </div>
+      <div class="dev" data-dc-id="known-macmini">
+        <i data-i="desktop"></i>
+        <div class="nm"><div class="t-label">Mac mini</div><div class="t-key-s">Last connected 3 days ago</div></div>
+        <div class="icon-btn"><i data-i="more"></i></div>
+      </div>
+      <div class="btn-secondary cancel" data-dc-id="cancel-pairing">Stop pairing</div>
+    </section>
+  </main>
+  <div class="navbar"></div>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

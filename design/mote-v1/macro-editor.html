@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mote — Macro editor</title>
+<link rel="stylesheet" href="mote.css">
+<style>
+  .macros { display: flex; flex-direction: column; height: 100%; }
+  .mhead { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; }
+  .mhead .icon-btn { margin-right: -12px; }
+  .hint { margin-top: 4px; }
+  .grid { margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
+  .tile .ch { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sheet { height: 668px; padding: 0 var(--margin) 40px; display: flex; flex-direction: column; }
+  .sh-head { display: flex; align-items: center; justify-content: space-between; height: 56px; margin-top: 4px; }
+  .sh-head .icon-btn { margin-right: -12px; color: var(--danger); }
+  .lbl { color: var(--on-surface-muted); margin: 14px 0 6px; display: block; }
+  .field .t-body { color: var(--on-surface); }
+  .look { display: flex; align-items: center; gap: 14px; }
+  .look .prev { width: 56px; height: 56px; border-radius: var(--r-s); display: grid; place-items: center;
+    background: linear-gradient(rgba(91,140,255,.24), rgba(91,140,255,.24)), var(--surface-2); flex: none; }
+  .sw { display: flex; gap: 8px; flex-wrap: nowrap; }
+  .sw span { width: 28px; height: 28px; border-radius: 50%; }
+  .sw .sel { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--on-surface); }
+  .rec { gap: 8px; }
+  .rec .keys { display: flex; align-items: center; gap: 6px; }
+  .rec .mchip { height: 36px; min-width: 36px; padding: 0 8px; border-radius: 8px; display: grid; place-items: center;
+    background: var(--modifier-armed); color: var(--on-modifier); font: 600 16px/1 var(--font-mono); }
+  .rec .kchip { height: 36px; min-width: 36px; border-radius: 8px; display: grid; place-items: center;
+    background: var(--surface-3); font: 600 16px/1 var(--font-mono); box-shadow: inset 0 1px 0 var(--hi), inset 0 -1px 0 var(--shade); }
+  .rec .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-left: auto; }
+  .rec .cap { display: flex; align-items: center; justify-content: space-between; }
+  .trow { display: flex; align-items: center; gap: 16px; margin-top: 18px; }
+  .trow .txt { flex: 1; }
+  .sheet .btn-primary { margin-top: auto; }
+</style>
+</head>
+<body>
+<div class="screen" data-dc-id="screen">
+  <div class="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>
+
+  <header class="topbar" data-dc-id="topbar">
+    <div class="pill" data-dc-id="connection-pill"><span class="dot"></span><span class="t-caps">MacBook Pro</span></div>
+    <div class="icon-btn" data-dc-id="menu"><i data-i="more"></i></div>
+  </header>
+
+  <main class="content macros live" data-dc-id="macros-content">
+    <div class="mhead" data-dc-id="macros-header">
+      <h1 class="t-headline">Macros</h1>
+      <div class="icon-btn" data-dc-id="macros-edit"><i data-i="edit"></i></div>
+    </div>
+    <p class="t-body subtle hint" data-dc-id="macros-hint">Tap to run. Hold to edit or drag.</p>
+
+    <div class="grid" data-dc-id="macro-grid">
+      <div class="tile" data-tint="blue" data-dc-id="macro-screenshot"><i data-i="camera" class="ic"></i><div><div class="nm">Screenshot area</div><div class="ch">⌘⇧4</div></div></div>
+      <div class="tile" data-tint="indigo" data-dc-id="macro-mission"><i data-i="windows" class="ic"></i><div><div class="nm">Mission Control</div><div class="ch">⌃↑</div></div></div>
+      <div class="tile" data-tint="slate" data-dc-id="macro-spotlight"><i data-i="search" class="ic"></i><div><div class="nm">Spotlight</div><div class="ch">⌘ space</div></div></div>
+
+      <div class="tile" data-tint="indigo" data-dc-id="macro-next-space"><i data-i="spaces" class="ic"></i><div><div class="nm">Next Space</div><div class="ch">⌃→</div></div></div>
+      <div class="tile" data-tint="teal" data-dc-id="macro-zoom-mute"><i data-i="mic" class="ic"></i><div><div class="nm">Zoom mute</div><div class="ch">⌘⇧A</div></div></div>
+      <div class="tile" data-tint="violet" data-dc-id="macro-slideshow"><i data-i="present" class="ic"></i><div><div class="nm">Play slideshow</div><div class="ch">⌥⌘P</div></div></div>
+
+      <div class="tile" data-tint="sand" data-dc-id="macro-type-email"><i data-i="text" class="ic"></i><div><div class="nm">Type email</div><div class="ch">21 chars</div></div></div>
+      <div class="tile" data-tint="cyan" data-dc-id="macro-open-safari"><i data-i="apps" class="ic"></i><div><div class="nm">Open Safari</div><div class="ch">3 steps</div></div></div>
+      <div class="tile confirm" data-dc-id="macro-lock-confirm"><i data-i="lock" class="ic"></i><div><div class="nm">Tap again</div><div class="ch">⌃⌘Q lock</div></div></div>
+
+      <div class="tile" data-tint="magenta" data-dc-id="macro-force-quit"><i data-i="power" class="ic"></i><div><div class="nm">Force quit</div><div class="ch">⌥⌘⎋</div></div></div>
+      <div class="tile" data-tint="slate" data-dc-id="macro-hide-others"><i data-i="windows" class="ic"></i><div><div class="nm">Hide others</div><div class="ch">⌥⌘H</div></div></div>
+      <div class="tile add" data-dc-id="macro-add"><i data-i="plus" class="i28"></i><span class="t-label" style="margin-top:6px">New macro</span></div>
+    </div>
+  </main>
+
+  <nav class="rail" data-dc-id="mode-rail">
+    <div class="seg" data-dc-id="rail-media"><span class="ind"><i data-i="modeMedia"></i></span><span class="t-caps">Media</span></div>
+    <div class="seg" data-dc-id="rail-pad"><span class="ind"><i data-i="modePad"></i></span><span class="t-caps">Pad</span></div>
+    <div class="seg" data-dc-id="rail-keys"><span class="ind"><i data-i="modeKeys"></i></span><span class="t-caps">Keys</span></div>
+    <div class="seg on" data-dc-id="rail-macros"><span class="ind"><i data-i="modeMacros"></i></span><span class="t-caps">Macros</span></div>
+  </nav>
+  <div class="navbar"></div>
+  <div class="scrim" data-dc-id="scrim"></div>
+  <section class="sheet" data-dc-id="macro-editor-sheet">
+    <div class="handle" data-dc-id="sheet-handle"></div>
+    <div class="sh-head">
+      <h2 class="t-headline" data-dc-id="editor-title">Edit macro</h2>
+      <div class="icon-btn" data-dc-id="editor-delete"><i data-i="trash"></i></div>
+    </div>
+
+    <span class="t-caps lbl">Name</span>
+    <div class="field" data-dc-id="field-name"><span class="t-title">Screenshot area</span></div>
+
+    <span class="t-caps lbl">Look</span>
+    <div class="look" data-dc-id="field-look">
+      <div class="prev" data-dc-id="icon-picker"><i data-i="camera"></i></div>
+      <div class="sw" data-dc-id="tint-swatches">
+        <span class="sel" style="background:#5B8CFF"></span><span style="background:#7C6CFF"></span><span style="background:#B078F0"></span><span style="background:#E664BE"></span>
+        <span style="background:#2EC4B6"></span><span style="background:#50BEF0"></span><span style="background:#8C96AA"></span><span style="background:#C8B496"></span>
+      </div>
+    </div>
+
+    <span class="t-caps lbl">Action</span>
+    <div class="seg-ctl" data-dc-id="action-type"><div class="on">Shortcut</div><div>Text</div><div>Sequence</div><div>App</div></div>
+
+    <div class="field focus rec" style="margin-top: 10px; padding-top: 12px; padding-bottom: 12px" data-dc-id="chord-recorder">
+      <div class="keys">
+        <span class="mchip">⌘</span><span class="mchip">⇧</span><span class="kchip">4</span>
+        <span class="live-dot" data-dc-id="recording-dot"></span>
+      </div>
+      <div class="cap"><span class="t-key-s muted">Press the shortcut now</span><span class="t-caps" style="color:var(--accent)">Re-record</span></div>
+    </div>
+
+    <div class="trow" data-dc-id="confirm-toggle">
+      <div class="txt"><div class="t-label">Confirm before run</div><div class="t-key-s subtle" style="font-family:var(--font-ui);font-size:13px;letter-spacing:0">First tap arms, second tap runs</div></div>
+      <div class="switch" data-dc-id="confirm-switch"></div>
+    </div>
+
+    <div class="btn-primary" data-dc-id="editor-save"><i data-i="check"></i>Save macro</div>
+  </section>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

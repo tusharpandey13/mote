@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mote — Pad</title>
+<link rel="stylesheet" href="mote.css">
+<style>
+  .pad-wrap { display: flex; flex-direction: column; height: 100%; gap: 12px; }
+  .touchpad { flex: 1; }
+  .hints {
+    position: absolute; left: 24px; right: 24px; bottom: 28px;
+    display: grid; grid-template-columns: 40px 1fr; row-gap: 14px; column-gap: 8px; align-items: center;
+    color: var(--on-surface-subtle);
+  }
+  .hints .f { display: flex; justify-content: center; opacity: .8; }
+  .hints .h { font: 400 14px/20px var(--font-ui); }
+  .hints .h b { font-weight: 600; color: var(--on-surface-muted); }
+  .hints-hide { position: absolute; right: 12px; top: 12px; height: 32px; padding: 0 12px; border-radius: var(--r-full);
+    display: inline-flex; align-items: center; gap: 6px; color: var(--on-surface-subtle); border: 1px solid var(--outline); }
+  .strip { height: 56px; display: grid; grid-template-columns: 1fr 72px 1fr; gap: var(--gap); }
+  .strip .btn { border-radius: var(--r-m); background: var(--surface-2); display: grid; place-items: center; color: var(--on-surface-muted); }
+  .strip .lock { color: var(--on-surface-muted); }
+</style>
+</head>
+<body>
+<div class="screen" data-dc-id="screen">
+  <div class="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>
+
+  <header class="topbar" data-dc-id="topbar">
+    <div class="pill" data-dc-id="connection-pill"><span class="dot"></span><span class="t-caps">MacBook Pro</span></div>
+    <div class="icon-btn" data-dc-id="menu"><i data-i="more"></i></div>
+  </header>
+
+  <main class="content pad-wrap live" data-dc-id="pad-content">
+    <div class="touchpad" data-dc-id="touchpad">
+      <span class="chip-last t-caps" data-dc-id="last-gesture">Click</span>
+      <span class="glow" style="left: 248px; top: 214px" data-dc-id="touch-glow"></span>
+
+      <div class="hints-hide t-caps" data-dc-id="hints-hide"><i data-i="close" class="i16"></i>Hints</div>
+      <div class="hints" data-dc-id="gesture-hints">
+        <div class="f"><i data-i="finger1"></i></div>
+        <div class="h"><b>Drag</b> to move, <b>tap</b> to click</div>
+        <div class="f"><i data-i="hand"></i></div>
+        <div class="h"><b>Hold</b> to right-click</div>
+        <div class="f"><i data-i="finger2"></i></div>
+        <div class="h"><b>Two fingers</b> to scroll or pinch to zoom</div>
+        <div class="f"><i data-i="finger3"></i></div>
+        <div class="h"><b>Three fingers</b> sideways for Spaces, up for Mission Control</div>
+      </div>
+    </div>
+
+    <div class="strip" data-dc-id="button-strip">
+      <div class="btn raised t-caps" data-dc-id="left-click">Left</div>
+      <div class="btn raised lock" data-dc-id="drag-lock"><i data-i="unlock"></i></div>
+      <div class="btn raised t-caps" data-dc-id="right-click">Right</div>
+    </div>
+  </main>
+
+  <nav class="rail" data-dc-id="mode-rail">
+    <div class="seg" data-dc-id="rail-media"><span class="ind"><i data-i="modeMedia"></i></span><span class="t-caps">Media</span></div>
+    <div class="seg on" data-dc-id="rail-pad"><span class="ind"><i data-i="modePad"></i></span><span class="t-caps">Pad</span></div>
+    <div class="seg" data-dc-id="rail-keys"><span class="ind"><i data-i="modeKeys"></i></span><span class="t-caps">Keys</span></div>
+    <div class="seg" data-dc-id="rail-macros"><span class="ind"><i data-i="modeMacros"></i></span><span class="t-caps">Macros</span></div>
+  </nav>
+  <div class="navbar"></div>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

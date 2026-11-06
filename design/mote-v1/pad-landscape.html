@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mote — Pad (landscape)</title>
+<link rel="stylesheet" href="mote.css">
+<style>
+  .screen.land { width: 915px; height: 412px; grid-template-rows: none; grid-template-columns: 72px 1fr; }
+  .rail.v { grid-template-columns: none; grid-template-rows: repeat(4, 1fr); border-top: 0; border-right: 1px solid var(--outline); padding: 12px 0 20px; }
+  .land-main { display: grid; grid-template-rows: 48px 1fr; padding: 8px 24px 20px; gap: 8px; min-height: 0; }
+  .land-top { display: flex; align-items: center; justify-content: space-between; }
+  .land-top .pill { margin: 0; }
+  .land-body { display: grid; grid-template-columns: 1fr 104px; gap: 12px; min-height: 0; }
+  .side { display: grid; grid-template-rows: 1fr 56px 1fr; gap: var(--gap); }
+  .side .btn { border-radius: var(--r-m); background: var(--surface-2); display: grid; place-items: center; color: var(--on-surface-muted); }
+  .side .btn.on { background: var(--accent-container); color: var(--accent); }
+  .touchpad.locked { border-width: 2px; }
+  .chip-last.lk { background: var(--accent-container); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="screen land" data-dc-id="screen">
+  <nav class="rail v" data-dc-id="mode-rail">
+    <div class="seg" data-dc-id="rail-media"><span class="ind"><i data-i="modeMedia"></i></span><span class="t-caps">Media</span></div>
+    <div class="seg on" data-dc-id="rail-pad"><span class="ind"><i data-i="modePad"></i></span><span class="t-caps">Pad</span></div>
+    <div class="seg" data-dc-id="rail-keys"><span class="ind"><i data-i="modeKeys"></i></span><span class="t-caps">Keys</span></div>
+    <div class="seg" data-dc-id="rail-macros"><span class="ind"><i data-i="modeMacros"></i></span><span class="t-caps">Macros</span></div>
+  </nav>
+
+  <div class="land-main live">
+    <header class="land-top" data-dc-id="topbar">
+      <div class="pill" data-dc-id="connection-pill"><span class="dot"></span><span class="t-caps">MacBook Pro</span></div>
+      <div class="icon-btn" data-dc-id="menu"><i data-i="more"></i></div>
+    </header>
+    <div class="land-body">
+      <div class="touchpad locked" data-dc-id="touchpad">
+        <span class="chip-last lk t-caps" data-dc-id="last-gesture">Drag locked</span>
+        <span class="glow" style="left: 61%; top: 48%" data-dc-id="touch-glow"></span>
+      </div>
+      <div class="side" data-dc-id="button-strip">
+        <div class="btn raised t-caps" data-dc-id="left-click">Left</div>
+        <div class="btn on" data-dc-id="drag-lock"><i data-i="lock"></i></div>
+        <div class="btn raised t-caps" data-dc-id="right-click">Right</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>
