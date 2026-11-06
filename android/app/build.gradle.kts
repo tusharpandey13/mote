@@ -14,7 +14,7 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "dev.mote.remote"
-    compileSdk = 35
+    compileSdk = 37 // required by Compose 1.12 (BOM 2026.09.00); targetSdk stays 35
 
     defaultConfig {
         applicationId = "dev.mote.remote"
