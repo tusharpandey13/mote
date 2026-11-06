@@ -47,6 +47,7 @@ export async function startHelper(opts = {}) {
   if (opts.openPairing !== false) args.push('--open-pairing');
   if (opts.store?.keychainService) args.push('--keychain-service', opts.store.keychainService);
   else args.push('--memory-store');
+  if (opts.extraArgs) args.push(...opts.extraArgs);   // e.g. --fake-spaces N
   if (!args.includes('--dry-run')) throw new Error('refusing to start the helper without --dry-run');
 
   const proc = spawn(BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
