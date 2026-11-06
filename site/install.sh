@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Mote Helper installer for macOS.
+#   curl -fsSL https://tusharpandey13.github.io/mote/install.sh | bash
+#
+# What it does (nothing else, no sudo):
+#   1. checks this is macOS on arm64 or x86_64
+#   2. downloads the latest MoteHelper-macos-<arch>.zip and its .sha256 from GitHub Releases
+#   3. verifies the SHA-256
+#   4. installs to ~/Applications/MoteHelper.app (replacing an older copy)
+#   5. removes the quarantine flag from that app only, and opens it
+# Source: https://github.com/tusharpandey13/mote (site/install.sh)
+set -euo pipefail
+
+REPO="tusharpandey13/mote"
+DEST_DIR="${MOTE_INSTALL_DIR:-$HOME/Applications}"
+APP="$DEST_DIR/MoteHelper.app"
+
+say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
+die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+
+[ "$(uname -s)" = "Darwin" ] || die "Mote Helper is a macOS app. On other systems use the Android app or the web remote."
+case "$(uname -m)" in
+  arm64) ARCH=arm64 ;;
+  x86_64) ARCH=x86_64 ;;
+  *) die "unsupported CPU: $(uname -m)" ;;
+esac
+command -v curl >/dev/null || die "curl is required"
+command -v shasum >/dev/null || die "shasum is required"
+command -v ditto >/dev/null || die "ditto is required"
+
+ASSET="MoteHelper-macos-$ARCH.zip"
+URL="https://github.com/$REPO/releases/latest/download/$ASSET"
+
+say "This will:"
+echo "    download  $URL"
+echo "    verify    its SHA-256 against $ASSET.sha256 from the same release"
+echo "    install   $APP"
+echo "    clear the quarantine flag on that app only, then open it"
+echo
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+say "Downloading $ASSET"
+curl -fL --proto '=https' --tlsv1.2 --progress-bar -o "$TMP/$ASSET" "$URL"
+curl -fsSL --proto '=https' --tlsv1.2 -o "$TMP/$ASSET.sha256" "$URL.sha256"
+
+say "Verifying SHA-256"
+EXPECTED="$(awk '{print $1; exit}' "$TMP/$ASSET.sha256")"
+ACTUAL="$(shasum -a 256 "$TMP/$ASSET" | awk '{print $1}')"
+[ -n "$EXPECTED" ] && [ "$EXPECTED" = "$ACTUAL" ] || die "checksum mismatch (expected $EXPECTED, got $ACTUAL). Not installing."
+echo "    ok $ACTUAL"
+
+say "Unpacking"
+ditto -x -k "$TMP/$ASSET" "$TMP/x"
+[ -d "$TMP/x/MoteHelper.app" ] || die "archive doesn't contain MoteHelper.app"
+
+if pgrep -x MoteHelper >/dev/null 2>&1; then
+  say "Quitting the running Mote Helper"
+  pkill -x MoteHelper || true
+  sleep 1
+fi
+
+say "Installing to $APP"
+mkdir -p "$DEST_DIR"
+rm -rf "$APP"
+ditto "$TMP/x/MoteHelper.app" "$APP"
+xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
+
+say "Opening Mote Helper"
+open "$APP"
+
+cat <<EOF
+
+Done. Next steps:
+  1. Allow Accessibility when macOS asks (System Settings > Privacy & Security > Accessibility).
+     Mote Helper needs it to type and click. After an update you may have to switch it off and on
+     again there (the app is ad-hoc signed, so each version has a new signature).
+  2. Allow Bluetooth if asked (only needed for the Bluetooth web remote).
+  3. A pairing window shows a 6-digit code and a QR code. On your phone, on the same Wi-Fi:
+       scan the QR, or open http://$(scutil --get LocalHostName 2>/dev/null || echo "<your-mac>").local:8790 and enter the code.
+     Or, without Wi-Fi, in Chrome on Android: https://tusharpandey13.github.io/mote/remote/ (Bluetooth).
+  4. The menu-bar icon has Pause input, Revoke all devices, Launch at login and Quit.
+
+Uninstall: quit it from the menu, then  rm -rf "$APP"
+EOF
