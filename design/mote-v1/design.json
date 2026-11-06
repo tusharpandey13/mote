@@ -29,6 +29,22 @@
       "group": "media"
     },
     {
+      "id": "settings",
+      "title": "1 Settings (from menu)",
+      "file": "settings.html",
+      "width": 412,
+      "height": 915,
+      "group": "media"
+    },
+    {
+      "id": "haptics",
+      "title": "1 Haptics (from menu)",
+      "file": "haptics.html",
+      "width": 412,
+      "height": 915,
+      "group": "media"
+    },
+    {
       "id": "pad",
       "title": "2 Mouse",
       "file": "pad.html",

@@ -341,3 +341,81 @@ svg.i.i16 { width: 16px; height: 16px; }
 .fav.add .lb { color: var(--on-surface-subtle); }
 .fav-edit-btn { height: 40px; margin-right: -2px; padding: 0 14px 0 10px; border-radius: 13px; display: inline-flex; align-items: center; gap: 6px; font: 600 14px/1 var(--font-ui); color: var(--on-surface); }
 .arrowed { display: flex; align-items: center; gap: 2px; }
+
+/* =====================================================================
+   Revision 4: one material per control family (all Compose-buildable).
+   backplate  = textured metal + grain + vignette
+   plastic    = .raised (favourites, brightness, mute, rail cap, keys)
+   rubber     = D-pad (matte, side wall, contact shadow)
+   metal      = slider thumbs (brushed, chamfered)
+   glass      = transport (acrylic, specular band, inner LED glow)
+   ===================================================================== */
+:root {
+  --noise-a: .30;
+  --vignette: radial-gradient(130% 90% at 50% 38%, transparent 55%, rgba(30, 38, 50, .14) 100%);
+  /* rubber (light): matte mid-grey, clearly different from glossy white plastic */
+  --rub-top: #D3D5D9; --rub-bot: #C3C6CB; --rub-wall: #9EA2A9;
+  /* metal thumb */
+  --metal: linear-gradient(180deg, #FDFDFE 0%, #D4D7DC 48%, #BFC3C9 52%, #E6E8EB 100%);
+  --metal-edge: #8D9198;
+  /* glass / acrylic */
+  --glass-top: rgba(255, 255, 255, .92); --glass-bot: rgba(226, 232, 240, .86);
+  --glass-ink: #1C1D20;
+  --glass-glow: rgba(64, 160, 255, .22);
+  --gloss: linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.35) 38%, rgba(255,255,255,0) 40%);
+}
+.dark {
+  --noise-a: .42;
+  --chassis-top: #26282D; --chassis-bot: #17181B; --bg: #1C1D21;
+  --well: #0B0C0E;
+  --key-top: #474A52; --key-bot: #363940; --key-edge: #101114;   /* plastic: lifted further from backplate */
+  --vignette: radial-gradient(130% 90% at 50% 38%, transparent 50%, rgba(0, 0, 0, .45) 100%);
+  --rub-top: #2B2D32; --rub-bot: #232529; --rub-wall: #0E0F11;    /* rubber: darker + matte than plastic */
+  --metal: linear-gradient(180deg, #C9CDD3 0%, #8C9198 48%, #6F747C 52%, #A3A8AF 100%);
+  --metal-edge: #2A2C30;
+  --glass-top: rgba(70, 78, 92, .78); --glass-bot: rgba(22, 26, 32, .92);
+  --glass-ink: #9ED9FF;
+  --glass-glow: rgba(108, 196, 255, .35);
+  --gloss: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,.08) 38%, rgba(255,255,255,0) 40%);
+}
+.screen {
+  background:
+    var(--vignette),
+    repeating-linear-gradient(90deg, var(--grain) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--chassis-top), var(--chassis-bot));
+}
+
+/* rubber */
+.dpad .disc, .dpad .cap { filter: drop-shadow(0 3px 0 var(--rub-wall)) drop-shadow(0 6px 8px var(--dshadow)); }
+.dpad .contact { fill: var(--dshadow); filter: blur(6px); }
+
+/* glass transport channel */
+.channel { display: grid; grid-template-columns: 72px 1fr 72px; gap: 8px; padding: 8px; border-radius: 30px; align-items: center; }
+.glass {
+  position: relative; display: grid; place-items: center; color: var(--glass-ink); border-radius: 22px; overflow: hidden;
+  background: var(--gloss), linear-gradient(180deg, var(--glass-top), var(--glass-bot));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -10px 18px -8px var(--glass-glow), inset 0 0 0 1px rgba(255,255,255,.25),
+    0 1px 0 var(--key-edge), 0 4px 6px var(--dshadow), 0 12px 20px -10px var(--dshadow);
+}
+.dark .glass { box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -12px 22px -8px var(--glass-glow), inset 0 0 0 1px rgba(255,255,255,.06),
+    0 1px 0 #000, 0 4px 6px rgba(0,0,0,.6), 0 12px 20px -10px rgba(0,0,0,.7); }
+.dark .glass svg { filter: drop-shadow(0 0 6px var(--glass-glow)) drop-shadow(0 0 2px var(--glass-glow)); }
+.glass.sm { height: 64px; border-radius: 20px; }
+.glass.play { height: 84px; }
+
+/* machined sliders */
+.slider { position: relative; width: 56px; height: 208px; border-radius: 28px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 0; color: var(--on-surface-muted); }
+.slider .ticks { position: absolute; top: 40px; bottom: 40px; left: 7px; right: 7px;
+  background:
+    repeating-linear-gradient(180deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 14px) left / 6px 100% no-repeat,
+    repeating-linear-gradient(180deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 14px) right / 6px 100% no-repeat;
+  opacity: .55; }
+.slider .ticks::after { content: ""; position: absolute; left: -2px; right: -2px; top: 50%; height: 2px; margin-top: -1px; background: var(--on-surface-subtle); opacity: .9; }
+.slider .end { width: 32px; height: 32px; display: grid; place-items: center; font: 700 18px/1 var(--font-ui); color: var(--on-surface-muted); z-index: 1; }
+.slider .thumb { position: absolute; left: 10px; right: 10px; top: 50%; height: 60px; transform: translateY(-50%); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.06) 1px 2px), var(--metal);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(0,0,0,.25), 0 0 0 1px var(--metal-edge), 0 3px 4px var(--dshadow), 0 8px 12px -6px var(--dshadow);
+  color: #3A3D43; }
+.slider .thumb .grip { display: block; width: 18px; height: 2px; border-radius: 1px; background: rgba(0,0,0,.35); box-shadow: 0 1px 0 rgba(255,255,255,.6); }
+.engrave { font: 900 9px/1 var(--font-mark); letter-spacing: 2px; text-transform: uppercase; color: var(--engrave-fill); text-shadow: var(--engrave-shadow); text-align: center; }
+.light-ink { color: var(--on-surface); }

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextNumber": 47,
+  "nextNumber": 55,
   "comments": [
     {
       "id": "c-512cf5e39358",
@@ -1105,6 +1105,198 @@
       "sentAt": 1793971883502,
       "resolvedAt": 1793972034299,
       "resolution": "Selected device row is raised; unselected rows are flat with a thin outline. Recessed is reserved for containers."
+    },
+    {
+      "id": "c-abbccfecac07",
+      "number": 47,
+      "body": "dark mode looks bland on device, bg wallpaper textture of the screen backdrop is not clear, buttons need better realistic skeumorphic textures (find glass buttons like textures online), everything looks like the same color, no variance of material / shade.",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "media-content",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1)",
+        "tag": "main",
+        "text": "FAVOURITES Edit Spaces hold & slide Add favourite esc OK",
+        "html": "<main class=\"content media\" data-dc-id=\"media-content\">\n    <section class=\"fav-wrap\" data-dc-id=\"fav-strip\">\n      <div class=\"fav-head\"><span class=\"t-caps\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\" d=\"M12 4.2l2.3 4.7 5.2.75-3.75 3.65.88 5.15L12 16l-4.63 2.45.88-5.15L4.5 9.65l5.2-.75z\"></path></svg>Favourites</span><span class=\"fav-edit-btn raised\" data-dc-id=\"fav-edit\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14.5 5.5l4 4L9 19H5v-4z\"></path></svg>Edit</span></div>\n      <div class=\"favs\"><div class=\"fav gesture raised\" data-dc-id=\"fav-next-space\">\n        <div class=\"slide\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"fav-next-space-prev\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M14 7.5L9.5 12l4.5 4.5\"></path></svg>\n          <div class=\"mid\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"",
+        "rect": {
+          "x": 0,
+          "y": 87.99219512939453,
+          "width": 411.9971618652344,
+          "height": 723.0079956054688
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793975247213,
+      "sentAt": 1793975404291,
+      "resolvedAt": 1793975770201,
+      "resolution": "Each control family has its own material: grained, vignetted backplate; plastic caps; rubber D-pad; brushed-metal slider thumbs; glass transport. Stronger level separation in dark; Compose recipes in the doc."
+    },
+    {
+      "id": "c-eda336e816ac",
+      "number": 48,
+      "body": "wrong placement, should be on the left",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "mute",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"cap raised\" data-dc-id=\"mute\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5z\"></path><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.5 9.5l5 5M20.5 9.5l-5 5\"></path></svg></div>",
+        "rect": {
+          "x": 167.99676513671875,
+          "y": 728.0073852539062,
+          "width": 75.99649810791016,
+          "height": 61.996768951416016
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793975257818,
+      "sentAt": 1793975404291,
+      "resolvedAt": 1793975770201,
+      "resolution": "Mute is a round 48dp button at the D-pad's lower right, next to the volume slider's − end."
+    },
+    {
+      "id": "c-bf7cdb39a0b7",
+      "number": 49,
+      "body": "remove this from here, move to macros",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "esc",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "esc",
+        "html": "<div class=\"kc raised\" data-dc-id=\"esc\">esc</div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 395.9720153808594,
+          "width": 51.997982025146484,
+          "height": 39.995155334472656
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793975265200,
+      "sentAt": 1793975404291,
+      "resolvedAt": 1793975770201,
+      "resolution": "esc removed from Media; it is now a default 'Escape' tile in Macros (macro-esc)."
+    },
+    {
+      "id": "c-ffc642b938d8",
+      "number": 50,
+      "body": "no markings that its scroll, move to left of d-pad, add a similar slider for volume on right with markings",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "scroll-lever",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"lever well\" data-dc-id=\"scroll-lever\">\n        <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"scroll-notch-up\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.5 14l4.5-4.5 4.5 4.5\"></path></svg>\n        <div class=\"thumb raised\" data-dc-id=\"scroll-thumb\"><span class=\"grip\"></span><span class=\"grip\"></span><span class=\"grip\"></span></div>\n        <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\" data-dc-id=\"scroll-notch-down\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.5 10l4.5 4.5 4.5-4.5\"></path></svg>\n      </div>",
+        "rect": {
+          "x": 340.0016174316406,
+          "y": 227.96810913085938,
+          "width": 55.998924255371094,
+          "height": 207.99905395507812
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793975288543,
+      "sentAt": 1793975404291,
+      "resolvedAt": 1793975770201,
+      "resolution": "Scroll lever moved left of the D-pad with ticks, ▲▼ ends and an engraved SCROLL label; a matching VOLUME slider on the right (+/− ends, ticks, speaker glyph) replaces the −/+ row."
+    },
+    {
+      "id": "c-1a1ef5fd6fbf",
+      "number": 51,
+      "body": "buttons have different styles : play/pause compared to others",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "transport",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(3)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"transport\" data-dc-id=\"transport\">\n      <div class=\"side raised\" data-dc-id=\"prev\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"currentColor\" d=\"M19 7v10c0 .8-.9 1.27-1.56.82L10.3 12.8a1 1 0 0 1 0-1.64l7.14-5c.66-.45 1.56.03 1.56.83z\"></path><rect fill=\"currentColor\" x=\"5.2\" y=\"6\" width=\"2.4\" height=\"12\" rx=\"1.2\"></rect></svg></div>\n      <div class=\"bezel\" data-dc-id=\"play-bezel\"><div class=\"play accent-cap\" data-dc-id=\"play-pause\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i32\"><path fill=\"currentColor\" d=\"M3.5 6.2v11.6c0 .7.76 1.13 1.36.77l8.9-5.8a.92.92 0 0 0 0-1.54l-8.9-5.8c-.6-.36-1.36.07-1.36.77z\"></path><rect fill=\"currentColor\" x=\"15\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect><rect fill=\"currentColor\" x=\"19\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect></svg></div></div>\n      <div class=\"side raised\" data-dc-id=\"next\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"currentColor\" d=\"M5 7v10c0 .8.9 1.27 1.56.82l7.14-5.02a1 1 0 0 0 0-1.64l-7.14-5C5.9 5.71 5 6.19 5 7z\"></path><rect fill=\"currentColor\" x=\"16.4\" y=\"6\" width=\"2.4\" height=\"12\" rx=\"1.2\"></rect></svg></div>\n    </div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 603.0225219726562,
+          "width": 380.00390625,
+          "height": 99.9878921508789
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793975315474,
+      "sentAt": 1793975404291,
+      "resolvedAt": 1793975770201,
+      "resolution": "Prev/play/next are one family of glass caps in a single recessed channel; play is just larger."
+    },
+    {
+      "id": "c-bc0114044358",
+      "number": 52,
+      "body": "i dont see the arrows on device",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "brightness-group",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"pair small well\" data-dc-id=\"brightness-group\">\n        <div class=\"cap raised\" data-dc-id=\"brightness-down\"><span class=\"arrowed\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12\" r=\"3\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 6v1M12 17v1M6 12h1M17 12h1M7.75 7.75l.7.7M15.55 15.55l.7.7M7.75 16.25l.7-.7M15.55 8.45l.7-.7\"></path></svg><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\" data-dc-id=\"brightness-down-arrow\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 5v13.5M6.5 13L12 18.5 17.5 13\"></path></svg></span></div>\n        <div class=\"cap raised\" data-dc-id=\"brightness-up\"><span class=\"arrowed\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"currentColor\" cx=\"12\" cy=\"12\" r=\"4.4\"></circle><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3M4.8 4.8l2.1 2.1M17.1 17.1l2.1 ",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 527.0331420898438,
+          "width": 380.00390625,
+          "height": 55.991790771484375
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793975329826,
+      "sentAt": 1793975404291,
+      "resolvedAt": 1793975770201,
+      "resolution": "Brightness arrows enlarged to 20dp ink strokes beside 24dp suns (~52px on device)."
+    },
+    {
+      "id": "c-67e85cf34cab",
+      "number": 53,
+      "body": "this card has only manage devices item on device",
+      "anchor": {
+        "artboardId": "menu-sheet",
+        "dcId": "menu-sheet",
+        "path": "body > div:nth-of-type(1) > section:nth-of-type(1)",
+        "tag": "section",
+        "text": "Mote Theme Dark Light System Manage devices MacBook Pro and 3 others Haptics Standard Settings Pointer speed, scrolling, keyboard About Mote Version 0.1",
+        "html": "<section class=\"sheet\" data-dc-id=\"menu-sheet\">\n    <div class=\"handle\"></div>\n    <div class=\"sh-head\"><h2 class=\"t-headline\">Mote</h2><div class=\"icon-btn\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6.5 6.5l11 11M17.5 6.5l-11 11\"></path></svg></div></div>\n    <div class=\"row-item\" data-dc-id=\"menu-theme\" style=\"margin-bottom:4px\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><circle fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" cx=\"12\" cy=\"12\" r=\"8\"></circle><path fill=\"currentColor\" d=\"M12 4a8 8 0 0 1 0 16z\"></path></svg><div class=\"tx\"><div class=\"t-label\">Theme</div></div>\n      <div class=\"seg-ctl well\" style=\"width:216px\"><div>Dark</div><div class=\"on raised\">Light</div><div>System</div></div></div>\n    <div class=\"list\" style=\"gap:2px\">\n        <div class=\"row-item\" data-dc-id=\"menu-devices\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i \"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M3 6.5A1.5 1.5 0 0 1 4.5 5h11A1.5 1.5",
+        "rect": {
+          "x": 0,
+          "y": 490.0262451171875,
+          "width": 411.9971618652344,
+          "height": 424.96990966796875
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793975345703,
+      "sentAt": 1793975404291,
+      "resolvedAt": 1793975770201,
+      "resolution": "Menu confirmed as Theme, Manage devices, Haptics, Settings, About; sub-screens specced, with new settings and haptics artboards. The app gets them in the next build."
+    },
+    {
+      "id": "c-511306fc0d74",
+      "number": 54,
+      "body": "this is not how it lookson device, only top inner shadow is there, pull device screenshots and compare all elements for all other comments as well. need some relaistic texutes for light mode as well",
+      "anchor": {
+        "artboardId": "media-light",
+        "dcId": "dpad",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > svg:nth-of-type(1)",
+        "tag": "svg",
+        "text": "OK",
+        "html": "<svg class=\"dpad\" viewBox=\"0 0 208 208\" data-dc-id=\"dpad\">\n        <defs><linearGradient id=\"dpk\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" style=\"stop-color:var(--key-top)\"></stop><stop offset=\"1\" style=\"stop-color:var(--key-bot)\"></stop></linearGradient><linearGradient id=\"bev\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" style=\"stop-color:#fff;stop-opacity:.9\"></stop><stop offset=\".35\" style=\"stop-color:#fff;stop-opacity:0\"></stop><stop offset=\".7\" style=\"stop-color:#000;stop-opacity:0\"></stop><stop offset=\"1\" style=\"stop-color:#000;stop-opacity:.22\"></stop></linearGradient></defs>\n        <circle class=\"housing\" cx=\"104\" cy=\"104\" r=\"104\"></circle>\n        <circle class=\"disc\" cx=\"104\" cy=\"104\" r=\"96\" fill=\"url(#dpk)\"></circle>\n        <circle class=\"bevel\" cx=\"104\" cy=\"104\" r=\"95.25\" stroke=\"url(#bev)\" data-dc-id=\"dpad-bevel\"></circle>\n        <g data-dc-id=\"dpad-up\"><path class=\"arm\" d=\"M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z\"></path><path class=\"tri\" d=\"M104 27l7 9.5h-14z\"></path></g><g data-dc-id=\"dpad-right\" transform=\"rotate(90 104 104)\"><path class=\"arm\" d=\"M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.7",
+        "rect": {
+          "x": 101.99905395507812,
+          "y": 227.96810913085938,
+          "width": 207.99905395507812,
+          "height": 207.99905395507812
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1793975394990,
+      "sentAt": 1793975404291,
+      "resolvedAt": 1793975770201,
+      "resolution": "Same material system in light; the D-pad is a rubber disc with full bevel, 3dp side wall and contact shadow. Device gaps listed in docs/design/device-vs-design.md."
     }
   ]
 }
