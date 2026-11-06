@@ -86,12 +86,15 @@ private fun requestedPermissions(): Array<String> =
 
 private fun granted(c: Context, p: String) = c.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
 
+private const val DISCOVERABLE_S = 120
+
 private fun requestDiscoverable(c: Context) {
     if (Build.VERSION.SDK_INT >= 31 && !granted(c, Manifest.permission.BLUETOOTH_ADVERTISE)) {
         Toast.makeText(c, "Allow Nearby devices to pair", Toast.LENGTH_SHORT).show(); return
     }
+    Hid.pausePairing(DISCOVERABLE_S * 1000L)
     runCatching {
-        c.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120))
+        c.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_S))
     }
 }
 
@@ -135,6 +138,7 @@ private fun Root(theme: ThemeChoice) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val bt by remember(lifecycle) { Bt.observe(ctx, lifecycle) }.collectAsStateWithLifecycle(remember { Bt.snapshot(ctx) })
     LaunchedEffect(bt.gate) { if (bt.gate == BtGate.READY) HidService.start(ctx) }
+    LaunchedEffect(bt) { Hid.envChanged() } // bond/ACL/adapter change or resume: fresh reconnect budget
 
     val enableLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
     var openSettings by remember { mutableStateOf(false) } // permission permanently denied: only Settings can grant it
@@ -292,6 +296,7 @@ private fun DeviceSheet(s: HidState, hosts: List<Host>, onPick: (Host) -> Unit) 
                 val selected = s.selected?.address == host.address
                 val status = when {
                     s.connected?.address == host.address -> "Connected"
+                    selected && s.unpaired -> "Not paired: pair again"
                     selected -> "Searching…"
                     else -> "Paired"
                 }

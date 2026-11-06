@@ -37,6 +37,8 @@ data class HidState(
     val selected: Host? = null,
     val connected: Host? = null,
     val connecting: Boolean = false,
+    /** The saved host is no longer bonded: needs pairing again. */
+    val unpaired: Boolean = false,
 ) {
     val isConnected get() = connected != null
 }
@@ -72,7 +74,7 @@ object Hid {
     val inForeground: StateFlow<Boolean> = _fg.asStateFlow()
     var foreground: Boolean
         get() = _fg.value
-        set(v) { _fg.value = v; if (v) kick() else setMods(Mods()) }
+        set(v) { _fg.value = v; if (v) envChanged() else setMods(Mods()) }
 
     private lateinit var appContext: Context
     private var adapter: BluetoothAdapter? = null
@@ -80,6 +82,8 @@ object Hid {
     private var device: BluetoothDevice? = null
     /** Host the stack reports as virtually plugged at registration; reconnect target when none is selected. */
     private var plugged: String? = null
+    private var attempts = 0
+    private var pausedUntil = 0L
     private var reconnectJob: Job? = null
 
     // keyboard / mouse state, touched only on the HID thread
@@ -194,6 +198,7 @@ object Hid {
 
     private fun onConnected(d: BluetoothDevice) {
         device = d
+        attempts = 0
         val host = Bt.hostOf(d)
         _state.update { it.copy(connected = host, selected = host, connecting = false) }
         scope.launch { Prefs.setSelectedHost(appContext, d.address) }
@@ -205,32 +210,40 @@ object Hid {
         exec.execute {
             val p = proxy
             val cur = device
-            _state.update { it.copy(selected = host) }
+            _state.update { it.copy(selected = host, unpaired = false) }
             scope.launch { Prefs.setSelectedHost(appContext, host.address) }
             if (p != null && cur != null && cur.address != host.address) runCatching { p.disconnect(cur) }
-            tryReconnect()
+            // Explicit user tap: one connect even if unbonded (may start pairing once). Then normal policy.
+            attempts = 0; pausedUntil = 0L
+            if (p != null && _state.value.phase == Phase.READY && _state.value.connected?.address != host.address) {
+                adapter?.getRemoteDevice(host.address)?.let { d -> attempts++; runCatching { p.connect(d) } }
+            }
         }
     }
 
+    /** Bond/ACL/adapter change or app resume: give auto-reconnect a fresh budget. */
+    fun envChanged() = exec.execute { attempts = 0; tryReconnect() }
+
+    /** Pairing flow started: phone discoverable for [ms]; no auto-connect meanwhile. */
+    fun pausePairing(ms: Long) = exec.execute { pausedUntil = System.currentTimeMillis() + ms }
+
     fun disconnect() = exec.execute { device?.let { d -> runCatching { proxy?.disconnect(d) } } }
 
-    private fun kick() = exec.execute { tryReconnect() }
 
     private fun tryReconnect() {
         val s = _state.value
         val p = proxy ?: return
-        val target = reconnectTarget(s.selected?.address, plugged) ?: return
+        val bonded = runCatching { adapter?.bondedDevices.orEmpty().map { it.address }.toSet() }.getOrDefault(emptySet())
+        val unpaired = Reconnect.unpaired(s.selected?.address, bonded)
+        if (unpaired != s.unpaired) _state.update { it.copy(unpaired = unpaired) }
+        val target = Reconnect.target(s.selected?.address, plugged, bonded) ?: return
         if (!foreground || s.phase != Phase.READY || s.connected != null) return
+        if (!Reconnect.allowed(attempts, System.currentTimeMillis(), pausedUntil)) return
         val d = adapter?.getRemoteDevice(target) ?: return
         if (p.getConnectionState(d) == BluetoothProfile.STATE_CONNECTING) return
+        attempts++
         runCatching { p.connect(d) }
     }
-
-    /**
-     * The selected host wins; otherwise the stack's plugged host. Without this, a Mac that holds a
-     * stale HID link from before Mote registered stays "connected" on the Mac and never on the phone.
-     */
-    internal fun reconnectTarget(selected: String?, plugged: String?): String? = selected ?: plugged
 
     private fun hostFor(address: String): Host? =
         runCatching { adapter?.getRemoteDevice(address)?.let(Bt::hostOf) }.getOrNull()

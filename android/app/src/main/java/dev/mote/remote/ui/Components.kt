@@ -204,13 +204,13 @@ fun Led(color: Color, pulse: Boolean) {
 @Composable
 fun DevicePill(s: HidState, onClick: () -> Unit) {
     val c = LocalMote.current
-    val searching = !s.isConnected && s.selected != null && s.phase == dev.mote.remote.hid.Phase.READY
+    val searching = !s.isConnected && s.selected != null && !s.unpaired && s.phase == dev.mote.remote.hid.Phase.READY
     val led = when {
         s.isConnected -> c.linkOk
         searching || s.phase == dev.mote.remote.hid.Phase.REGISTERING -> c.linkWait
         else -> c.linkBad
     }
-    val name = s.connected?.name ?: s.selected?.name ?: "Choose a device"
+    val name = s.connected?.name ?: s.selected?.let { if (s.unpaired) "Not paired: pair again" else it.name } ?: "Choose a device"
     Cap(
         Modifier.height(40.dp).widthIn(max = 250.dp),
         shape = RoundedCornerShape(50),
