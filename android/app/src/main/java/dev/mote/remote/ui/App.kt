@@ -217,6 +217,7 @@ private fun Root(theme: ThemeChoice) {
         if (menuSheet) MoteSheet(onDismiss = { menuSheet = false }) { close ->
             MenuSheet(theme, onTheme = { t -> scope.launch { Prefs.setTheme(ctx, t) } }, onPair = { close(); deviceSheet = true })
         }
+        TailscalePrompt()
     }
 }
 

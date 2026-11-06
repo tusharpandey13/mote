@@ -54,6 +54,7 @@ import dev.mote.remote.net.Msg
 import dev.mote.remote.net.Net
 import dev.mote.remote.net.Route
 import dev.mote.remote.net.Selection
+import dev.mote.remote.net.Tailscale
 import dev.mote.remote.net.Transport
 import dev.mote.remote.net.WsStatus
 import dev.mote.remote.net.WsTransport
@@ -63,6 +64,7 @@ import dev.mote.remote.net.routeOf
 import dev.mote.remote.ui.theme.LocalMote
 import dev.mote.remote.ui.theme.MIcon
 import dev.mote.remote.ui.theme.well
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val HELPER_URL = "tusharpandey13.github.io/mote"
@@ -86,11 +88,14 @@ fun HostPill(onClick: () -> Unit) {
     val active by Net.active.collectAsState()
     val ws by Net.wsStatus.collectAsState()
     val saved by Net.saved.collectAsState()
+    val onWifiNow by Net.onWifiFlow.collectAsState()
     val name: String; val led: androidx.compose.ui.graphics.Color; val pulse: Boolean; val route: Route?
     if (active is WsTransport) {
         val h = saved.firstOrNull { it.hostId == (active as WsTransport).hostId }
         name = h?.name ?: "Mac"
-        route = (ws as? WsStatus.Ready)?.address?.let(::routeOf) ?: h?.routes?.firstOrNull()
+        // Not connected: show the route it will use from here (off Wi-Fi, a tailnet host goes via Tailscale).
+        route = (ws as? WsStatus.Ready)?.address?.let(::routeOf)
+            ?: h?.routes?.let { r -> if (!onWifiNow && Route.TAILNET in r) Route.TAILNET else r.firstOrNull() }
         val st = ws
         led = when {
             st is WsStatus.Ready && (st.paused || !st.ax) -> c.linkWait
@@ -198,17 +203,27 @@ fun HostSheet(
         if (code.length != 6) { error = "Enter the 6-digit code shown on the Mac."; return }
         busy = true; error = null
         scope.launch {
+            val ts = tailnetHint
             try {
-                Net.pair(a, targetPort, code, tailnetHint)
+                try {
+                    Net.pair(a, targetPort, code, ts)
+                } catch (e: Exception) {
+                    // Link from the Mac's QR (LAN address) opened away from that LAN: pair over the tailnet.
+                    if (e is HelperError || ts == null || ts == a) throw e
+                    if (Net.promptForTailscale(targetName, listOf(Route.TAILNET), seenOnLan = false) { doPair() }) return@launch
+                    Net.pair(ts, targetPort, code, a)
+                }
                 close()
             } catch (e: Exception) {
-                error = friendly(e, a)
+                error = friendly(e, ts ?: a)
             } finally { busy = false }
         }
     }
 
     fun doAddress() {
         val (host, port) = parseAddress(address) ?: run { error = "Enter a name like mac.tailnet.ts.net or an address like 100.101.102.103."; return }
+        val knownName = saved.firstOrNull { host in it.candidates() }?.name ?: host
+        if (routeOf(host) == Route.TAILNET && Net.promptForTailscale(knownName, listOf(Route.TAILNET), seenOnLan = false) { doAddress() }) return
         busy = true; error = null
         scope.launch {
             try {
@@ -254,7 +269,12 @@ fun HostSheet(
                                         r.saved?.let { Net.linkBt(it.hostId, host.address) }
                                         close()
                                     }
-                                    is Selection.Helper -> { Net.select(sel); r.bt?.let { Net.linkBt(sel.hostId, it.address) }; close() }
+                                    is Selection.Helper -> {
+                                        Net.select(sel); r.bt?.let { Net.linkBt(sel.hostId, it.address) }
+                                        // Tailnet-only right now and Tailscale off: ask to turn it on; the socket connects once the VPN is up.
+                                        r.saved?.let { Net.promptForTailscale(r.name, it.routes, seenOnLan = r.found != null) }
+                                        close()
+                                    }
                                     null -> r.found?.let { goCode(it.address, it.port, it.service) }
                                 }
                             },
@@ -434,7 +454,7 @@ private fun friendly(e: Throwable, address: String): String = when (e) {
     else -> buildString {
         append("Couldn't reach $address.")
         if (routeOf(address) == Route.TAILNET) {
-            append(if (Net.vpnActive()) " Check Allow Tailscale connections in the Mote Helper menu." else " Tailscale looks off on this phone.")
+            append(if (Net.tailnetUpFlow.value) " Check Allow Tailscale connections in the Mote Helper menu." else " Tailscale looks off on this phone.")
         } else append(" Same Wi-Fi as the Mac? Is Mote Helper running?")
     }
 }
@@ -449,6 +469,59 @@ private fun requestDiscoverable(c: Context) {
     Hid.pausePairing(DISCOVERABLE_S * 1000L)
     runCatching {
         c.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_S))
+    }
+}
+
+/** How long to wait for the VPN after CONNECT_VPN before opening the Tailscale app (it was up in ~1 s on a Nothing Phone 2). */
+private const val TAILSCALE_WAIT_MS = 6000L
+
+/**
+ * "Tailscale is off" sheet. Turn on: broadcast CONNECT_VPN to Tailscale's IPNReceiver, then wait;
+ * Net dismisses this sheet and continues as soon as a tailnet address appears. If the VPN isn't up
+ * after [TAILSCALE_WAIT_MS] (no VPN permission yet, signed out), open the Tailscale app.
+ * Not installed: the Play Store page.
+ */
+@Composable
+fun TailscalePrompt() {
+    val p by Net.tsPrompt.collectAsState()
+    val prompt = p ?: return
+    MoteSheet(onDismiss = { Net.tsPrompt.value = null }) { close -> TailscaleSheet(prompt.host, close) }
+}
+
+@Composable
+private fun TailscaleSheet(host: String, close: () -> Unit) {
+    val c = LocalMote.current
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val installed = remember { Tailscale.installed(ctx) }
+    var waiting by remember { mutableStateOf(false) }
+    var opened by remember { mutableStateOf(false) }
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            MIcon("globe", c.accent, size = 28.dp)
+            Spacer(Modifier.size(12.dp))
+            Text("Tailscale is off", style = T.title, color = c.ink)
+        }
+        Text("Turn it on to reach $host.", style = T.body, color = c.muted)
+        when {
+            opened -> Text("Finish in the Tailscale app, then come back. Mote connects as soon as Tailscale is on.", style = T.small, color = c.subtle)
+            waiting -> Text("Turning on Tailscale…", style = T.small, color = c.subtle)
+            !installed -> Text("Tailscale isn't installed on this phone.", style = T.small, color = c.subtle)
+        }
+        PrimaryButton(if (installed) "Turn on Tailscale" else "Get Tailscale") {
+            if (!installed) { Tailscale.openStore(ctx); return@PrimaryButton }
+            if (waiting) return@PrimaryButton
+            waiting = true
+            Tailscale.requestConnect(ctx)
+            scope.launch {
+                delay(TAILSCALE_WAIT_MS)
+                if (Net.tsPrompt.value != null) { opened = Tailscale.open(ctx); waiting = false }
+            }
+        }
+        SecondaryButton("Not now", onClick = close)
     }
 }
 

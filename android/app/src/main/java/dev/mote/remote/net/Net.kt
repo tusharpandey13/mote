@@ -3,8 +3,10 @@ package dev.mote.remote.net
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
@@ -101,6 +103,46 @@ object Net {
                 override fun onAvailable(network: Network) { (_active.value as? WsTransport)?.kick() }
             })
         }
+        // Every network including VPNs: keeps tailnetUp / wifi current for the Tailscale prompt.
+        refreshLinks()
+        runCatching {
+            val req = NetworkRequest.Builder().removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build()
+            app.getSystemService(ConnectivityManager::class.java)?.registerNetworkCallback(req, object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) = refreshLinks()
+                override fun onLost(network: Network) = refreshLinks()
+                override fun onLinkPropertiesChanged(network: Network, lp: LinkProperties) = refreshLinks()
+                override fun onCapabilitiesChanged(network: Network, nc: NetworkCapabilities) = refreshLinks()
+            })
+        }
+    }
+
+    private val _tailnetUp = MutableStateFlow(false)
+    /** Heuristic (see [tailnetUp]): a VPN holding a Tailscale address is up. */
+    val tailnetUpFlow: StateFlow<Boolean> = _tailnetUp.asStateFlow()
+    private var wifiNow = false
+    private val _onWifi = MutableStateFlow(false)
+    /** On a non-VPN Wi-Fi network right now (LAN routes plausible). */
+    val onWifiFlow: StateFlow<Boolean> = _onWifi.asStateFlow()
+
+    private fun refreshLinks() {
+        val links = Tailscale.links(app)
+        wifiNow = onWifi(links)
+        _onWifi.value = wifiNow
+        val up = tailnetUp(links)
+        _tailnetUp.value = up
+        if (up) tsPrompt.value?.let { p -> tsPrompt.value = null; p.then?.let { scope.launch(Dispatchers.Main) { it() } } }
+    }
+
+    /** "Tailscale is off" prompt: shown for [host]; [then] runs once the VPN is up. */
+    class TsPrompt(val host: String, val then: (() -> Unit)? = null)
+    val tsPrompt = MutableStateFlow<TsPrompt?>(null)
+
+    /** Shows the prompt and returns true when [routes] need Tailscale and it is off. */
+    fun promptForTailscale(host: String, routes: List<Route>, seenOnLan: Boolean, then: (() -> Unit)? = null): Boolean {
+        refreshLinks()
+        if (!needsTailscalePrompt(routes, _tailnetUp.value, wifiNow, seenOnLan)) return false
+        tsPrompt.value = TsPrompt(host, then)
+        return true
     }
 
     /** Foreground only: the helper socket is closed 30 s after the app leaves the screen. */
@@ -213,11 +255,6 @@ object Net {
         }
     }
 
-    /** True when a VPN (Tailscale on Android) is up; used to hint "Tailscale looks off". */
-    fun vpnActive(): Boolean = runCatching {
-        val cm = app.getSystemService(ConnectivityManager::class.java)
-        cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true }
-    }.getOrDefault(false)
 
     private fun deviceName(): String =
         Settings.Global.getString(app.contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() } ?: Build.MODEL
