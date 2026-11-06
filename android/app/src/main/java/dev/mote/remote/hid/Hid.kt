@@ -211,6 +211,13 @@ object Hid {
 
     fun disconnect() = exec.execute { device?.let { d -> runCatching { proxy?.disconnect(d) } } }
 
+    /** Another transport (Mote Helper) took over: forget the selection, stop reconnecting, drop the link. */
+    fun deselect() = exec.execute {
+        _state.update { it.copy(selected = null) }
+        device?.let { d -> runCatching { proxy?.disconnect(d) } }
+        if (::appContext.isInitialized) scope.launch { Prefs.clearSelectedHost(appContext) }
+    }
+
     private fun kick() = exec.execute { tryReconnect() }
 
     private fun tryReconnect() {

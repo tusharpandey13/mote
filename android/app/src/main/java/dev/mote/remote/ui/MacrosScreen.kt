@@ -50,7 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mote.remote.data.Macro
 import dev.mote.remote.data.Step
-import dev.mote.remote.hid.Hid
+import dev.mote.remote.net.Remote
 import dev.mote.remote.hid.Key
 import dev.mote.remote.hid.Mod
 import dev.mote.remote.ui.theme.LocalMote
@@ -192,7 +192,7 @@ fun SpacesTile(modifier: Modifier, compact: Boolean) {
                         val dx = ch.position.x - anchor
                         if (abs(dx) >= step) {
                             val right = dx > 0
-                            Hid.tap(if (right) "right" else "left", Mod.CTRL)
+                            Remote.tap(if (right) "right" else "left", Mod.CTRL)
                             h(Haptic.TICK); dir = if (right) 1 else -1
                             anchor += if (right) step else -step
                         }
@@ -200,7 +200,7 @@ fun SpacesTile(modifier: Modifier, compact: Boolean) {
                         scope.launch { nudge.snapTo(follow) }
                         ch.consume()
                     }
-                    if (!moved) Hid.tap("up", Mod.CTRL)
+                    if (!moved) Remote.tap("up", Mod.CTRL)
                     pressed = false; dir = 0
                     scope.launch { nudge.animateTo(0f, Motion.spatialFast()) }
                 }

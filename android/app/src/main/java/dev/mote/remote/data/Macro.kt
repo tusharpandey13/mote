@@ -2,6 +2,7 @@ package dev.mote.remote.data
 
 import android.content.Context
 import dev.mote.remote.hid.Hid
+import dev.mote.remote.net.Remote
 import dev.mote.remote.hid.Mod
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +15,8 @@ sealed interface Step {
     data class Chord(val mods: Int, val key: String) : Step
     data class Text(val text: String) : Step
     data class Delay(val ms: Long) : Step
+    /** Click at a normalised point (0..1) on the main display. Mote Helper hosts only. */
+    data class ClickAt(val x: Float, val y: Float) : Step
 }
 
 /**
@@ -36,6 +39,7 @@ data class Macro(
     val hint: String get() = when {
         kind == Kind.SPACES -> "⌃← ⌃→"
         steps.size == 1 && steps[0] is Step.Chord -> (steps[0] as Step.Chord).let { Mod.glyphs(it.mods) + dev.mote.remote.hid.Key.label(it.key) }
+        steps.size == 1 && steps[0] is Step.ClickAt -> (steps[0] as Step.ClickAt).let { "click ${(it.x * 100).toInt()}%, ${(it.y * 100).toInt()}%" }
         else -> "${steps.size} steps"
     }
 }
@@ -68,6 +72,7 @@ object Macros {
         is Step.Chord -> JSONObject().put("t", "chord").put("mods", JSONArray(Mod.toNames(s.mods))).put("key", s.key)
         is Step.Text -> JSONObject().put("t", "text").put("s", s.text)
         is Step.Delay -> JSONObject().put("t", "delay").put("ms", s.ms)
+        is Step.ClickAt -> JSONObject().put("t", "clickAt").put("x", s.x.toDouble()).put("y", s.y.toDouble())
     }
 
     fun decode(json: String): List<Macro>? = runCatching {
@@ -92,17 +97,19 @@ object Macros {
         "key" -> Step.Chord(0, o.getString("key"))
         "text" -> Step.Text(o.getString("s"))
         "delay" -> Step.Delay(o.getLong("ms"))
+        "clickAt" -> Step.ClickAt(o.getDouble("x").toFloat().coerceIn(0f, 1f), o.getDouble("y").toFloat().coerceIn(0f, 1f))
         else -> null
     }
 
-    /** Runs the steps in order; cancellable between steps. Returns skipped character count. */
+    /** Runs the steps on the active transport; cancellable between steps. Returns the skipped count (characters, or clicks on a Bluetooth host). */
     suspend fun run(m: Macro): Int {
-        Hid.setMods(Hid.Mods())
+        Remote.setMods(Hid.Mods())
         var skipped = 0
         for (s in m.steps) when (s) {
-            is Step.Chord -> { Hid.tapAwait(s.key, s.mods); delay(10) }
-            is Step.Text -> skipped += Hid.typeText(s.text)
+            is Step.Chord -> { Remote.tapAwait(s.key, s.mods); delay(10) }
+            is Step.Text -> skipped += Remote.typeText(s.text)
             is Step.Delay -> delay(s.ms)
+            is Step.ClickAt -> { if (!Remote.clickAt(s.x, s.y)) skipped++; delay(10) }
         }
         return skipped
     }

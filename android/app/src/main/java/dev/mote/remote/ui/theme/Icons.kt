@@ -44,8 +44,17 @@ internal object MoteIcons {
             "lock" to lock, "bluetooth" to bluetooth, "laptop" to laptop, "backspace" to backspace, "ret" to ret,
             "camera" to camera, "search" to search, "spaces" to spaces, "power" to power, "edit" to edit, "trash" to trash,
             "theme" to theme, "apps" to apps, "hold" to hold, "desktop" to desktop, "refresh" to refresh,
-        )
+        ) + extra
     }
+    // Not in design/mote-v1/icons.js yet (transport badges). Same 24 grid, 1.75 stroke.
+    private val extra: Map<String, List<P>> get() = mapOf(
+        "wifi" to listOf(
+            P("M3.5 9.5a12 12 0 0 1 17 0M6.5 12.5a7.8 7.8 0 0 1 11 0M9.4 15.4a3.7 3.7 0 0 1 5.2 0", false, true),
+            P("M11 18.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0z", true, false),
+        ),
+        "globe" to listOf(P("M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0zM4 12h16M12 4c2.2 2.3 3.2 5 3.2 8s-1 5.7-3.2 8c-2.2-2.3-3.2-5-3.2-8s1-5.7 3.2-8z", false, true)),
+        "pointer" to listOf(P("M12 3v4M12 17v4M3 12h4M17 12h4M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0z", false, true)),
+    )
     /** Icons offered in the macro editor. */
     val macroChoices = listOf("apps", "search", "lock", "camera", "power", "spaces", "star", "refresh")
 

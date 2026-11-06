@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.mote.remote.hid.Hid
+import dev.mote.remote.net.Remote
 import dev.mote.remote.ui.theme.LocalMote
 import dev.mote.remote.ui.theme.Tone
 import dev.mote.remote.ui.theme.well
@@ -51,7 +52,7 @@ import kotlin.math.pow
 fun MouseScreen(banner: Boolean, onBannerDone: () -> Unit) {
     val c = LocalMote.current
     var dragLock by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) { onDispose { if (dragLock) Hid.setButton(Hid.BUTTON_LEFT, false) } }
+    DisposableEffect(Unit) { onDispose { if (dragLock) Remote.setButton(Hid.BUTTON_LEFT, false) } }
     Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)) {
         if (banner) {
             Row(
@@ -60,7 +61,7 @@ fun MouseScreen(banner: Boolean, onBannerDone: () -> Unit) {
             ) {
                 Text("Turn on drag lock and move to select; turn it off to capture.", style = T.small, color = c.ink, modifier = Modifier.weight(1f))
                 Cap(Modifier.height(36.dp).width(56.dp), RoundedCornerShape(10.dp), haptic = Haptic.TICK, description = "Escape",
-                    onClick = { Hid.tap("esc"); onBannerDone() }) { Text("esc", style = T.keyS, color = c.muted) }
+                    onClick = { Remote.tap("esc"); onBannerDone() }) { Text("esc", style = T.keyS, color = c.muted) }
                 Spacer(Modifier.width(6.dp))
                 Cap(Modifier.height(36.dp).width(64.dp), RoundedCornerShape(10.dp), needsLink = false, haptic = Haptic.TICK,
                     description = "Done", onClick = onBannerDone) { Text("Done", style = T.keyS, color = c.accent) }
@@ -71,16 +72,16 @@ fun MouseScreen(banner: Boolean, onBannerDone: () -> Unit) {
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth().height(64.dp).well(RoundedCornerShape(20.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), description = "Left button",
-                onDown = { Hid.setButton(Hid.BUTTON_LEFT, true) }, onClick = { if (!dragLock) Hid.setButton(Hid.BUTTON_LEFT, false) }) {
+                onDown = { Remote.setButton(Hid.BUTTON_LEFT, true) }, onClick = { if (!dragLock) Remote.setButton(Hid.BUTTON_LEFT, false) }) {
                 Text("L", style = T.label, color = c.muted)
             }
             Cap(Modifier.width(96.dp).fillMaxHeight(), RoundedCornerShape(16.dp), haptic = Haptic.HEAVY, forcePressed = dragLock,
                 tone = Tone.NORMAL, description = if (dragLock) "Drag lock on" else "Drag lock off",
-                onClick = { dragLock = !dragLock; Hid.setButton(Hid.BUTTON_LEFT, dragLock) }) {
+                onClick = { dragLock = !dragLock; Remote.setButton(Hid.BUTTON_LEFT, dragLock) }) {
                 Text("Drag lock", style = T.small, color = if (dragLock) c.accent else c.muted)
             }
             Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(16.dp), description = "Right button",
-                onDown = { Hid.setButton(Hid.BUTTON_RIGHT, true) }, onClick = { Hid.setButton(Hid.BUTTON_RIGHT, false) }) {
+                onDown = { Remote.setButton(Hid.BUTTON_RIGHT, true) }, onClick = { Remote.setButton(Hid.BUTTON_RIGHT, false) }) {
                 Text("R", style = T.label, color = c.muted)
             }
         }
@@ -133,7 +134,7 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
                                 val speed = hypot(dpx, dpy) / dt // dp per ms
                                 // gain 1.8x, quadratic above 600 dp/s
                                 val gain = 1.8f * if (speed > 0.6f) (speed / 0.6f).pow(2).coerceAtMost(4f) else 1f
-                                if (maxFingers == 1) Hid.move(dpx * gain, dpy * gain)
+                                if (maxFingers == 1) Remote.move(dpx * gain, dpy * gain)
                                 travel += hypot(d.x, d.y)
                             } else {
                                 val avg = down.fold(Offset.Zero) { a, ch -> a + (ch.position - ch.previousPosition) } / down.size.toFloat()
@@ -143,7 +144,7 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
                                 val wy = (-scrollAccY / scrollStep).toInt()
                                 val wx = (scrollAccX / scrollStep).toInt()
                                 if (wy != 0 || wx != 0) {
-                                    Hid.scroll(wy, wx)
+                                    Remote.scroll(wy, wx)
                                     scrollAccY += wy * scrollStep; scrollAccX -= wx * scrollStep
                                     scrolledPx += abs(wy * scrollStep) + abs(wx * scrollStep)
                                     if (scrolledPx >= 48 * density) { h(Haptic.TICK); scrolledPx = 0f }
@@ -154,8 +155,8 @@ private fun Touchpad(modifier: Modifier, dragLock: Boolean) {
                         }
                         val dur = ev.changes.maxOf { it.uptimeMillis } - t0
                         if (travel < tapSlop && dur < 250) {
-                            if (maxFingers >= 2) { h(Haptic.HEAVY); Hid.click(Hid.BUTTON_RIGHT) }
-                            else if (!dragLock) { h(Haptic.CLICK); Hid.click(Hid.BUTTON_LEFT) }
+                            if (maxFingers >= 2) { h(Haptic.HEAVY); Remote.click(Hid.BUTTON_RIGHT) }
+                            else if (!dragLock) { h(Haptic.CLICK); Remote.click(Hid.BUTTON_LEFT) }
                         }
                     }
                 }

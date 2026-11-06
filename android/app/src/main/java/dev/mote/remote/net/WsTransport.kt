@@ -1,0 +1,222 @@
+package dev.mote.remote.net
+
+import dev.mote.remote.hid.Hid
+import dev.mote.remote.hid.Key
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.OkHttpClient
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
+import kotlin.random.Random
+
+/** Where and how to connect, re-read before every attempt (addresses change as NSD reports them). */
+class WsTarget(val candidates: List<String>, val port: Int, val deviceId: String, val sign: (String) -> String)
+
+sealed interface WsStatus {
+    data object Idle : WsStatus
+    data object Connecting : WsStatus
+    data class Ready(val address: String, val paused: Boolean, val ax: Boolean) : WsStatus
+    /** Needs the user: re-pair (`auth`, `revoked`), update the helper (`version`), or no credential. */
+    data class Failed(val code: String, val msg: String) : WsStatus
+}
+
+/**
+ * Mote Helper over WebSocket (protocol v1). Connects to the first answering candidate, does the
+ * HMAC challenge, then keeps the link while [start]ed: OkHttp pings every 20 s and a lost socket
+ * reconnects with backoff (0.5 s to 8 s, jittered). Pointer moves and scrolls are summed and sent
+ * at most every 16 ms (~60 Hz); keys and clicks flush pending motion first so ordering holds.
+ */
+class WsTransport(
+    private val http: OkHttpClient,
+    private val scope: CoroutineScope,
+    val hostId: String,
+    private val target: () -> WsTarget?,
+    private val onReady: (address: String, hello: Msg.Hello) -> Unit = { _, _ -> },
+) : Transport {
+    override val caps = Caps.HELPER
+
+    private val _status = MutableStateFlow<WsStatus>(WsStatus.Idle)
+    val status: StateFlow<WsStatus> = _status.asStateFlow()
+    override val linked: StateFlow<Boolean> = _status.map { it is WsStatus.Ready }.stateIn(scope, SharingStarted.Eagerly, false)
+
+    private val _mods = MutableStateFlow(Hid.Mods())
+    override val mods: StateFlow<Hid.Mods> = _mods.asStateFlow()
+
+    @Volatile private var session: WsSession? = null
+    private var loop: Job? = null
+    private val wake = Channel<Unit>(Channel.CONFLATED)
+
+    // ---- connection ----
+
+    /** Starts (or keeps) the connect loop. Idempotent. */
+    @Synchronized fun start() {
+        if (loop?.isActive == true) return
+        loop = scope.launch { run() }
+    }
+
+    /** Closes the socket and stops reconnecting. */
+    @Synchronized fun stop() {
+        loop?.cancel(); loop = null
+        session?.close(); session = null
+        repeats.values.forEach { it.cancel() }; repeats.clear()
+        _status.value = WsStatus.Idle
+    }
+
+    /** Skip the current backoff wait (network came back, app came to the foreground). */
+    fun kick() { wake.trySend(Unit) }
+
+    private suspend fun run() {
+        var backoff = MIN_BACKOFF
+        while (true) {
+            val t = target() ?: run { _status.value = WsStatus.Failed("unpaired", "Pair this Mac again"); return }
+            if (_status.value !is WsStatus.Ready) _status.value = WsStatus.Connecting
+            var s: WsSession? = null
+            for (addr in t.candidates) {
+                s = runCatching { WsSession.open(http, addr, t.port) }.getOrElse { e ->
+                    if (e is CancellationException) throw e
+                    if (e is HelperError && e.code == "version") { _status.value = WsStatus.Failed(e.code, e.message ?: ""); return }
+                    null
+                }
+                if (s != null) break
+            }
+            if (s != null) {
+                try {
+                    val a = s.auth(t.deviceId, t.sign)
+                    session = s
+                    backoff = MIN_BACKOFF
+                    _status.value = WsStatus.Ready(s.address, a.paused, a.ax)
+                    onReady(s.address, s.hello)
+                    for (m in s.inbox) when (m) {
+                        is Msg.State -> _status.value = WsStatus.Ready(s.address, m.paused, m.ax)
+                        is Msg.Err -> if (m.code == "revoked") throw HelperError(m.code, m.msg)
+                        else -> Unit
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: HelperError) {
+                    when (e.code) {
+                        "auth", "revoked" -> { session = null; s.close(); _status.value = WsStatus.Failed(e.code, e.message ?: ""); return }
+                        "rate" -> backoff = (e.retryAfter ?: 60) * 1000L
+                    }
+                } catch (_: Exception) {
+                    // socket dropped: fall through to backoff
+                } finally {
+                    session = null
+                    s.close()
+                }
+            }
+            _status.value = WsStatus.Connecting
+            withTimeoutOrNull(backoff + Random.nextLong(backoff / 4 + 1)) { wake.receive() }
+            backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF)
+        }
+    }
+
+    // ---- send pipe ----
+
+    private val sendLock = Any()
+    private var mx = 0f; private var my = 0f; private var sx = 0f; private var sy = 0f
+    private val flushScheduled = AtomicBoolean(false)
+
+    /** Sends [json] after any pending motion, so a click lands where the pointer was moved to. */
+    private fun sendNow(json: String) { synchronized(sendLock) { flushMotionLocked(); session?.send(json) } }
+
+    private fun scheduleFlush() {
+        if (!flushScheduled.compareAndSet(false, true)) return
+        scope.launch {
+            delay(FRAME_MS)
+            flushScheduled.set(false)
+            val more = synchronized(sendLock) { flushMotionLocked() }
+            if (more) scheduleFlush()
+        }
+    }
+
+    /** Sends whole-point sums, keeps fractions. Returns true if motion is still pending (busy link). */
+    private fun flushMotionLocked(): Boolean {
+        val s = session ?: run { mx = 0f; my = 0f; sx = 0f; sy = 0f; return false }
+        if (s.queued() > MAX_QUEUED) return true // keep summing; never queue stale moves
+        val dx = mx.toInt().coerceIn(-4000, 4000); val dy = my.toInt().coerceIn(-4000, 4000)
+        if (dx != 0 || dy != 0) { s.send(Proto.move(dx, dy)); mx -= dx; my -= dy }
+        val wx = sx.toInt(); val wy = sy.toInt()
+        if (wx != 0 || wy != 0) { s.send(Proto.scroll(wx, wy)); sx -= wx; sy -= wy }
+        return abs(mx) >= 1f || abs(my) >= 1f || abs(sx) >= 1f || abs(sy) >= 1f
+    }
+
+    // ---- Transport ----
+
+    override fun setMods(m: Hid.Mods) { _mods.value = m }
+
+    private fun consumeArmed() { _mods.value.let { if (it.armed != 0) _mods.value = it.copy(armed = 0) } }
+
+    override fun tap(key: String, mods: Int) {
+        sendNow(Proto.key(Key.usage(key), _mods.value.active or mods))
+        consumeArmed()
+    }
+
+    private val repeats = ConcurrentHashMap<String, Job>()
+
+    /** Injected key-downs don't auto-repeat on the Mac, so held keys repeat here (like the Keys deck). */
+    override fun keyDown(key: String) {
+        val usage = Key.usage(key)
+        sendNow(Proto.key(usage, _mods.value.active, "down"))
+        repeats.put(key, scope.launch {
+            delay(REPEAT_DELAY_MS)
+            while (isActive) { sendNow(Proto.key(usage, _mods.value.active, "down")); delay(REPEAT_MS) }
+        })?.cancel()
+    }
+
+    override fun keyUp(key: String) {
+        repeats.remove(key)?.cancel()
+        sendNow(Proto.key(Key.usage(key), _mods.value.active, "up"))
+        consumeArmed()
+    }
+
+    override suspend fun tapAwait(key: String, mods: Int) { sendNow(Proto.key(Key.usage(key), mods)); delay(10) }
+
+    /** Unicode text: layout-independent, nothing is skipped. */
+    override suspend fun typeText(text: String): Int {
+        Proto.text(text).forEach { sendNow(it) }
+        return 0
+    }
+
+    override fun consumer(usage: Int) { Proto.consumerKey(usage)?.let { sendNow(Proto.consumer(it)) } }
+
+    override fun move(dx: Float, dy: Float) {
+        synchronized(sendLock) { mx += dx * POINT_GAIN; my += dy * POINT_GAIN }
+        scheduleFlush()
+    }
+
+    override fun setButton(mask: Int, down: Boolean) = sendNow(Proto.button(Proto.buttonName(mask), if (down) "down" else "up"))
+    override fun click(mask: Int) = sendNow(Proto.button(Proto.buttonName(mask)))
+
+    /** HID wheel ticks to pixels. The helper doesn't apply natural scrolling, so the HID sign maps directly. */
+    override fun scroll(wheel: Int, pan: Int) {
+        synchronized(sendLock) { sy += wheel * SCROLL_PX; sx -= pan * SCROLL_PX }
+        scheduleFlush()
+    }
+
+    override fun clickAt(x: Float, y: Float): Boolean { sendNow(Proto.clickAt(x.toDouble(), y.toDouble())); return true }
+
+    companion object {
+        const val FRAME_MS = 16L
+        const val MAX_QUEUED = 4096L
+        const val MIN_BACKOFF = 500L
+        const val MAX_BACKOFF = 8000L
+        const val REPEAT_DELAY_MS = 400L
+        const val REPEAT_MS = 60L
+        const val SCROLL_PX = 24f
+        const val POINT_GAIN = 1f // touchpad dp to Mac points; tune on a device
+    }
+}
