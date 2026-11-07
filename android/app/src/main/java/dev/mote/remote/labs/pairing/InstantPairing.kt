@@ -128,7 +128,7 @@ object InstantPairing {
                 val pin = _records.value[c.hostId]?.fp ?: c.fp
                 val done = labsHandshake(s, me, deviceName(), pin, allowPrompt = true, onState = onState)
                 save(TrustRecord(c.hostId, done.helper.pub, done.helper.fp, done.via, c.info))
-                adopt(c, s, addr, done)
+                withContext(Dispatchers.Main) { adopt(c, s, addr, done) }
                 return@withContext done
             } finally { s.close() }
         }

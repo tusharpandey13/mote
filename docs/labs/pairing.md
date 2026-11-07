@@ -94,7 +94,7 @@ Turning Labs on in the menu also turns on "Allow Tailscale connections" (tailnet
 
 ## 5. Phone: connection order and fallback
 
-For a trusted Mac the phone tries, in order: the fresh Bonjour address, the LAN addresses from the last BLE info and the last working LAN address, `<local>.local`, then the tailnet (MagicDNS name, then `100.x`). If none answers for 15 s and the Mac is linked to a Bluetooth HID host on this phone, it switches to Bluetooth HID and keeps probing the helper every 30 s in the background, switching back when it answers. The pill shows the active path (Wi-Fi, Tailscale, BT). A `labs.pair.ok via tailscale` shows "Trusted via Tailscale" under the Mac in the sheet.
+For a trusted Mac the phone tries, in order: the fresh Bonjour address, the LAN addresses from the last BLE info and the last working LAN address, `<local>.local`, then the tailnet (MagicDNS name, then `100.x`). If none answers for 15 s and the Mac is linked to a Bluetooth HID host on this phone, it switches to Bluetooth HID and keeps probing the helper every 30 s in the background, switching back when it answers. The pill shows the active path (Wi-Fi, Tailscale, BT). A `labs.pair.ok via tailscale` shows "Trusted via Tailscale" under the Mac in the sheet. BLE discovery needs Android 12+ (`BLUETOOTH_SCAN` with `neverForLocation`; older versions require the location permission for BLE scans, which Mote doesn't ask for), so Android 9-11 find Macs through Bonjour only. A reconnect never prompts: if the Mac answers `labs.pair.pending` (it dropped this phone), the phone stops and shows the Mac as needing a new Connect.
 
 ## 6. Threat model
 
