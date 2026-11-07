@@ -161,11 +161,12 @@ fun sheen(stops: List<Pair<Float, Color>>, width: Float): Brush =
 // ---------------------------------------------------------------------------------------------
 // materials
 
-enum class Tone { NORMAL, PRIMARY, MODIFIER, DANGER, GLASS }
+/** [METAL] / [METAL_PLAY]: the rev 7 brushed / spun metal transport caps, see [metalCap]. */
+enum class Tone { NORMAL, PRIMARY, MODIFIER, DANGER, METAL, METAL_PLAY }
 
 /**
  * Plastic cap (raised): vertical gradient with grain, inner top highlight, bottom shade, a 1dp edge
- * and two soft shadows. [Tone.GLASS] switches to the acrylic transport material. Pressed inverts the
+ * and two soft shadows. Pressed inverts the
  * gradient, swaps the shadows for an inner shadow and sinks 1dp (depth is spring-animated by callers).
  */
 fun Modifier.raised(
@@ -180,9 +181,8 @@ fun Modifier.raised(
         Tone.PRIMARY -> Triple(c.primTop, c.primBot, if (c.dark) Color(0xFF0C0D10) else Color(0xFF121316))
         Tone.MODIFIER -> Triple(c.modTop, c.modBot, Color(0xFFB08C00))
         Tone.DANGER -> Triple(c.dangerContainer, c.dangerContainer, c.danger)
-        Tone.GLASS -> Triple(c.glassTop, c.glassBot, if (c.dark) Color.Black else c.keyEdge)
+        Tone.METAL, Tone.METAL_PLAY -> return@composed metalCap(shape, tone == Tone.METAL_PLAY, depth)
     }
-    val glass = tone == Tone.GLASS
     this
         .graphicsLayer {
             // press: sink 1dp and shrink to 0.96 (design 5.1)
@@ -193,8 +193,8 @@ fun Modifier.raised(
         .drawWithCache {
             val p = outlinePath(shape)
             val edgeLine = Path().apply { addPath(p, Offset(0f, 1.dp.toPx())) }
-            val near = SoftShadow(c.dshadow.copy(alpha = c.dshadow.alpha * if (glass) 1f else 0.62f), (if (glass) 6 else 3).dp.toPx(), dy = (if (glass) 4 else 2).dp.toPx())
-            val far = SoftShadow(c.dshadow, (if (glass) 14 else 10).dp.toPx(), dy = (if (glass) 8 else 6).dp.toPx())
+            val near = SoftShadow(c.dshadow.copy(alpha = c.dshadow.alpha * 0.62f), 3.dp.toPx(), dy = 2.dp.toPx())
+            val far = SoftShadow(c.dshadow, 10.dp.toPx(), dy = 6.dp.toPx())
             onDrawBehind {
                 val a = 1f - depth
                 drawShadow(p, far, a)
@@ -208,40 +208,25 @@ fun Modifier.raised(
             val fill = Brush.verticalGradient(listOf(top, bot))
             val fillPressed = Brush.verticalGradient(listOf(bot, top))
             val grain = Textures.brush(Textures.grain, density)
-            val grainA = when (tone) { Tone.GLASS -> c.grainAlpha.glass; Tone.DANGER -> 0f; else -> c.grainAlpha.plastic }
+            val grainA = if (tone == Tone.DANGER) 0f else c.grainAlpha.plastic
             val primGloss = Brush.verticalGradient(0f to Color.White.copy(alpha = 0.16f), 0.45f to Color.Transparent, 1f to Color.Transparent)
             val hiPath = crescent(p, 1.dp.toPx())
             val loPath = crescent(p, -1.dp.toPx())
             val frame = frameAround(p, 24.dp.toPx())
             val pressShadow = SoftShadow(Color(0x73000000), 4.dp.toPx(), dy = 2.dp.toPx())
-            // glass only
-            val gloss = Brush.verticalGradient(
-                0f to Color.White.copy(alpha = c.glossTop), 0.38f to Color.White.copy(alpha = c.glossMid),
-                0.40f to Color.Transparent, 1f to Color.Transparent,
-            )
-            val glow = SoftShadow(c.glassGlow, 14.dp.toPx(), dy = (-6).dp.toPx())
-            val rim = outlinePath(shape, 0.5.dp.toPx())
-            val hi = when (tone) {
-                Tone.PRIMARY -> Color(0x38FFFFFF)
-                Tone.GLASS -> c.glassTopLine
-                else -> c.hi
-            }
+            val hi = if (tone == Tone.PRIMARY) Color(0x38FFFFFF) else c.hi
             onDrawWithContent {
                 // layer order (tokens.json materials): body, textures, glow/gloss, inner lines
                 drawRect(if (pressed) fillPressed else fill)
                 drawGrain(grain, grainA)
-                if (glass) {
-                    drawInnerShadow(p, frame, glow)
-                    drawRect(gloss, alpha = if (pressed) 0.6f else 1f)
-                    drawPath(rim, Color.White.copy(alpha = c.glassRim), style = Stroke(1.dp.toPx()))
-                } else if (tone == Tone.PRIMARY) {
+                if (tone == Tone.PRIMARY) {
                     drawRect(primGloss)
                 }
                 if (depth > 0.01f) drawInnerShadow(p, frame, pressShadow, depth)
                 drawContent()
                 if (!pressed) {
                     drawPath(hiPath, hi)
-                    if (!glass) drawPath(loPath, c.lo)
+                    drawPath(loPath, c.lo)
                 }
             }
         }
@@ -339,6 +324,92 @@ fun Modifier.metal(shape: Shape, pressed: Boolean = false): Modifier = composed 
                 drawPath(hi, Color(0xE6FFFFFF))
                 drawPath(lo, Color(0x40000000))
                 drawPath(edge, c.metalEdge, style = Stroke(1.dp.toPx()))
+                drawContent()
+            }
+        }
+}
+
+/**
+ * Rev 7 transport metal (tokens.json materials.metalCap / metalCapPlay, mote.css .mcap): a 1dp
+ * metal edge and two drop shadows; the body is the metal gradient (a darker titanium in dark mode).
+ * Prev/next ([play] false) add brushed streaks, a sheen band and grain with 1dp inner lines; play/pause
+ * is spun metal: a turned conic sheen, grain, 2dp concentric rings (Overlay), a 2dp bevel and a lathe
+ * groove inset 7dp. [depth] 0..1 sinks the cap 1dp, scales it to 0.97 and fades the shadows.
+ */
+fun Modifier.metalCap(shape: Shape, play: Boolean, depth: Float): Modifier = composed {
+    val c = LocalMote.current
+    val stops = if (c.dark) listOf(Color(0xFF8A8F97), Color(0xFF5E636A), Color(0xFF4C5056), Color(0xFF70757C)) else c.metal
+    this
+        .graphicsLayer {
+            translationY = depth * 1.dp.toPx()
+            val s = 1f - 0.03f * depth
+            scaleX = s; scaleY = s
+        }
+        .drawWithCache {
+            val p = outlinePath(shape)
+            val edge = outlinePath(shape, -1.dp.toPx())
+            val near = if (play) SoftShadow(c.dshadow, 5.dp.toPx(), dy = 4.dp.toPx()) else SoftShadow(c.dshadow, 4.dp.toPx(), dy = 3.dp.toPx())
+            // spread -8dp: the far shadow is cast by a shape 8dp smaller all round
+            val farPath = outlinePath(shape, 8.dp.toPx())
+            val far = if (play) SoftShadow(c.dshadow, 18.dp.toPx(), dy = 12.dp.toPx()) else SoftShadow(c.dshadow, 16.dp.toPx(), dy = 10.dp.toPx())
+            onDrawBehind {
+                val a = 1f - 0.7f * depth
+                drawShadow(farPath, far, a)
+                drawShadow(p, near, a)
+                drawPath(edge, c.metalEdge)
+            }
+        }
+        .clip(shape)
+        .drawWithCache {
+            val p = outlinePath(shape)
+            val fill = Brush.verticalGradient(0f to stops[0], 0.48f to stops[1], 0.52f to stops[2], 1f to stops[3])
+            val brushed = Textures.brush(Textures.brushed, density)
+            val grain = Textures.brush(Textures.grain, density)
+            val sheenBrush = sheen(c.sheenMetal, size.width)
+            val ctr = Offset(size.width / 2, size.height / 2)
+            // conic sheen from 12 o'clock; sweepGradient starts at 3 o'clock, a quarter turn later
+            val a1 = if (c.dark) 0.18f else 0.25f; val a2 = if (c.dark) 0.22f else 0.30f
+            val w0 = Color.White.copy(alpha = 0f)
+            val turned = Brush.sweepGradient(
+                listOf(Color.White.copy(alpha = a1), w0, Color.White.copy(alpha = a2), w0, Color.White.copy(alpha = a1), w0,
+                    Color.White.copy(alpha = a2), w0, Color.White.copy(alpha = a1)), ctr,
+            )
+            val ringHi = Color.White.copy(alpha = if (c.dark) 0.08f else 0.10f)
+            val ringLo = Color.Black.copy(alpha = if (c.dark) 0.08f else 0.05f)
+            val rings = Brush.radialGradient(
+                0f to ringHi, 0.5f to ringHi, 0.5f to ringLo, 1f to ringLo,
+                center = ctr, radius = 2.dp.toPx(), tileMode = TileMode.Repeated,
+            )
+            val bevelW = (if (play) 2 else 1).dp.toPx()
+            val hi = crescent(p, bevelW)
+            val lo = crescent(p, -bevelW)
+            val groove = Path().apply {
+                addRoundRect(androidx.compose.ui.geometry.RoundRect(Rect(7.dp.toPx(), 7.dp.toPx(), size.width - 7.dp.toPx(), size.height - 7.dp.toPx()),
+                    androidx.compose.ui.geometry.CornerRadius(18.dp.toPx())))
+            }
+            val grooveFrame = frameAround(groove, 12.dp.toPx())
+            val grooveShade = SoftShadow(if (c.dark) Color(0x8C000000) else Color(0x38000000), 1.dp.toPx(), dy = 1.dp.toPx())
+            val grooveHi = crescent(groove, -1.dp.toPx())
+            val grooveHiColor = if (c.dark) Color(0x2EFFFFFF) else Color(0xB3FFFFFF)
+            val loColor = if (play) Color(0x47000000) else Color(0x40000000)
+            onDrawWithContent {
+                drawRect(fill)
+                if (play) {
+                    drawRect(turned)
+                    drawGrain(grain, c.grainAlpha.metal)
+                    drawRect(rings, blendMode = BlendMode.Overlay)
+                } else {
+                    drawGrain(brushed, c.brushedMetal)
+                    drawRect(sheenBrush)
+                    drawGrain(grain, c.grainAlpha.metal)
+                }
+                if (depth > 0.01f) drawRect(Color.Black.copy(alpha = 0.07f * depth))
+                drawPath(hi, Color(0xE6FFFFFF), alpha = 1f - 0.6f * depth)
+                drawPath(lo, loColor)
+                if (play) {
+                    drawInnerShadow(groove, grooveFrame, grooveShade)
+                    drawPath(grooveHi, grooveHiColor)
+                }
                 drawContent()
             }
         }

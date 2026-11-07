@@ -1,6 +1,5 @@
 package dev.mote.remote.ui
 
-import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
@@ -37,10 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -81,17 +78,20 @@ fun EngravedText(text: String, size: TextUnit, tracking: TextUnit, fill: Color, 
     }
 }
 
-/** Glass legend: ink in light; in dark an LED tint with a soft glow (blurred copy behind, API 31+). */
+/**
+ * Embossed (raised) legend on the metal transport caps (tokens.json materials.metalCap.legend): a
+ * shade copy 1dp below, a highlight copy 1dp above, then the fill; [lit] swaps the fill for the accent.
+ */
 @Composable
-fun GlassIcon(name: String, size: Dp, lit: Boolean = false) {
+fun EmbossIcon(name: String, size: Dp, lit: Boolean = false) {
     val c = LocalMote.current
+    val shade = if (c.dark) Color(0xB3000000) else Color(0x73141C28)
+    val hi = if (c.dark) Color(0x73FFFFFF) else Color(0xF2FFFFFF)
+    val fill = if (lit) c.accent else if (c.dark) Color(0xFF2A2D32) else Color(0xFF6E737B)
     Box(contentAlignment = Alignment.Center) {
-        if (c.dark && Build.VERSION.SDK_INT >= 31) {
-            MIcon(name, c.glassGlow.copy(alpha = 0.9f), size = size, modifier = Modifier.graphicsLayer {
-                renderEffect = BlurEffect(6.dp.toPx(), 6.dp.toPx(), TileMode.Decal)
-            })
-        }
-        MIcon(name, if (lit) c.accent else c.glassInk, size = size)
+        MIcon(name, shade, size = size, modifier = Modifier.offset(y = 1.dp))
+        MIcon(name, hi, size = size, modifier = Modifier.offset(y = (-1).dp))
+        MIcon(name, fill, size = size)
     }
 }
 
