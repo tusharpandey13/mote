@@ -25,7 +25,8 @@ class Ed25519Test {
             "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
             sig.toHex(),
         )
-        assertTrue(Ed25519.verify(pub, ByteArray(0), sig))
+        assertTrue(Ed25519.libraryVerify(pub, ByteArray(0), sig))
+        assertTrue(Ed25519.platformVerify(pub, ByteArray(0), sig))
     }
 
     @Test fun rfc8032Vector2() {
@@ -37,7 +38,7 @@ class Ed25519Test {
         )
     }
 
-    /** Same signatures as the JDK's EdDSA (deterministic), and each verifies the other's. */
+    /** Library path (BouncyCastle) signs like the JDK; both verify paths accept. Same signatures as the JDK's EdDSA (deterministic), and each verifies the other's. */
     @Test fun matchesJdk() {
         val rnd = Random(42)
         repeat(8) {
@@ -46,20 +47,21 @@ class Ed25519Test {
             val priv = KeyFactory.getInstance("Ed25519").generatePrivate(EdECPrivateKeySpec(NamedParameterSpec.ED25519, seed))
             val jdk = Signature.getInstance("Ed25519").run { initSign(priv); update(msg); sign() }
             assertArrayEquals(jdk, Ed25519.sign(seed, msg))
-            assertTrue(Ed25519.verify(Ed25519.publicKey(seed), msg, jdk))
+            assertTrue(Ed25519.libraryVerify(Ed25519.publicKey(seed), msg, jdk))
+            assertTrue(Ed25519.platformVerify(Ed25519.publicKey(seed), msg, jdk))
         }
     }
 
-    @Test fun rejectsTampering() {
+    @Test fun rejectsTampering() = listOf(Ed25519::libraryVerify, Ed25519::platformVerify).forEach { v ->
         val seed = Random(1).nextBytes(32)
         val pub = Ed25519.publicKey(seed)
         val msg = "hello".toByteArray()
         val sig = Ed25519.sign(seed, msg)
-        assertFalse(Ed25519.verify(pub, "hellp".toByteArray(), sig))
-        assertFalse(Ed25519.verify(pub, msg, sig.copyOf().also { it[5] = (it[5].toInt() xor 1).toByte() }))
-        assertFalse(Ed25519.verify(pub, msg, sig.copyOf().also { it[40] = (it[40].toInt() xor 1).toByte() }))
-        assertFalse(Ed25519.verify(Ed25519.publicKey(Random(2).nextBytes(32)), msg, sig))
-        assertFalse(Ed25519.verify(pub, msg, sig.copyOf(63)))
-        assertFalse(Ed25519.verify(ByteArray(32) { 0xff.toByte() }, msg, sig))
+        assertFalse(v(pub, "hellp".toByteArray(), sig))
+        assertFalse(v(pub, msg, sig.copyOf().also { it[5] = (it[5].toInt() xor 1).toByte() }))
+        assertFalse(v(pub, msg, sig.copyOf().also { it[40] = (it[40].toInt() xor 1).toByte() }))
+        assertFalse(v(Ed25519.publicKey(Random(2).nextBytes(32)), msg, sig))
+        assertFalse(v(pub, msg, sig.copyOf(63)))
+        assertFalse(v(ByteArray(32) { 0xff.toByte() }, msg, sig))
     }
 }

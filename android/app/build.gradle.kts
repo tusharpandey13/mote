@@ -70,6 +70,9 @@ android {
 
     buildFeatures { compose = true }
 
+    // BouncyCastle (Ed25519 only) ships ~1.3 MB of PQC / X.509 data files the RFC 8032 code never reads.
+    packaging { resources { excludes += "org/bouncycastle/**" } }
+
     lint {
         abortOnError = true
         checkReleaseBuilds = true
@@ -84,6 +87,7 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.datastore.preferences)
     implementation(libs.okhttp)
+    implementation(libs.bouncycastle) // Labs instant pairing: Ed25519 below API 33 (lightweight RFC 8032 class only; R8 strips the rest)
     testImplementation(libs.junit)
     testImplementation(libs.org.json) // the JVM test classpath has only stubs of android.jar's org.json
 
