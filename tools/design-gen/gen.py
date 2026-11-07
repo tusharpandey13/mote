@@ -764,6 +764,450 @@ def dpad_press_page():
     return page("D-pad joystick", body)
 
 # ---------------------------------------------------------------- write
+# ================================================================ user journeys (storyboards)
+# Wide artboards: numbered steps left->right, each a real phone screen at 50% and/or Mac-side UI.
+ARROW = '<div class="arrow"><svg viewBox="0 0 44 20"><path d="M2 10h36M30 3l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'
+
+def jpage(title, body, width_css=""):
+    """A journey page: mote.css + journeys.css, light theme, flicker off (static storyboards)."""
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mote — {title}</title>
+<link rel="stylesheet" href="mote.css">
+<link rel="stylesheet" href="journeys.css">
+<style>{MEDIA_CSS}{SHEET_CSS}{LOST_CSS}{SPACES_CSS}{MACROS_CSS}{KEYS_CSS}{PAD_CSS}{width_css}</style>
+</head>
+<body>
+{body}
+<script src="icons.js"></script>
+</body>
+</html>
+"""
+
+def phone(screen_html, dc, taps=(), drags=(), dark=False):
+    """screen_html: a full .screen div (412x915). taps: (x, y[, 'hold']) in screen dp. drags: (x, y, len, deg)."""
+    marks = "".join(f'<span class="tap{" hold" if len(t) > 2 else ""}" style="left:{t[0]/2}px;top:{t[1]/2}px"></span>' for t in taps)
+    marks += "".join(f'<span class="drag" style="left:{x/2}px;top:{y/2}px;width:{l/2}px;transform:rotate({a}deg)"></span>' for x, y, l, a in drags)
+    return f'<div class="phone{" dark" if dark else ""}" data-dc-id="{dc}"><div class="vp">{screen_html}{marks}</div></div>'
+
+def mac(inner, dc, menubar=True, items="", cap=""):
+    mb = f'<div class="menubar"><span class="mi">{items}</span><span class="mi">Fri 9:41</span></div>' if menubar else ""
+    capd = f'<div class="mac-cap">{cap}</div>' if cap else ""
+    return f'<div class="mac" data-dc-id="{dc}">{mb}{inner}{capd}</div>'
+
+def mote_menubar_icon(on=True, open_=False):
+    dot = '<circle cx="8" cy="8" r="2.2" fill="currentColor"/>' if on else '<circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/>'
+    svg = f'<svg width="16" height="16" viewBox="0 0 16 16">{dot}<path d="M4.6 4.6a4.8 4.8 0 0 0 0 6.8M11.4 4.6a4.8 4.8 0 0 1 0 6.8M2.6 2.6a7.6 7.6 0 0 0 0 10.8M13.4 2.6a7.6 7.6 0 0 1 0 10.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+    return f'<span class="mi{" on" if open_ else ""}" title="Mote Helper">{svg}</span>'
+
+def step(n, dc, cap, small="", phones=(), macs=()):
+    parts = "".join(phones) + "".join(macs)
+    sm = f"<small>{small}</small>" if small else ""
+    return f'<div class="step" data-dc-id="{dc}"><span class="num">{n}</span><div class="row">{parts}</div><p class="cap">{cap}{sm}</p></div>'
+
+def journey(jid, title, status, sub, steps):
+    badge = '<span class="badge shipped" data-dc-id="status">Shipped</span>' if status == "shipped" else '<span class="badge labs" data-dc-id="status">Preview (Labs)</span>'
+    flow = ARROW.join(steps)
+    body = f"""<div class="jb" data-dc-id="{jid}">
+  <div class="jb-head"><h1 data-dc-id="title">{title}</h1>{badge}</div>
+  <p class="jb-sub" data-dc-id="summary">{sub}</p>
+  <div class="steps" data-dc-id="steps">{flow}</div>
+</div>"""
+    return jpage(title, body)
+
+import re as _re
+def scr(inner, mode="media", state="connected", overlay=""):
+    return screen(inner, mode, state, overlay)
+def media_with_panel(panel):
+    return _re.sub(r'<section class="fav-wrap.*?</section>', panel, media_inner(), count=1, flags=_re.S)
+def jsheet(dc, inner):
+    return f'<div class="jscrim"></div><section class="jsheet" data-dc-id="{dc}"><div class="handle"></div>{inner}</section>'
+def pill(name, led="led", badge="", cls=""):
+    b = f'<span class="tbadge {cls}">{badge}</span>' if badge else ""
+    return f'<div class="pill raised" style="margin:0"><span class="{led}"></span><span class="name">{name}</span>{b}<i data-i="chevDown" class="i20 chev"></i></div>'
+def topbar_with(pill_html, lit=True):
+    return f'<header class="topbar" data-dc-id="topbar">{pill_html}{brand("connected" if lit else "off")}</header>'
+def scr_badge(inner, mode, pill_html, overlay="", lit=True):
+    return f"""<div class="screen" data-dc-id="screen">{STATUS}{topbar_with(pill_html, lit)}{inner}{rail(mode)}{overlay}</div>"""
+def desk(inner="", dim=False):
+    return f'<div class="desk{" dim" if dim else ""}">{inner}</div>'
+def win(x, y, w, h, title, body, dc=""):
+    return f'<div class="win" style="left:{x}px;top:{y}px;width:{w}px;height:{h}px" data-dc-id="{dc}"><div class="tb"><i></i><i></i><i></i><span style="margin-left:6px">{title}</span></div><div class="bd" style="height:{h-20}px">{body}</div></div>'
+
+# ---- 8. Instant pairing (Labs)
+def j08():
+    near = jsheet("j8-connect-sheet", f"""<div class="hero-dev raised"><i data-i="laptop"></i></div>
+      <h2 class="t-headline ctr">Connect to MacBook Pro?</h2>
+      <p class="t-body-s muted ctr" style="margin-top:6px">Found nearby with Bluetooth. The Mac will ask you to allow this phone.</p>
+      <div class="btn-row"><div class="btn-secondary raised">Not now</div><div class="btn-primary accent-cap">Connect</div></div>""")
+    s1 = scr_badge(media_inner(offline=True), "media", pill("No device", "led red"), near, lit=False)
+    alert = desk('<div class="alert"><div class="ic">MOTE</div><b>Allow “Pixel 8” to control this Mac?</b><p>Mote Helper will accept keyboard, mouse and media input from this phone.</p><div class="btns"><span>Don’t Allow</span><span class="def">Allow</span></div></div>')
+    s3 = scr_badge(media_inner(), "media", pill("MacBook Pro", "led", "Wi-Fi", "lan"))
+    ts = jsheet("j8-trusted", """<div class="hero-dev raised"><i data-i="check"></i></div>
+      <h2 class="t-headline ctr">Connected to MacBook Pro</h2>
+      <p class="t-body-s muted ctr" style="margin-top:6px">Trusted via Tailscale: this phone and the Mac belong to the same tailnet owner, so no prompts were needed.</p>""")
+    s4 = scr_badge(media_inner(), "media", pill("MacBook Pro", "led", "Tailscale", "ts"), ts)
+    fall = f"""<div class="mac" data-dc-id="j8-fallback" style="width:370px;padding:18px;background:var(--surface-1);color:var(--on-surface)">
+      <div class="t-caps subtle">Silent reconnect, best route first</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
+        {pill("MacBook Pro", "led", "Wi-Fi", "lan")}<span class="t-body-s muted">1. Same Wi-Fi (LAN): fastest</span>
+        {pill("MacBook Pro", "led amber", "Tailscale", "ts")}<span class="t-body-s muted">2. Away from home: tailnet</span>
+        {pill("MacBook Pro", "led", "Bluetooth", "bt")}<span class="t-body-s muted">3. No network: Bluetooth fallback</span></div></div>"""
+    steps = [
+        step(1, "j8-s1", "Open Mote near the Mac", "A Connect sheet appears (BLE discovery)", [phone(s1, "j8-p1", taps=[(306, 760)])]),
+        step(2, "j8-s2", "The Mac asks once", "Allow sets up trust; nothing to type", macs=[mac(alert, "j8-m2", items=mote_menubar_icon())]),
+        step(3, "j8-s3", "Connected", "The wordmark lights; the pill shows the route", [phone(s3, "j8-p3")]),
+        step(4, "j8-s4", "Variant: same Tailscale owner", "Zero prompts: trusted via Tailscale", [phone(s4, "j8-p4")]),
+        step(5, "j8-s5", "Later: reconnects silently", "LAN, then tailnet, then Bluetooth", macs=[fall]),
+    ]
+    return journey("journey-instant-pairing", "8. Instant pairing", "labs",
+        "Open the app near your Mac and connect with one tap and one Mac confirmation. A Tailscale owner match skips the prompt entirely; later reconnects pick the best route on their own.", steps)
+
+# ---- 9. Smart remote (Labs)
+def j09():
+    nflx = f"""<section class="panel raised" data-dc-id="j9-netflix-panel">
+      <div class="src"><span class="app" style="background:#E50914">N</span>Netflix in front<span class="preview-tag" style="margin-left:auto">Preview</span></div>
+      <div class="ttl">Episode 3: The Long Night</div>
+      <div class="scrub"><i style="width:22%"></i><b style="left:22%"></b></div><div class="times"><span>9:12</span><span>-41:30</span></div>
+      <div class="chips2"><span class="raised acc"><i data-i="next" class="i16"></i>Skip intro</span><span class="raised">Fullscreen</span></div></section>"""
+    yt = f"""<section class="panel raised" data-dc-id="j9-youtube-panel">
+      <div class="src"><span class="app" style="background:#FF0000">▶</span>YouTube in front<span class="preview-tag" style="margin-left:auto">Preview</span></div>
+      <div class="ttl">Building a desk lamp from scrap</div>
+      <div class="scrub"><i style="width:58%"></i><b style="left:58%"></b></div><div class="times"><span>6:40</span><span>-4:51</span></div>
+      <div class="chips2"><span class="raised">−10 s</span><span class="raised">+10 s</span><span class="raised">Next</span><span class="raised acc">CC</span></div></section>"""
+    m1 = desk(win(20, 20, 300, 220, "Netflix", '<div style="position:absolute;inset:0;background:#111"></div><div style="position:absolute;right:12px;bottom:12px;padding:5px 9px;border:1px solid #fff;color:#fff;font-size:11px">Skip Intro</div>'))
+    m2 = desk(win(20, 20, 300, 220, "YouTube", '<div style="position:absolute;inset:0;background:#0F0F0F"></div><div style="position:absolute;left:12px;right:12px;bottom:14px;height:3px;background:#555"><i style="display:block;width:58%;height:3px;background:#F00"></i></div>'))
+    m3 = desk(win(20, 20, 300, 220, "Safari", '<div style="margin:30px 24px;height:28px;border-radius:7px;box-shadow:0 0 0 3px #2F7CF6;padding:6px 10px;font-size:12px;color:#888">Search…<span style="color:#000">|</span></div>'))
+    kb = """<div class="autokb raised" data-dc-id="j9-autokb"><i data-i="modeKeys"></i><span><b>Keyboard opened</b> for a text field on the Mac</span><span class="x raised" data-dc-id="j9-stop-autokb">Stop auto-keyboard</span></div>"""
+    p3 = scr(keys_inner(), "keys", overlay=kb)
+    steps = [
+        step(1, "j9-s1", "Netflix is in front", "Media adds Skip intro, Fullscreen and a scrubber", [phone(scr(media_with_panel(nflx), "media"), "j9-p1", taps=[(110, 300)])], [mac(m1, "j9-m1", items=mote_menubar_icon())]),
+        step(2, "j9-s2", "Switch to YouTube", "Seek, Next and captions; the joystick stays", [phone(scr(media_with_panel(yt), "media"), "j9-p2")], [mac(m2, "j9-m2", items=mote_menubar_icon())]),
+        step(3, "j9-s3", "A search field gets focus", "Keys opens by itself; one tap turns that off", [phone(p3, "j9-p3")], [mac(m3, "j9-m3", items=mote_menubar_icon())]),
+    ]
+    return journey("journey-smart-remote", "9. Smart remote", "labs",
+        "Mote reads which app is in front (via the helper) and adds the controls that app needs, then gets out of the way.", steps)
+
+# ---- 10. Open… + TV mode (Labs, spec in docs/labs/open-tv.md)
+SITES = [("YouTube", "#FF0000", "▶"), ("Netflix", "#E50914", "N"), ("Prime Video", "#00A8E1", "P"), ("Disney+", "#113CCF", "D"), ("Twitch", "#9146FF", "T"), ("Spotify", "#1DB954", "S")]
+def open_sheet(query="lofi beats", link=""):
+    sites = "".join(f'<span class="raised"><i style="background:{c}">{g}</i>{n}</span>' for n, c, g in SITES)
+    val = link or query
+    return jsheet("j10-open-sheet", f"""<div style="display:flex;align-items:center;justify-content:space-between"><h2 class="t-headline">Open on Mac</h2><span class="preview-tag">Preview</span></div>
+      <div class="field focus searchf" style="margin-top:12px"><i data-i="search" class="i20"></i><span class="t-body">{val}</span><i data-i="mic" class="i20" style="margin-left:auto"></i></div>
+      <div class="btn-row" style="margin-top:10px"><div class="btn-secondary raised">Paste</div><div class="btn-primary accent-cap">Open</div></div>
+      <p class="t-body-s subtle" style="margin-top:8px">Links open on the Mac; YouTube opens in TV mode. Tap the keyboard mic to speak.</p>
+      <span class="t-caps subtle" style="display:block;margin-top:14px">Quick actions</span>
+      <div class="qa"><span class="raised"><i data-i="close" class="i20"></i>Close this tab</span><span class="raised"><i data-i="windows" class="i20"></i>Exit fullscreen</span><span class="raised"><i data-i="playPause" class="i20"></i>Pause everything</span><span class="raised"><i data-i="tv" class="i20"></i>Open TV mode on the Mac</span></div>
+      <span class="t-caps subtle" style="display:block;margin-top:14px">Pinned</span><div class="sites">{sites}</div>""")
+def tv_remote_inner():
+    return f"""<main class="content media" data-dc-id="media-content">
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 2px"><span class="t-caps">TV mode</span><span class="preview-tag">Preview</span><span class="edit-chip raised" style="margin-left:auto" data-dc-id="j10-exit-tv">Exit</span></div><p class="t-body-s muted" style="margin-bottom:12px">YouTube</p>
+      <div class="tvpad" data-dc-id="j10-tv-remote">{dpad()}
+        <div class="tvkeys"><span class="raised">Back</span><span class="raised">Home</span><span class="raised"><i data-i="search" class="i20"></i>Search</span>
+          <span class="raised"><i data-i="volDown" class="i20"></i></span><span class="raised"><i data-i="playPause" class="i20"></i></span><span class="raised"><i data-i="volUp" class="i20"></i></span></div></div></main>"""
+def tv_window(kind="results"):
+    if kind == "results":
+        tiles = "".join(f'<div class="tile2{" focus" if k == 1 else ""}"></div>' for k in range(4))
+        body = f'<div style="font:700 16px/1 var(--font-ui)"><span style="color:#F00">▶</span> YouTube</div><div class="rowt">Results for “lofi beats”</div><div class="tiles">{tiles}</div><div class="rowt">Live</div><div class="tiles">{"".join("<div class=tile2></div>" for _ in range(4))}</div>'
+    else:
+        body = '<div style="display:flex;justify-content:space-between;margin-bottom:16px"><span style="font:900 13px/1 Unbounded;letter-spacing:2px">MOTE</span><span style="font:600 11px/1 var(--font-ui);color:#999">TV mode · Preview</span></div><div class="launch">' + "".join(f'<span style="background:{c}">{g}</span>' for n, c, g in SITES[:4]) + '</div><div class="launch" style="margin-top:10px">' + "".join(f'<span style="background:{c}">{g}</span>' for n, c, g in SITES[4:]) + '</div><div style="position:absolute;left:18px;bottom:14px;font:500 10px/1 var(--font-ui);color:#888">Arrows move · OK opens · Back on YouTube goes back · Exit TV mode from the phone or the helper menu</div>'
+    return f'<div class="tv" data-dc-id="j10-tv-{kind}">{body}</div>'
+def share_sheet():
+    apps = "".join(f'<span class="raised" style="flex-direction:column;height:72px;justify-content:center;gap:6px"><i style="background:{c}">{g}</i>{n}</span>' for n, c, g in [("Open on Mac", "#26282C", "M"), ("Messages", "#34C759", "✉"), ("Drive", "#1A73E8", "D")])
+    return jsheet("j10-share", f"""<span class="t-label">Share link</span><p class="t-body-s muted" style="margin-top:4px">youtube.com/watch?v=dQw4w9WgXcQ</p><div class="sites" style="margin-top:14px">{apps}</div>""")
+def j10():
+    steps = [
+        step(1, "j10-s1", "Open on Mac (top-bar search icon)", "Search YouTube, paste a link, a pin or a quick action", [phone(scr(media_inner(), "media", overlay=open_sheet()), "j10-p1", taps=[(300, 300)])]),
+        step(2, "j10-s2", "The Mac opens TV mode", "YouTube’s leanback UI, fullscreen on the active display", macs=[mac(tv_window("results"), "j10-m2", menubar=False, cap="TV mode: borderless fullscreen window (helper), youtube.com/tv")]),
+        step(3, "j10-s3", "Media becomes a TV remote", "D-pad, Back, Home, Search, play and volume", [phone(scr(tv_remote_inner(), "media"), "j10-p3")]),
+        step(4, "j10-s4", "Home shows the launcher", "“Mote TV” tiles; Netflix, Prime Video and Disney+ open in the browser", macs=[mac(tv_window("launcher"), "j10-m4", menubar=False, cap="Exit from the phone, or Labs › Exit TV mode in the helper menu")]),
+        step(5, "j10-s5", "Share a link from any app", "“Open on Mac” only pre-fills the sheet; nothing is sent until you tap Open", [phone(scr(media_inner(), "media", overlay=share_sheet()), "j10-p5", taps=[(76, 790)]), phone(scr(media_inner(), "media", overlay=open_sheet(link="youtube.com/watch?v=dQw4w9WgXcQ")), "j10-p6", taps=[(300, 296)])]),
+    ]
+    return journey("journey-open-tv", "10. Open on Mac and TV mode", "labs",
+        "Pick what to watch from the phone and steer it like a TV. Off by default on both sides: Settings › Labs › Open &amp; TV mode (preview) on Android, Labs › TV mode (preview) in the helper menu. On main today.", steps)
+
+# ---- 11. Browser video bridge (Labs)
+def j11():
+    ext = desk(win(16, 14, 308, 250, "Extensions", """<div style="padding:10px 12px;font-size:11.5px"><div style="display:flex;justify-content:space-between;align-items:center"><b>Extensions</b><span style="font-size:10.5px">Developer mode <span style="display:inline-block;width:22px;height:12px;border-radius:6px;background:#2F7CF6;vertical-align:-2px"></span></span></div>
+      <div style="margin-top:10px;display:flex;gap:6px"><span style="padding:4px 8px;border-radius:5px;box-shadow:0 0 0 2px #2F7CF6;font-size:10.5px">Load unpacked</span><span style="padding:4px 8px;border-radius:5px;background:#EEE;font-size:10.5px">Pack extension</span></div>
+      <div style="margin-top:14px;padding:10px;border-radius:8px;box-shadow:0 0 0 1px #DDD;display:flex;gap:10px;align-items:center"><span style="width:28px;height:28px;border-radius:7px;background:#26282C;color:#A8DEFF;display:grid;place-items:center;font:900 7px/1 Unbounded">MOTE</span><div><b>Mote video bridge</b><div style="color:#777">Lets Mote control videos in this browser</div></div></div></div>""", "j11-ext"))
+    popup = desk(win(16, 14, 308, 250, "YouTube", '<div style="position:absolute;inset:0;background:#0F0F0F"></div>' + """<div style="position:absolute;right:10px;top:8px;width:170px;padding:12px;border-radius:10px;background:#fff;box-shadow:0 8px 20px rgba(0,0,0,.4);font-size:11.5px">
+      <b>Pair with Mote Helper</b><div style="color:#777;margin-top:3px">Enter the code from the menu bar</div>
+      <div style="margin-top:8px;height:28px;border-radius:6px;box-shadow:0 0 0 2px #2F7CF6;display:grid;place-items:center;font:700 16px/1 var(--font-ui);letter-spacing:3px">482 913</div>
+      <div style="margin-top:8px;height:24px;border-radius:6px;background:#2F7CF6;color:#fff;display:grid;place-items:center">Pair</div></div>""", "j11-popup"))
+    web = f"""<section class="panel raised" data-dc-id="j11-web-panel">
+      <div class="src"><span class="app" style="background:#26282C">⧉</span>Web video, Chrome<span class="preview-tag" style="margin-left:auto">Preview</span></div>
+      <div class="ttl">How a lathe works, in 12 minutes</div>
+      <div class="scrub"><i style="width:34%"></i><b style="left:34%"></b></div><div class="times"><span>4:05</span><span>-7:55</span></div>
+      <div class="chips2"><span class="raised">1.25×</span><span class="raised acc">CC</span><span class="raised">Skip ad</span><span class="raised">Skip intro</span></div></section>"""
+    play = desk(win(16, 14, 308, 250, "YouTube", '<div style="position:absolute;inset:0;background:#0F0F0F"></div><div style="position:absolute;left:12px;right:12px;bottom:16px;height:3px;background:#555"><i style="display:block;width:34%;height:3px;background:#F00"></i></div><div style="position:absolute;left:12px;top:10px;padding:3px 7px;border-radius:5px;background:rgba(0,0,0,.6);color:#A8DEFF;font-size:10.5px">Controlled by Mote</div>', "j11-playing"))
+    steps = [
+        step(1, "j11-s1", "Install the extension", "Chrome › Extensions › Developer mode › Load unpacked", macs=[mac(ext, "j11-m1", items=mote_menubar_icon())]),
+        step(2, "j11-s2", "Pair it with the helper", "Same 6-digit code as phones, from the menu bar", macs=[mac(popup, "j11-m2", items=mote_menubar_icon())]),
+        step(3, "j11-s3", "The phone gets a Web video panel", "Scrubber, speed, captions, skip ad and intro", [phone(scr(media_with_panel(web), "media"), "j11-p3", taps=[(70, 308)])]),
+        step(4, "j11-s4", "The browser video follows", "Seeking and speed are exact, not key presses", macs=[mac(play, "j11-m4", items=mote_menubar_icon())]),
+    ]
+    return journey("journey-video-bridge", "11. Browser video bridge", "labs",
+        "A small browser extension tells the helper what the page’s video is doing, so the phone controls the video itself instead of guessing with keys.", steps)
+
+# ---- 12. Live screen (Labs)
+def j12():
+    warn = jsheet("j12-lan-warning", """<h2 class="t-headline">Show the Mac’s screen?</h2>
+      <p class="t-body-s muted" style="margin-top:8px">The screen is streamed to this phone over your local network. Use it only on networks you trust. The Mac shows “Sharing screen” in the menu bar while it’s on.</p>
+      <div class="btn-row"><div class="btn-secondary raised">Cancel</div><div class="btn-primary accent-cap">Start</div></div>""")
+    live = """<div class="livev" data-dc-id="j12-live"><div class="scr"><div style="position:absolute;left:60px;top:40px;width:220px;height:150px;border-radius:5px;background:#fff;box-shadow:0 6px 16px rgba(0,0,0,.35)"></div></div>
+      <svg class="cursor" style="left:200px;top:210px" viewBox="0 0 24 24"><path fill="currentColor" stroke="#000" stroke-width="1.2" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z"/></svg>
+      <span class="pinch">Pinch to zoom · 2.0×</span></div>"""
+    close = """<div class="livev" data-dc-id="j12-live-close" style="background:#111"><span class="pinch" style="left:16px;right:auto">Tap to click</span><div class="icon-btn raised" style="position:absolute;right:14px;top:10px;color:#fff;background:#333">✕</div></div>"""
+    sharing = desk('', dim=False)
+    menu = """<div class="menu"><div class="it"><b>Mote Helper</b></div><div class="sep"></div><div class="it"><span><span class="rec-dot"></span>&nbsp; Sharing screen with Pixel 8</span></div><div class="it hl">Stop sharing</div><div class="sep"></div><div class="it dis">Labs</div></div>"""
+    steps = [
+        step(1, "j12-s1", "Open Screen", "First use explains it streams over the LAN", [phone(scr(media_inner(), "media", overlay=warn), "j12-p1", taps=[(306, 838)])]),
+        step(2, "j12-s2", "See the Mac live", "Pinch to zoom; tap to click where you point", [phone(scr(media_inner(), "mouse", overlay=live), "j12-p2", taps=[(214, 448)])]),
+        step(3, "j12-s3", "The Mac shows it’s shared", "A red dot in the menu bar for as long as it streams", macs=[mac(desk(menu), "j12-m3", items='<span class="mi on"><span class="rec-dot"></span>&nbsp;Sharing screen</span>' + mote_menubar_icon())]),
+        step(4, "j12-s4", "Close the view", "The stream stops and the indicator goes away", [phone(scr(media_inner(), "mouse", overlay=close), "j12-p4", taps=[(384, 104)])], [mac(desk(), "j12-m4", items=mote_menubar_icon(), cap="No indicator: nothing is shared")]),
+    ]
+    return journey("journey-live-screen", "12. Live screen", "labs",
+        "See the Mac’s screen on the phone and click by tapping on it. Explicit, visible and it stops the moment you close it.", steps)
+
+# ---------------- shipped journeys (strings verbatim from android/ + helper/, v0.4.0)
+def media_shipped(offline=False, stick=None):
+    m = media_inner(offline)
+    m = m.replace('<div class="fav add" style="grid-column: span 4" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div>',
+                  '<div class="fav raised" data-dc-id="fav-return"><i data-i="ret" class="i20"></i><span class="lb">Return</span></div><div class="fav add" style="grid-column: span 3" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div>')
+    if stick:
+        m = m.replace(dpad(), dpad(*stick))
+    return m
+def bare(inner, overlay="", top=None):
+    """Screen without the mode rail (gate / full-screen flows)."""
+    return f'<div class="screen" style="grid-template-rows:var(--status-h) var(--top-h) 1fr var(--nav-h)" data-dc-id="screen">{STATUS}{top or topbar_with(pill("Choose a device", "led red"), lit=False)}{inner}<div class="navbar"></div>{overlay}</div>'
+def sysdlg(dc, title, body, buttons, extra=""):
+    btns = "".join(f'<span style="font:600 15px/1 var(--font-ui);color:#1D6FB8">{b}</span>' for b in buttons)
+    return f'''<div class="jscrim"></div><div data-dc-id="{dc}" style="position:absolute;left:28px;right:28px;top:300px;z-index:7;padding:24px 24px 18px;border-radius:28px;background:#ECEEF3;color:#1C1D20;box-shadow:0 20px 40px rgba(0,0,0,.35)">
+      <div style="font:500 19px/26px var(--font-ui)">{title}</div><div style="margin-top:10px;font:400 14px/20px var(--font-ui);color:#45474D">{body}</div>{extra}
+      <div style="display:flex;justify-content:flex-end;gap:28px;margin-top:20px">{btns}</div></div>'''
+def gate(state="perm"):
+    body = {"perm": ("Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices so it can pair and connect, then turn Bluetooth on.", "Connect with Bluetooth"),
+            "off": ("Mote works as a keyboard, mouse and media remote for your computer. Bluetooth is off; turn it on to continue.", "Turn on Bluetooth")}[state]
+    return f'''<main class="content" data-dc-id="bt-gate" style="display:flex;flex-direction:column;justify-content:center;gap:14px;padding:0 28px">
+      <div class="hero-dev raised" style="width:96px;height:96px;margin:0 auto 6px"><i data-i="bluetooth"></i></div>
+      <h1 class="t-headline ctr">How do you want to connect?</h1>
+      <p class="t-body muted ctr">{body[0]}</p>
+      <div class="btn-primary accent-cap" style="margin-top:12px" data-dc-id="gate-primary">{body[1]}</div>
+      <div class="btn-secondary raised" data-dc-id="gate-wifi">Use Wi-Fi with Mote Helper</div>
+      <p class="t-body-s subtle ctr">Needs the free Mote Helper app on the Mac (tusharpandey13.github.io/mote). Adds Unicode typing, precise brightness and click-at-point.</p></main>'''
+def badges(*rs, active=None):
+    return "".join(f'<span class="tbadge{" lan" if r == active else ""}" style="{"box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent);" if r == active else ""}">{r.upper()}</span>' for r in rs)
+def devrow(dc, icon, name, status, rbadges="", sel=False, extra=""):
+    return f'''<div class="row-item {'raised' if sel else 'flat'}" data-dc-id="{dc}"><i data-i="{icon}"></i><div class="tx"><div class="t-label">{name}</div><div class="sub">{status}</div></div><span style="display:flex;gap:4px">{rbadges}</span>{extra}</div>'''
+def devices(note="Mote reconnects to the selected device while the app is open.", rows="", hl=None):
+    def b(lbl, dc):
+        return f'<div class="btn-secondary raised" style="height:48px{";box-shadow:0 0 0 2px var(--accent)" if hl == dc else ""}" data-dc-id="{dc}">{lbl}</div>'
+    return jsheet("devices-sheet", f'''<h2 class="t-headline">Devices</h2><p class="t-body-s muted" style="margin:6px 0 12px">{note}</p>
+      <div class="list" style="display:flex;flex-direction:column;gap:8px">{rows}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">{b("Add Mac over Wi-Fi", "dev-add-wifi")}{b("Enter address", "dev-enter-address")}{b("Pair new Bluetooth device", "dev-pair-bt")}</div>
+      <p class="t-body-s subtle" style="margin-top:8px">Makes this phone visible for 2 minutes. Pair it from the computer's Bluetooth settings; Android asks you to confirm the code.</p>''')
+def mac_bt_settings(code=None):
+    rows = '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #E3E3E7"><span>AirPods Pro</span><span style="color:#888">Not connected</span></div>'
+    rows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0"><span><b>Pixel 8</b></span><span style="padding:2px 9px;border-radius:5px;background:#2F7CF6;color:#fff;font-size:11px">Connect</span></div>'
+    alert = f'<div class="alert"><b>Bluetooth pairing request</b><p>Confirm that “Pixel 8” shows this code:</p><div style="font:700 22px/30px var(--font-ui);letter-spacing:3px;margin-top:4px">{code}</div><div class="btns"><span>Cancel</span><span class="def">Connect</span></div></div>' if code else ""
+    return desk(win(16, 14, 308, 250, "Bluetooth", f'<div style="padding:10px 12px;font-size:11.5px"><b>Bluetooth</b> <span style="float:right">On</span><div style="color:#888;margin:10px 0 4px">Nearby Devices</div>{rows}</div>', "mac-bt-settings") + alert)
+def helper_menu(pairing=False, connected=False):
+    items = ['<div class="it"><b>Mote Helper: Ready</b></div>']
+    if pairing:
+        items += ['<div class="it">Pairing code: 482 913</div>', '<div class="it">Show pairing code and QR…</div>', '<div class="it">Stop pairing</div>']
+    else:
+        items += ['<div class="it hl">Pair new device… <span>⌘N</span></div>']
+    items += ['<div class="sep"></div>', '<div class="it">Wi-Fi remote: http://macbook-pro.local:8790</div>', '<div class="it dis">&nbsp;&nbsp;&nbsp;&nbsp; or http://192.168.1.20:8790</div>',
+              '<div class="sep"></div>', '<div class="it">Allow Tailscale connections</div>', '<div class="it dis">Tailscale: not detected (is it running?)</div>', '<div class="sep"></div>']
+    items += ['<div class="it">Connected devices:</div>', '<div class="it dis">&nbsp;&nbsp; Pixel 8 · Wi-Fi</div>'] if connected else ['<div class="it dis">No connected devices</div>']
+    items += ['<div class="it dis">Paired devices: 1</div>' if connected else '<div class="it dis">Paired devices: 0</div>', '<div class="sep"></div>', '<div class="it">Labs <span>▸</span></div>', '<div class="it">Pause input <span>⌘P</span></div>', '<div class="it">Quit Mote Helper <span>⌘Q</span></div>']
+    return f'<div class="menu" style="width:262px">{"".join(items)}</div>'
+def pairing_window():
+    return desk(win(30, 8, 280, 284, "Pair a device with Mote", '''<div style="padding:12px;text-align:center;font-size:11.5px"><div style="color:#555">Enter this code in the Mote remote</div>
+      <div style="font:700 30px/38px var(--font-ui);letter-spacing:4px">482 913</div><div class="qr"></div>
+      <div style="color:#777;margin-top:8px">Or scan with the phone camera (same Wi-Fi) to open http://…</div>
+      <div style="color:#999;margin-top:6px;font-size:10.5px">Pairing closes after 5 minutes or once a device pairs. Only pair devices you own.</div></div>''', "mac-pair-window"))
+def wifi_add(found=True):
+    row = devrow("wifi-found", "laptop", "MacBook Pro", "192.168.1.20", badges("Wi-Fi")) if found else '<p class="t-body-s muted">Looking for Macs on this Wi-Fi…</p>'
+    return f'''<main class="content" data-dc-id="add-wifi" style="display:flex;flex-direction:column;gap:12px">
+      <h1 class="t-headline">Add Mac over Wi-Fi</h1>
+      <p class="t-body-s muted">On the Mac, open the Mote Helper menu and choose Pair new device. Then pick the Mac here, or scan its QR with the camera and tap Open in the Mote app.</p>
+      {row}<div class="btn-row" style="margin-top:4px"><div class="btn-secondary raised">Scan again</div><div class="btn-secondary raised">Enter address</div></div>
+      <p class="t-body-s subtle" style="margin-top:auto">No Mote Helper yet? Get it at tusharpandey13.github.io/mote</p></main>'''
+def code_screen(code="482913", note=""):
+    return f'''<main class="content" data-dc-id="pair-code-screen" style="display:flex;flex-direction:column;gap:14px">
+      <h1 class="t-headline">Pair with MacBook Pro</h1>
+      <p class="t-body-s muted">Enter the 6-digit code shown in the Mote Helper pairing window on the Mac.</p>
+      <div class="field focus"><span class="t-title" style="letter-spacing:4px">{code}</span></div>{note}
+      <div class="btn-primary accent-cap">Pair</div></main>'''
+def scr_route(inner, route, overlay="", lit=True, mode="media", led="led"):
+    return scr_badge(inner, mode, pill("MacBook Pro", led, route.upper() if route else "", "lan"), overlay, lit)
+
+def j01():
+    perm = sysdlg("android-perm", "Allow Mote to find, connect to and determine the relative position of nearby devices?", "", ["Don’t allow", "Allow"])
+    bton = sysdlg("android-bt-on", "Mote wants to turn on Bluetooth", "", ["Deny", "Allow"])
+    vis = sysdlg("android-visible", "Mote wants to make your phone visible to other Bluetooth devices for 120 seconds.", "", ["Deny", "Allow"])
+    code = sysdlg("android-pair-code", "Pair with MacBook Pro?", "Bluetooth pairing code", ["Cancel", "Pair"], '<div style="font:600 26px/34px var(--font-ui);letter-spacing:3px;margin-top:6px">482 913</div>')
+    rows = devrow("dev-none", "bluetooth", "No devices yet.", "")
+    steps = [
+        step(1, "j1-s1", "First run: the Bluetooth gate", "Shown until Bluetooth is usable", [phone(bare(gate("perm")), "j1-p1", taps=[(206, 560)])]),
+        step(2, "j1-s2", "Allow Nearby devices", "Android’s permission prompt", [phone(bare(gate("perm"), overlay=perm), "j1-p2", taps=[(336, 470)])]),
+        step(3, "j1-s3", "Turn on Bluetooth", "Same gate, Bluetooth-off copy", [phone(bare(gate("off"), overlay=bton), "j1-p3", taps=[(336, 440)])]),
+        step(4, "j1-s4", "Pair new Bluetooth device", "Android makes the phone visible for 120 s; the Mac shows Pixel 8", [phone(scr_badge(media_shipped(True), "media", pill("Choose a device", "led red"), vis, lit=False), "j1-p4", taps=[(336, 470)])], [mac(mac_bt_settings(), "j1-m4", items=mote_menubar_icon(False))]),
+        step(5, "j1-s5", "Confirm the code on both", "Android’s own dialog; Mote shows no code", [phone(scr_badge(media_shipped(True), "media", pill("Choose a device", "led amber"), code, lit=False), "j1-p5", taps=[(342, 500)])], [mac(mac_bt_settings("482 913"), "j1-m5", items=mote_menubar_icon(False))]),
+        step(6, "j1-s6", "Connected", "LED green, [BT] badge, the wordmark lights", [phone(scr_route(media_shipped(), "BT"), "j1-p6")]),
+    ]
+    return journey("journey-first-run-bt", "1. First run over Bluetooth", "shipped",
+        "From install to a working remote with no extra software on the Mac: the Bluetooth gate, Android’s permission and Bluetooth prompts, pairing from the Mac’s Bluetooth settings, connected.", steps)
+
+def j02():
+    term = '''<div class="term"><span class="p">~ %</span> curl -fsSL https://tusharpandey13.github.io/mote/install.sh | bash<br><span class="dim">This will: download, verify, install, clear quarantine</span><br>==&gt; Downloading MoteHelper-macos-arm64.zip<br>==&gt; Verifying SHA-256<br>==&gt; Unpacking<br>==&gt; Installing to ~/Applications/MoteHelper.app<br>==&gt; Opening Mote Helper</div>'''
+    steps = [
+        step(1, "j2-s1", "Install the helper", "One line in Terminal", macs=[mac(term, "j2-m1", items=mote_menubar_icon(False))]),
+        step(2, "j2-s2", "Menu bar › Pair new device…", "The helper lives in the menu bar", macs=[mac(desk(helper_menu()), "j2-m2", items=mote_menubar_icon(False, True))]),
+        step(3, "j2-s3", "The pairing window", "6-digit code and a QR; closes after 5 min or once paired", macs=[mac(pairing_window(), "j2-m3", items=mote_menubar_icon(False))]),
+        step(4, "j2-s4", "Phone: Add Mac over Wi-Fi", "Pick the Mac, or scan the QR and tap Open in the Mote app (mote://pair)", [phone(bare(wifi_add(), top=topbar_with(pill("Choose a device", "led red"), False)), "j2-p4", taps=[(206, 376)])]),
+        step(5, "j2-s5", "Enter or confirm the code", "A mote://pair link fills it in", [phone(bare(code_screen(), top=topbar_with(pill("MacBook Pro", "led amber"), False)), "j2-p5", taps=[(206, 360)])]),
+        step(6, "j2-s6", "Connected over Wi-Fi", "[WI-FI] badge; the helper lists Pixel 8 · Wi-Fi", [phone(scr_route(media_shipped(), "Wi-Fi"), "j2-p6")], [mac(desk(helper_menu(connected=True)), "j2-m6", items=mote_menubar_icon(True, True))]),
+    ]
+    return journey("journey-wifi-helper", "2. Wi-Fi with Mote Helper", "shipped",
+        "Install the free menu-bar helper for Unicode typing, precise brightness, click-at-point and Space thumbnails, then pair with a 6-digit code.", steps)
+
+def j03():
+    rows = devrow("dev-ts", "laptop", "MacBook Pro", "Paired", badges("Tailscale"), sel=True)
+    ts = jsheet("tailscale-off", '''<div class="hero-dev raised" style="width:80px;height:80px"><i data-i="globe"></i></div><h2 class="t-headline ctr">Tailscale is off</h2>
+      <p class="t-body-s muted ctr" style="margin-top:6px">Turn it on to reach MacBook Pro.</p>
+      <div class="btn-row"><div class="btn-secondary raised">Not now</div><div class="btn-primary accent-cap" data-dc-id="ts-turn-on">Turn on Tailscale</div></div>''')
+    ts2 = jsheet("tailscale-waiting", '''<div class="hero-dev raised" style="width:80px;height:80px"><i data-i="globe"></i></div><h2 class="t-headline ctr">Tailscale is off</h2>
+      <p class="t-body-s muted ctr" style="margin-top:6px">Turn it on to reach MacBook Pro.</p>
+      <p class="t-body-s ctr" style="margin-top:12px;color:var(--link-connecting)">Finish in the Tailscale app, then come back. Mote connects as soon as Tailscale is on.</p>''')
+    steps = [
+        step(1, "j3-s1", "Pick a Tailscale host", "Away from home, Tailscale off", [phone(scr_badge(media_shipped(True), "media", pill("MacBook Pro", "led amber"), devices(rows=rows), lit=False), "j3-p1", taps=[(206, 228)])]),
+        step(2, "j3-s2", "“Tailscale is off”", "Turn on Tailscale asks the Tailscale app to connect", [phone(scr_badge(media_shipped(True), "media", pill("MacBook Pro", "led amber"), ts, lit=False), "j3-p2", taps=[(306, 820)])]),
+        step(3, "j3-s3", "Finish in Tailscale", "Opens the Tailscale app if it isn’t up after 6 s", [phone(scr_badge(media_shipped(True), "media", pill("MacBook Pro", "led amber"), ts2, lit=False), "j3-p3")]),
+        step(4, "j3-s4", "Auto-connect", "When a tailnet address appears the sheet closes and Mote connects", [phone(scr_route(media_shipped(), "Tailscale"), "j3-p4")]),
+    ]
+    return journey("journey-tailscale", "3. Tailscale", "shipped",
+        "Reach the Mac from anywhere on your tailnet. Mote notices Tailscale is off, turns it on, and finishes the connection by itself.", steps)
+
+def j04():
+    srch = scr_badge(disconnected_inner(), "media", pill("MacBook Pro", "led amber"), lit=False).replace("brand(", "brand(")
+    notpaired_pill = pill("Not paired: pair again", "led red")
+    rows_np = devrow("dev-np", "laptop", "MacBook Pro", "Not paired: pair again", badges("BT"), sel=True)
+    np_sheet = devices("The Mac no longer knows this phone. Long-press it to forget, then pair again.", rows_np)
+    forget = sysdlg("forget", "Forget MacBook Pro on this phone?", "", ["Cancel", "Forget"])
+    rows_pick = (devrow("dev-mbp", "laptop", "MacBook Pro", "Searching…", badges("Wi-Fi", "BT"), sel=True)
+                 + devrow("dev-mini", "desktop", "Mac mini", "Paired over Bluetooth · Mote Helper found", badges("BT")))
+    steps = [
+        step(1, "j4-s1", "Signal lost: auto-search", "“Searching for MacBook Pro…”; nothing is sent meanwhile", [phone(srch, "j4-p1")]),
+        step(2, "j4-s2", "Choose a device", "The pill opens Devices; pick another or add one", [phone(scr_badge(media_shipped(True), "media", pill("MacBook Pro", "led amber"), devices(rows=rows_pick), lit=False), "j4-p2", taps=[(206, 334)])]),
+        step(3, "j4-s3", "Not paired: pair again", "The Mac forgot this phone; Mote never auto-connects it", [phone(scr_badge(media_shipped(True), "media", notpaired_pill, np_sheet, lit=False), "j4-p3", taps=[(206, 230, "hold")])]),
+        step(4, "j4-s4", "Long-press to forget", "Then pair again from Devices", [phone(scr_badge(media_shipped(True), "media", notpaired_pill, forget, lit=False), "j4-p4", taps=[(348, 470)])]),
+    ]
+    return journey("journey-reconnect", "4. Reconnect and disconnected states", "shipped",
+        "While the app is open Mote keeps looking for the selected Mac. The pill always says what is going on and opens the device picker.", steps)
+
+def j05():
+    m = media_shipped()
+    mac_desk = lambda n: desk(f'<div style="position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);color:#fff;font:700 28px/1 var(--font-ui);text-shadow:0 2px 8px rgba(0,0,0,.4)">Desktop {n}</div>')
+    chooser = '''<div class="jscrim" style="background:transparent"></div><div data-dc-id="display-menu" style="position:absolute;right:20px;top:680px;z-index:8;width:220px;padding:6px;border-radius:14px;background:var(--surface-1);box-shadow:0 12px 30px rgba(0,0,0,.3)">
+      <div class="row-item flat" style="min-height:44px">Built-in (active) ✓</div><div class="row-item" style="min-height:44px">LG UltraFine</div></div>'''
+    steps = [
+        step(1, "j5-s1", "Tap a desktop", "Over Bluetooth: ⌃N, or ⌃←/⌃→ steps every 300 ms", [phone(scr(m, "media"), "j5-p1", taps=[(290, 196)])]),
+        step(2, "j5-s2", "The Mac switches", "The lit card follows the desktop you are on", macs=[mac(mac_desk(3), "j5-m2", items=mote_menubar_icon(False))]),
+        step(3, "j5-s3", "One-time ⌃N hint", "Done hides it for good; Remind me later for this sheet", [phone(scr(m, "media", overlay=spaces_sheet()), "j5-p3", taps=[(176, 690)])]),
+        step(4, "j5-s4", "With the helper: thumbnails", "Unvisited desktops show a dashed placeholder", [phone(scr(m, "media", overlay=spaces_sheet()), "j5-p4", taps=[(330, 656)])]),
+        step(5, "j5-s5", "Two displays: the chip", "Pick a display; cards fade out 120 ms, in 200 ms", [phone(scr(m, "media", overlay=spaces_sheet() + chooser), "j5-p5", taps=[(320, 744)])]),
+    ]
+    return journey("journey-spaces", "5. Spaces", "shipped",
+        "Jump between desktops from the Media screen or the Spaces sheet. Over Bluetooth the cards are numbered; with the helper they are pictures, per display.", steps)
+
+def editor_shipped(click=False):
+    mods = "".join(f'<span class="{"raised" if on else "flat"}" style="height:40px;padding:0 12px;border-radius:12px;display:inline-flex;align-items:center;font:600 14px/1 var(--font-ui);{"color:var(--accent);box-shadow:0 0 0 2px var(--accent)" if on else ""}">{g} {n}</span>' for g, n, on in [("⌘", "cmd", True), ("⇧", "shift", True), ("⌥", "opt", False), ("⌃", "ctrl", False)])
+    if click:
+        body = '''<span class="t-caps lbl">Click at point</span>
+          <div class="well" data-dc-id="click-picker" style="position:relative;height:200px;border-radius:12px;background:linear-gradient(160deg,#7EA4D1,#2E4A72)"><span style="position:absolute;left:72%;top:18%;width:22px;height:22px;margin:-11px;border-radius:50%;box-shadow:0 0 0 3px #fff,0 0 8px var(--accent)"></span></div>
+          <p class="t-body-s muted" style="margin-top:8px">Tap or drag where to click on the main display: 72% across, 18% down.</p>'''
+        name = "Join call"
+    else:
+        body = f'''<span class="t-caps lbl">Shortcut</span><div class="field focus"><span class="t-title">⌘ ⇧ 4</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">{mods}</div>
+          <div class="field" style="margin-top:8px"><span class="t-body-s muted">Type a key (letter, digit, symbol)</span></div>'''
+        name = "Screenshot area"
+    return jsheet("macro-editor-shipped", f'''<h2 class="t-headline">New macro</h2>
+      <span class="t-caps lbl">Name</span><div class="field"><span class="t-title">{name}</span></div>
+      <span class="t-caps lbl">Action</span><div class="seg-ctl well"><div class="{"" if click else "on raised"}">Shortcut</div><div class="{"on raised" if click else ""}">Click at point</div></div>
+      {body}
+      <div class="trow"><div class="txt t-label">★ Favourite</div><div class="switch on"></div></div>
+      <div class="trow"><div class="txt t-label">Confirm before run</div><div class="switch"></div></div>
+      <div class="btn-primary accent-cap" style="margin-top:14px">Save</div>''')
+def j06():
+    lock_armed = macros_inner().replace('Tap again</div><div class="ch">Lock screen', 'Tap again</div><div class="ch">Lock')
+    fav = media_shipped().replace('<div class="fav add" style="grid-column: span 3" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div>',
+        '<div class="fav raised" style="box-shadow:inset 0 1px 0 var(--hi),0 0 0 2px var(--accent),var(--drop)" data-dc-id="fav-new"><i data-i="camera" class="i20"></i><span class="lb">Screenshot area</span></div><div class="fav add" style="grid-column: span 2" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div>')
+    lockmac = '<div class="desk dim"><div style="position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);text-align:center;color:#fff"><div style="font:600 44px/1 var(--font-ui)">9:41</div><div style="margin-top:8px;font-size:12px;opacity:.8">Screen locked</div></div></div>'
+    steps = [
+        step(1, "j6-s1", "Macros › New macro", "Edit / Done to change or star", [phone(scr(macros_inner(), "macros"), "j6-p1", taps=[(76, 748)])]),
+        step(2, "j6-s2", "Record a shortcut", "Modifiers + a key; ★ Favourite on", [phone(scr(macros_inner(), "macros", overlay=editor_shipped()), "j6-p2")]),
+        step(3, "j6-s3", "Or click at point (helper)", "Skipped on Bluetooth hosts", [phone(scr(macros_inner(), "macros", overlay=editor_shipped(True)), "j6-p3", taps=[(296, 446)])]),
+        step(4, "j6-s4", "It appears on Media", "Under FAVOURITES (4 slots)", [phone(scr(fav, "media"), "j6-p4", taps=[(254, 296)])]),
+        step(5, "j6-s5", "Run with confirm: Lock", "First tap arms (“Tap again”), second within 2 s runs", [phone(scr(lock_armed, "macros"), "j6-p5", taps=[(340, 640)])], [mac(lockmac, "j6-m5", menubar=False)]),
+    ]
+    return journey("journey-macros", "6. Macros", "shipped",
+        "Make a one-tap shortcut, star it onto the Media screen, and guard the risky ones with a second tap.", steps)
+
+def j07():
+    cursor = lambda x, y: f'<svg style="position:absolute;left:{x}px;top:{y}px;width:18px;height:18px;color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))" viewBox="0 0 24 24"><path fill="currentColor" stroke="#000" stroke-width="1.2" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z"/></svg>'
+    move = desk(cursor(220, 90) + '<div style="position:absolute;left:120px;top:150px;width:100px;height:2px;background:rgba(255,255,255,.5);transform:rotate(-31deg);transform-origin:0 0"></div>')
+    ctx = desk(cursor(150, 120) + '<div class="menu" style="left:160px;right:auto;top:132px;width:150px"><div class="it">Open</div><div class="it">Get Info</div><div class="it hl">Copy</div><div class="it">Share…</div></div>')
+    seek = desk(win(16, 14, 308, 250, "Music", '<div style="position:absolute;inset:0;background:#1C1C1E;color:#fff;padding:20px;font-size:12px">Fast-forwarding ▶▶<div style="margin-top:16px;height:3px;background:#555"><i style="display:block;width:64%;height:3px;background:#fff"></i></div></div>'))
+    vol = desk('<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:150px;height:150px;border-radius:24px;background:rgba(40,40,44,.75);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-size:30px">🔊<div style="width:110px;height:6px;border-radius:3px;background:#666"><i style="display:block;width:70%;height:6px;border-radius:3px;background:#fff"></i></div></div>')
+    steps = [
+        step(1, "j7-s1", "Drag the stick: the pointer moves", "Speed grows with distance (deadzone + curve)", [phone(scr(media_shipped(stick=("deflect", 45, .8)), "media"), "j7-p1", drags=[(206, 532, 70, -45)])], [mac(move, "j7-m1", menubar=False)]),
+        step(2, "j7-s2", "Tap = click, hold 450 ms = right click", "The ring sends arrow keys", [phone(scr(media_shipped(), "media"), "j7-p2", taps=[(206, 532, "hold")])], [mac(ctx, "j7-m2", menubar=False)]),
+        step(3, "j7-s3", "Hold next to fast-forward", "Tap skips; past 400 ms it seeks until you lift", [phone(scr(media_shipped(), "media"), "j7-p3", taps=[(350, 738, "hold")])], [mac(seek, "j7-m3", menubar=False)]),
+        step(4, "j7-s4", "Scroll and volume levers", "Pull further for faster; tap an end for one notch", [phone(scr(media_shipped(), "media"), "j7-p4", drags=[(368, 520, 60, -90), (44, 520, 60, 90)])], [mac(vol, "j7-m4", menubar=False)]),
+    ]
+    return journey("journey-media", "7. Media controls", "shipped",
+        "The Media screen is a whole remote: pointer stick, arrows, levers for scroll and volume, and transport keys that seek when held.", steps)
+
+# ---- index
+JOURNEYS = [
+    ("journey-first-run-bt", "1. First run over Bluetooth", "shipped", "Gate, Android prompts, pair from the Mac, connected."),
+    ("journey-wifi-helper", "2. Wi-Fi with Mote Helper", "shipped", "One-line install, Pair new device…, 6-digit code or mote://pair."),
+    ("journey-tailscale", "3. Tailscale", "shipped", "Tailscale is off › Turn on Tailscale › auto-connect."),
+    ("journey-reconnect", "4. Reconnect and disconnected", "shipped", "Auto-search, Not paired: pair again, Devices."),
+    ("journey-spaces", "5. Spaces", "shipped", "Carousel, ⌃N hint, helper thumbnails, display chip."),
+    ("journey-macros", "6. Macros", "shipped", "Record, click at point, favourite to Media, confirm."),
+    ("journey-media", "7. Media controls", "shipped", "Stick, right click, hold-to-seek, levers."),
+    ("journey-instant-pairing", "8. Instant pairing", "labs", "Connect sheet near the Mac, one Mac prompt, Tailscale trust, route fallback."),
+    ("journey-smart-remote", "9. Smart remote", "labs", "Per-app controls for Netflix and YouTube; auto keyboard."),
+    ("journey-open-tv", "10. Open on Mac and TV mode", "labs", "Search YouTube, TV window, TV remote, share a link. On main."),
+    ("journey-video-bridge", "11. Browser video bridge", "labs", "Extension pairs with the helper; exact web video control."),
+    ("journey-live-screen", "12. Live screen", "labs", "LAN warning, live view, tap to click, menu-bar indicator."),
+]
+def index_page():
+    def card(jid, t, st, d):
+        b = '<span class="badge shipped">Shipped</span>' if st == "shipped" else '<span class="badge labs">Preview (Labs)</span>'
+        return f'<div class="jcard raised" data-dc-id="idx-{jid}"><div>{b}</div><div class="t">{t}</div><div class="d">{d}</div><div class="id">{jid}</div></div>'
+    shipped = "".join(card(*j) for j in JOURNEYS if j[2] == "shipped")
+    labs = "".join(card(*j) for j in JOURNEYS if j[2] == "labs")
+    body = f'''<div class="jb" data-dc-id="journeys-index">
+  <div class="jb-head"><h1 data-dc-id="title">Mote user journeys</h1></div>
+  <p class="jb-sub" data-dc-id="summary">Twelve storyboards: seven that ship in v0.4.0 and five Labs previews. Each artboard reads left to right; blue dots are taps, dashed rings are holds.</p>
+  <div class="jgroup">Shipped</div><div class="jmap" data-dc-id="idx-shipped">{shipped}</div>
+  <div class="jgroup">Preview (Labs)</div><div class="jmap" data-dc-id="idx-labs">{labs}</div>
+</div>'''
+    return jpage("User journeys", body)
+
+JFILES = {"journey-first-run-bt": j01, "journey-wifi-helper": j02, "journey-tailscale": j03, "journey-reconnect": j04,
+          "journey-spaces": j05, "journey-macros": j06, "journey-media": j07, "journey-instant-pairing": j08,
+          "journey-smart-remote": j09, "journey-open-tv": j10, "journey-video-bridge": j11, "journey-live-screen": j12}
+
 files = {
     "media.html": page("Media (dark)", screen(media_inner(), "media"), MEDIA_CSS, dark=True),
     "media-light.html": page("Media", screen(media_inner(), "media"), MEDIA_CSS),
@@ -782,6 +1226,9 @@ files = {
     "dpad-press.html": dpad_press_page(),
     "haptics.html": haptics_page(),
 }
+files["journeys-index.html"] = index_page()
+for jid, fn in JFILES.items():
+    files[jid + ".html"] = fn()
 for name, html in files.items():
     (OUT / name).write_text(html)
 print("wrote", len(files))

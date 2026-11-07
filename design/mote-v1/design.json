@@ -131,6 +131,110 @@
       "width": 412,
       "height": 915,
       "group": "connection"
+    },
+    {
+      "id": "journeys-index",
+      "title": "Journeys index",
+      "file": "journeys-index.html",
+      "width": 1600,
+      "height": 1100,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-first-run-bt",
+      "title": "J1 First run over Bluetooth",
+      "file": "journey-first-run-bt.html",
+      "width": 2518,
+      "height": 1000,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-wifi-helper",
+      "title": "J2 Wi-Fi with Mote Helper",
+      "file": "journey-wifi-helper.html",
+      "width": 2514,
+      "height": 1000,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-tailscale",
+      "title": "J3 Tailscale",
+      "file": "journey-tailscale.html",
+      "width": 1600,
+      "height": 1000,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-reconnect",
+      "title": "J4 Reconnect and disconnected",
+      "file": "journey-reconnect.html",
+      "width": 1600,
+      "height": 1000,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-spaces",
+      "title": "J5 Spaces",
+      "file": "journey-spaces.html",
+      "width": 1748,
+      "height": 1000,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-macros",
+      "title": "J6 Macros",
+      "file": "journey-macros.html",
+      "width": 1836,
+      "height": 1000,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-media",
+      "title": "J7 Media controls",
+      "file": "journey-media.html",
+      "width": 2624,
+      "height": 1000,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-instant-pairing",
+      "title": "J8 Instant pairing (Labs)",
+      "file": "journey-instant-pairing.html",
+      "width": 1812,
+      "height": 1000,
+      "group": "journeys-labs"
+    },
+    {
+      "id": "journey-smart-remote",
+      "title": "J9 Smart remote (Labs)",
+      "file": "journey-smart-remote.html",
+      "width": 1980,
+      "height": 1000,
+      "group": "journeys-labs"
+    },
+    {
+      "id": "journey-open-tv",
+      "title": "J10 Open on Mac and TV mode (Labs)",
+      "file": "journey-open-tv.html",
+      "width": 2030,
+      "height": 1000,
+      "group": "journeys-labs"
+    },
+    {
+      "id": "journey-video-bridge",
+      "title": "J11 Browser video bridge (Labs)",
+      "file": "journey-video-bridge.html",
+      "width": 1600,
+      "height": 1000,
+      "group": "journeys-labs"
+    },
+    {
+      "id": "journey-live-screen",
+      "title": "J12 Live screen (Labs)",
+      "file": "journey-live-screen.html",
+      "width": 1735,
+      "height": 1000,
+      "group": "journeys-labs"
     }
   ]
 }

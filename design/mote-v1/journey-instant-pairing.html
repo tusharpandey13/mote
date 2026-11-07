@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mote — 8. Instant pairing</title>
+<link rel="stylesheet" href="mote.css">
+<link rel="stylesheet" href="journeys.css">
+<style>
+  .media { display: flex; flex-direction: column; height: 100%; }
+  .fav-head { display: flex; align-items: center; justify-content: space-between; height: 32px; color: var(--on-surface-subtle); }
+  .fav-head span { display: inline-flex; align-items: center; gap: 6px; }
+  .cap-row { display: flex; justify-content: space-between; align-items: center; height: 16px; margin-top: 4px; color: var(--on-surface-subtle); font: 500 11px/1 var(--font-ui); }
+  .carousel { margin-top: 4px; }
+  .favs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+  .fav { height: 52px; border-radius: 16px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; position: relative; color: var(--on-surface); }
+  .fav .lb { font: 600 13px/16px var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
+  .sec-row { margin-top: auto; padding-top: 12px; }
+  .sec-row .pair.small .cap { height: 64px; border-radius: 17px; color: var(--on-surface) !important; }
+  .sec-row .pair.small { border-radius: 22px; }
+  .cluster { position: relative; height: 252px; margin-top: 14px; align-items: start; display: grid; grid-template-columns: 56px 236px 56px; justify-content: space-between; }
+  .cluster .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .cluster .dpad-wrap { margin-top: 0; }
+  .transport { margin-top: 14px; grid-template-columns: 76px 1fr 76px !important; }
+  .transport .glass.sm, .transport .glass.play { height: 96px; border-radius: 24px; }
+  .cluster .slider { height: 232px; }
+  .dark .engrave { color: #4F535B; }
+
+  .sheet { padding: 0 16px 36px; }
+  .sh-head { display: flex; align-items: center; justify-content: space-between; height: 60px; margin-top: 4px; }
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .scrim, .sheet { z-index: 3; }
+
+  .lost { position: absolute; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); z-index: 2; border-radius: 24px; padding: 24px 20px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .lost .t-title { margin-top: 16px; }
+  .lost .t-body-s { color: var(--on-surface-muted); margin-top: 6px; max-width: 300px; }
+  .lost .acts { display: flex; gap: 8px; margin-top: 18px; width: 100%; }
+  .lost .acts > * { flex: 1; }
+
+  .sheet { padding: 0 16px 28px; }
+  .sh-head { display: flex; align-items: center; justify-content: space-between; height: 56px; margin-top: 2px; }
+  .lvl { display: flex; align-items: center; justify-content: space-between; margin: 14px 2px 6px; color: var(--on-surface-subtle); }
+  .hintcard { margin-top: 10px; border-radius: 16px; padding: 12px 14px; display: flex; gap: 10px; color: var(--on-surface-muted); font: 400 13px/18px var(--font-ui); }
+  .hintcard b { color: var(--on-surface); font-weight: 600; }
+  .hintcard .acts { display: flex; gap: 8px; margin-top: 8px; }
+  .hintcard .acts span { height: 32px; padding: 0 12px; border-radius: 10px; display: inline-flex; align-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface); }
+  .scard { width: 112px; }
+
+  .macros { display: flex; flex-direction: column; height: 100%; }
+  .mhead { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; }
+  .hint { margin-top: 4px; }
+  .edit-btn { height: 40px; padding: 0 14px 0 10px; border-radius: 13px; display: inline-flex; align-items: center; gap: 6px; font: 600 14px/1 var(--font-ui); color: var(--on-surface); }
+  .grid { margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+
+  .keys { display: flex; flex-direction: column; height: 100%; padding-left: 0; padding-right: 0; }
+  .row { display: flex; gap: 4px; }
+  .row > * { flex: 1 1 0; min-width: 0; }
+  .g15 { flex-grow: 1.5 !important; } .g2 { flex-grow: 2 !important; } .g5 { flex-grow: 5 !important; }
+  .upper { display: flex; flex-direction: column; gap: 6px; padding: 0 8px; }
+  .upper .key { height: 58px; border-radius: 10px; }
+  .sec-head { display: flex; align-items: center; justify-content: space-between; height: 28px; padding: 0 8px; color: var(--on-surface-subtle); }
+  .sec-head .tog { display: inline-flex; align-items: center; gap: 4px; }
+  .navblock { display: grid; grid-template-columns: 1fr 1fr 12px 1fr 1fr 1fr; grid-template-rows: 58px 58px; gap: 6px; margin-top: 4px; }
+  .navblock .gap { visibility: hidden; }
+  .lower { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+  .chord { height: 44px; margin: 0 8px; border-radius: 14px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; }
+  .chord .mini { height: 28px; min-width: 28px; padding: 0 7px; border-radius: 8px; display: grid; place-items: center; background: linear-gradient(180deg, var(--modifier-top), var(--modifier-bot)); color: var(--on-modifier); font: 600 15px/1 var(--font-ui); }
+  .chord .mini.lk { box-shadow: 0 0 0 2px var(--well), 0 0 0 3.5px var(--modifier-armed); }
+  .chord .plus { font: 500 13px/16px var(--font-ui); color: var(--on-surface-muted); }
+  .chord .slot { width: 28px; height: 28px; border-radius: 8px; border: 1px dashed var(--on-surface-subtle); }
+  .chord .clr { margin-left: auto; height: 32px; padding: 0 12px; border-radius: 10px; display: inline-flex; align-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface-muted); }
+  .deck { padding: 6px 4px 6px; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; gap: 4px; }
+  .deck .key { height: 50px; }
+  .modrow { display: flex; gap: 4px; }
+  .modrow .mod { flex: 1; min-width: 0; }
+  .key.mod { height: 50px; min-width: 0; border-radius: 7px; }
+  .key.mod .g { font-size: 18px; line-height: 20px; }
+  .key.mod .n { font-size: 10px; line-height: 12px; }
+
+  .pad-wrap { display: flex; flex-direction: column; height: 100%; gap: 12px; }
+  .touchpad { flex: 1; }
+  .hints { position: absolute; left: 24px; right: 24px; bottom: 28px; display: grid; grid-template-columns: 36px 1fr; row-gap: 14px; column-gap: 8px; align-items: center; color: var(--on-surface-subtle); }
+  .hints .f { display: flex; justify-content: center; opacity: .85; }
+  .hints .h { font: 400 14px/20px var(--font-ui); }
+  .hints .h b { font-weight: 600; color: var(--on-surface-muted); }
+  .hints-hide { position: absolute; right: 12px; top: 12px; height: 32px; padding: 0 12px 0 8px; border-radius: var(--r-full); display: inline-flex; align-items: center; gap: 4px; color: var(--on-surface-muted); font: 600 12px/1 var(--font-ui); }
+  .strip { height: 60px; display: grid; grid-template-columns: 1fr 72px 1fr; gap: 8px; padding: 0; }
+  .strip > div { border-radius: 18px; display: grid; place-items: center; color: var(--on-surface-muted); font: 600 14px/1 var(--font-ui); }
+  .banner { position: absolute; left: 12px; right: 12px; top: 12px; border-radius: 20px; padding: 14px 14px 14px 18px; display: flex; gap: 12px; align-items: center; z-index: 2; }
+  .banner .bar { position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .banner .tx { flex: 1; }
+  .banner .esc { height: 44px; padding: 0 14px; border-radius: 14px; display: grid; place-items: center; font: 600 14px/1 var(--font-ui); }
+  .toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; height: 36px; padding: 0 14px; border-radius: 18px; display: inline-flex; align-items: center; gap: 8px; font: 500 13px/1 var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
+  .sel { position: absolute; left: 70px; top: 250px; width: 210px; height: 150px; border: 1.5px dashed var(--on-surface-muted); border-radius: 4px; background: rgba(255,138,61,.06); }
+</style>
+</head>
+<body>
+<div class="jb" data-dc-id="journey-instant-pairing">
+  <div class="jb-head"><h1 data-dc-id="title">8. Instant pairing</h1><span class="badge labs" data-dc-id="status">Preview (Labs)</span></div>
+  <p class="jb-sub" data-dc-id="summary">Open the app near your Mac and connect with one tap and one Mac confirmation. A Tailscale owner match skips the prompt entirely; later reconnects pick the best route on their own.</p>
+  <div class="steps" data-dc-id="steps"><div class="step" data-dc-id="j8-s1"><span class="num">1</span><div class="row"><div class="phone" data-dc-id="j8-p1"><div class="vp"><div class="screen" data-dc-id="screen"><div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div><header class="topbar" data-dc-id="topbar"><div class="pill raised" style="margin:0"><span class="led red"></span><span class="name">No device</span><i data-i="chevDown" class="i20 chev"></i></div><div class="brand" data-dc-id="brand">
+      <span class="wordmark " data-dc-id="wordmark">MOTE</span>
+      <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
+    </div></header><main class="content media offline" data-dc-id="media-content">
+    <section class="fav-wrap live" data-dc-id="fav-strip">
+      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="edit-chip raised" data-dc-id="fav-edit"><i data-i="edit" class="i16"></i>Edit</span></div>
+      <div class="cap-row"><span>Spaces</span><span>swipe or tap a desktop</span></div>
+      <div class="carousel well" data-dc-id="fav-next-space">
+        <div class="rowc"><div class="scard raised" data-dc-id="fav-next-space-card-1"><span class="num">1</span><span class="nm">Desktop 1</span></div><div class="scard current raised" data-dc-id="fav-next-space-card-2"><span class="cur-dot"></span><span class="num">2</span><span class="nm">Desktop 2</span></div><div class="scard raised" data-dc-id="fav-next-space-card-3"><span class="num">3</span><span class="nm">Desktop 3</span></div><div class="scard raised" data-dc-id="fav-next-space-card-4"><span class="num">4</span><span class="nm">Desktop 4</span></div><div class="scard raised" data-dc-id="fav-next-space-card-5"><span class="num">5</span><span class="nm">Desktop 5</span></div><div class="scard raised" data-dc-id="fav-next-space-card-6"><span class="num">6</span><span class="nm">Desktop 6</span></div></div>
+        <span class="fade-r"></span>
+      </div>
+      <div class="favs"><div class="fav add" style="grid-column: span 4" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div></div>
+    </section>
+
+    <div class="sec-row live" data-dc-id="brightness-row">
+      <div class="pair small well" data-dc-id="brightness-group">
+        <div class="cap raised" data-dc-id="brightness-down"><span class="arrowed"><i data-i="sunDown"></i><i data-i="arrowDown" class="i20" data-dc-id="brightness-down-arrow"></i></span></div>
+        <div class="cap raised" data-dc-id="brightness-up"><span class="arrowed"><i data-i="sunUp"></i><i data-i="arrowUp" class="i20" data-dc-id="brightness-up-arrow"></i></span></div>
+      </div>
+    </div>
+
+    <div class="cluster live" data-dc-id="dpad-row">
+      <div class="col">
+        <div class="slider well" data-dc-id="scroll-lever">
+          <span class="end" data-dc-id="scroll-lever-top"><i data-i="triUp" class="i16"></i></span>
+          <span class="ticks"></span>
+          <div class="thumb" data-dc-id="scroll-lever-thumb"><span class="grip"></span><span class="grip"></span><span class="grip"></span></div>
+          <span class="end" data-dc-id="scroll-lever-bottom"><i data-i="triDown" class="i16"></i></span>
+        </div>
+        <span class="engrave" data-dc-id="scroll-lever-label">Scroll</span>
+      </div>
+      <div class="dpad-wrap js" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 236 236" data-dc-id="dpad">
+        <defs>
+          <linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient>
+          <radialGradient id="dome" cx=".42" cy=".30" r=".78"><stop offset="0" style="stop-color:var(--stick-hi)"/><stop offset=".55" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></radialGradient>
+          <linearGradient id="wallg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-bot)"/><stop offset="1" style="stop-color:var(--rub-wall)"/></linearGradient>
+          <linearGradient id="dish" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--dish-top)"/><stop offset="1" style="stop-color:var(--dish-bot)"/></linearGradient>
+          <radialGradient id="dishshade" cx=".5" cy=".30" r=".70"><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.30"/></radialGradient>
+          <radialGradient id="wellg" cx=".5" cy=".62" r=".6"><stop offset="0" style="stop-color:var(--well)"/><stop offset="1" style="stop-color:var(--well-deep)"/></radialGradient>
+          <linearGradient id="gate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gate-0)"/><stop offset=".48" style="stop-color:var(--gate-1)"/><stop offset=".52" style="stop-color:var(--gate-2)"/><stop offset="1" style="stop-color:var(--gate-3)"/></linearGradient>
+          <linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient>
+          <linearGradient id="bevin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.55"/><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset=".8" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.55"/></linearGradient>
+          <filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter>
+          <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5"/></filter>
+          <filter id="glowblur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+          <filter id="spec" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter>
+          <clipPath id="cdisc"><circle cx="118" cy="118" r="110"/></clipPath>
+          <clipPath id="cwell"><circle cx="118" cy="118" r="77"/></clipPath>
+          <clipPath id="cdish"><circle cx="118.00" cy="118.00" r="38"/></clipPath>
+        </defs>
+        <circle class="housing" cx="118" cy="118" r="113"/>
+        <circle class="contact" cx="118" cy="124" r="106"/>
+        <circle class="disc" cx="118" cy="118" r="110" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
+        <rect class="grain" x="8" y="8" width="220" height="220" filter="url(#gr)" clip-path="url(#cdisc)" opacity=".5"/>
+        <circle class="bevel" cx="118" cy="118" r="109.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
+        <g data-dc-id="dpad-up"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-right" transform="rotate(90 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-down" transform="rotate(180 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-left" transform="rotate(270 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g>
+        <g><line class="div" x1="178.1" y1="57.9" x2="192.2" y2="43.8"/><line class="div" x1="178.1" y1="178.1" x2="192.2" y2="192.2"/><line class="div" x1="57.9" y1="178.1" x2="43.8" y2="192.2"/><line class="div" x1="57.9" y1="57.9" x2="43.8" y2="43.8"/></g>
+        <g data-dc-id="dpad-stick-gate">
+          <circle cx="118" cy="118" r="82" fill="url(#gate)"/><circle class="gate-hi" cx="118" cy="118" r="81.5"/>
+          <circle cx="118" cy="118" r="77" fill="url(#wellg)" data-dc-id="dpad-stick-well"/>
+          <circle cx="118" cy="118" r="75.5" fill="none" stroke="url(#bevin)" stroke-width="3"/>
+          <g class="well-hints" data-dc-id="dpad-stick-hints"><path d="M113 52L118 47L123 52" transform="rotate(0 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(90 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(180 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(270 118 118)"/><circle cx="166.1" cy="69.9" r="1.4" class="dot"/><circle cx="166.1" cy="166.1" r="1.4" class="dot"/><circle cx="69.9" cy="166.1" r="1.4" class="dot"/><circle cx="69.9" cy="69.9" r="1.4" class="dot"/></g>
+        </g>
+        
+        <g clip-path="url(#cwell)"><circle class="stick-shadow" cx="118.00" cy="127.00" r="52" filter="url(#soft)" data-dc-id="dpad-stick-shadow"/></g>
+        <g data-dc-id="dpad-center">
+          <circle cx="118.00" cy="125.00" r="52" fill="url(#wallg)" data-dc-id="dpad-stick-wall"/>
+          <circle cx="118.00" cy="118.00" r="52" fill="url(#dome)" data-dc-id="dpad-stick-cap"/>
+          <path d="M118.00 77.00L118.00 69.00 M124.41 77.50L125.67 69.60 M130.67 79.01L133.14 71.40 M136.61 81.47L140.25 74.34 M142.10 84.83L146.80 78.36 M146.99 89.01L152.65 83.35 M151.17 93.90L157.64 89.20 M154.53 99.39L161.66 95.75 M156.99 105.33L164.60 102.86 M158.50 111.59L166.40 110.33 M159.00 118.00L167.00 118.00 M158.50 124.41L166.40 125.67 M156.99 130.67L164.60 133.14 M154.53 136.61L161.66 140.25 M151.17 142.10L157.64 146.80 M146.99 146.99L152.65 152.65 M142.10 151.17L146.80 157.64 M136.61 154.53L140.25 161.66 M130.67 156.99L133.14 164.60 M124.41 158.50L125.67 166.40 M118.00 159.00L118.00 167.00 M111.59 158.50L110.33 166.40 M105.33 156.99L102.86 164.60 M99.39 154.53L95.75 161.66 M93.90 151.17L89.20 157.64 M89.01 146.99L83.35 152.65 M84.83 142.10L78.36 146.80 M81.47 136.61L74.34 140.25 M79.01 130.67L71.40 133.14 M77.50 124.41L69.60 125.67 M77.00 118.00L69.00 118.00 M77.50 111.59L69.60 110.33 M79.01 105.33L71.40 102.86 M81.47 99.39L74.34 95.75 M84.83 93.90L78.36 89.20 M89.01 89.01L83.35 83.35 M93.90 84.83L89.20 78.36 M99.39 81.47L95.75 74.34 M105.33 79.01L102.86 71.40 M111.59 77.50L110.33 69.60" class="knurl" data-dc-id="dpad-stick-knurl"/>
+          <circle cx="118.00" cy="118.00" r="51.25" fill="none" stroke="url(#bev)" stroke-width="1.5"/>
+          <circle cx="118.00" cy="118.00" r="38" fill="url(#dish)" data-dc-id="dpad-stick-dish"/>
+          <circle cx="118.00" cy="118.00" r="38" fill="url(#dishshade)"/>
+          <rect x="80.00" y="80.00" width="76" height="76" filter="url(#gr)" clip-path="url(#cdish)" opacity=".55" style="mix-blend-mode:overlay"/>
+          <circle cx="118.00" cy="118.00" r="38" fill="none" stroke="url(#bevin)" stroke-width="2"/>
+          <ellipse cx="102.00" cy="78.00" rx="14" ry="4" class="spec" filter="url(#spec)" transform="rotate(-24 102.00 78.00)"/>
+          <g data-dc-id="dpad-center-legend" transform="translate(109.50 108.00) scale(.75)"><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--hi)" transform="translate(0 1.2)"/><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--on-surface-muted)"/></g>
+        </g>
+      </svg></div>
+      <div class="col">
+        <div class="slider well vol" data-dc-id="volume-group">
+          <span class="end" data-dc-id="volume-group-top">+</span>
+          <span class="ticks"></span>
+          <div class="thumb" data-dc-id="volume-group-thumb"><i data-i="speaker" class="i20"></i></div>
+          <span class="end bot" data-dc-id="volume-group-bottom">−</span><div class="mutecap raised" data-dc-id="mute"><i data-i="mute" class="i20"></i></div>
+        </div>
+        <span class="engrave" data-dc-id="volume-group-label">Volume</span>
+      </div>
+    </div>
+
+    <div class="channel well transport live" data-dc-id="transport">
+      <div class="mcap sm" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
+      <div class="mcap play" data-dc-id="play-pause"><span class="ring" data-dc-id="play-ring"></span><i data-i="playPause" class="i32"></i></div>
+      <div class="mcap sm" data-dc-id="next"><i data-i="next" class="i28"></i></div>
+    </div>
+  </main><nav class="rail" data-dc-id="mode-rail">
+    <div class="track well" data-dc-id="rail-track">
+      <div class="seg on raised" data-dc-id="rail-media"><i data-i="modeMedia"></i><span class="lb">Media</span></div>
+      <div class="seg" data-dc-id="rail-pad"><i data-i="modeMouse"></i><span class="lb">Mouse</span></div>
+      <div class="seg" data-dc-id="rail-keys"><i data-i="modeKeys"></i><span class="lb">Keys</span></div>
+      <div class="seg" data-dc-id="rail-macros"><i data-i="modeMacros"></i><span class="lb">Macros</span></div>
+    </div>
+  </nav>
+  <div class="navbar"></div><div class="jscrim"></div><section class="jsheet" data-dc-id="j8-connect-sheet"><div class="handle"></div><div class="hero-dev raised"><i data-i="laptop"></i></div>
+      <h2 class="t-headline ctr">Connect to MacBook Pro?</h2>
+      <p class="t-body-s muted ctr" style="margin-top:6px">Found nearby with Bluetooth. The Mac will ask you to allow this phone.</p>
+      <div class="btn-row"><div class="btn-secondary raised">Not now</div><div class="btn-primary accent-cap">Connect</div></div></section></div><span class="tap" style="left:153.0px;top:380.0px"></span></div></div></div><p class="cap">Open Mote near the Mac<small>A Connect sheet appears (BLE discovery)</small></p></div><div class="arrow"><svg viewBox="0 0 44 20"><path d="M2 10h36M30 3l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="step" data-dc-id="j8-s2"><span class="num">2</span><div class="row"><div class="mac" data-dc-id="j8-m2"><div class="menubar"><span class="mi"><span class="mi" title="Mote Helper"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2" fill="currentColor"/><path d="M4.6 4.6a4.8 4.8 0 0 0 0 6.8M11.4 4.6a4.8 4.8 0 0 1 0 6.8M2.6 2.6a7.6 7.6 0 0 0 0 10.8M13.4 2.6a7.6 7.6 0 0 1 0 10.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span></span><span class="mi">Fri 9:41</span></div><div class="desk"><div class="alert"><div class="ic">MOTE</div><b>Allow “Pixel 8” to control this Mac?</b><p>Mote Helper will accept keyboard, mouse and media input from this phone.</p><div class="btns"><span>Don’t Allow</span><span class="def">Allow</span></div></div></div></div></div><p class="cap">The Mac asks once<small>Allow sets up trust; nothing to type</small></p></div><div class="arrow"><svg viewBox="0 0 44 20"><path d="M2 10h36M30 3l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="step" data-dc-id="j8-s3"><span class="num">3</span><div class="row"><div class="phone" data-dc-id="j8-p3"><div class="vp"><div class="screen" data-dc-id="screen"><div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div><header class="topbar" data-dc-id="topbar"><div class="pill raised" style="margin:0"><span class="led"></span><span class="name">MacBook Pro</span><span class="tbadge lan">Wi-Fi</span><i data-i="chevDown" class="i20 chev"></i></div><div class="brand" data-dc-id="brand">
+      <span class="wordmark lit bulb" data-dc-id="wordmark"><span class="wm-spill" data-dc-id="wordmark-spill"></span><span class="wm-glow" aria-hidden="true">MOTE</span><span class="wm-core">MOTE</span><span class="wm-spec" aria-hidden="true">MOTE</span></span>
+      <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
+    </div></header><main class="content media" data-dc-id="media-content">
+    <section class="fav-wrap" data-dc-id="fav-strip">
+      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="edit-chip raised" data-dc-id="fav-edit"><i data-i="edit" class="i16"></i>Edit</span></div>
+      <div class="cap-row"><span>Spaces</span><span>swipe or tap a desktop</span></div>
+      <div class="carousel well" data-dc-id="fav-next-space">
+        <div class="rowc"><div class="scard raised" data-dc-id="fav-next-space-card-1"><span class="num">1</span><span class="nm">Desktop 1</span></div><div class="scard current raised" data-dc-id="fav-next-space-card-2"><span class="cur-dot"></span><span class="num">2</span><span class="nm">Desktop 2</span></div><div class="scard raised" data-dc-id="fav-next-space-card-3"><span class="num">3</span><span class="nm">Desktop 3</span></div><div class="scard raised" data-dc-id="fav-next-space-card-4"><span class="num">4</span><span class="nm">Desktop 4</span></div><div class="scard raised" data-dc-id="fav-next-space-card-5"><span class="num">5</span><span class="nm">Desktop 5</span></div><div class="scard raised" data-dc-id="fav-next-space-card-6"><span class="num">6</span><span class="nm">Desktop 6</span></div></div>
+        <span class="fade-r"></span>
+      </div>
+      <div class="favs"><div class="fav add" style="grid-column: span 4" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div></div>
+    </section>
+
+    <div class="sec-row" data-dc-id="brightness-row">
+      <div class="pair small well" data-dc-id="brightness-group">
+        <div class="cap raised" data-dc-id="brightness-down"><span class="arrowed"><i data-i="sunDown"></i><i data-i="arrowDown" class="i20" data-dc-id="brightness-down-arrow"></i></span></div>
+        <div class="cap raised" data-dc-id="brightness-up"><span class="arrowed"><i data-i="sunUp"></i><i data-i="arrowUp" class="i20" data-dc-id="brightness-up-arrow"></i></span></div>
+      </div>
+    </div>
+
+    <div class="cluster" data-dc-id="dpad-row">
+      <div class="col">
+        <div class="slider well" data-dc-id="scroll-lever">
+          <span class="end" data-dc-id="scroll-lever-top"><i data-i="triUp" class="i16"></i></span>
+          <span class="ticks"></span>
+          <div class="thumb" data-dc-id="scroll-lever-thumb"><span class="grip"></span><span class="grip"></span><span class="grip"></span></div>
+          <span class="end" data-dc-id="scroll-lever-bottom"><i data-i="triDown" class="i16"></i></span>
+        </div>
+        <span class="engrave" data-dc-id="scroll-lever-label">Scroll</span>
+      </div>
+      <div class="dpad-wrap js" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 236 236" data-dc-id="dpad">
+        <defs>
+          <linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient>
+          <radialGradient id="dome" cx=".42" cy=".30" r=".78"><stop offset="0" style="stop-color:var(--stick-hi)"/><stop offset=".55" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></radialGradient>
+          <linearGradient id="wallg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-bot)"/><stop offset="1" style="stop-color:var(--rub-wall)"/></linearGradient>
+          <linearGradient id="dish" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--dish-top)"/><stop offset="1" style="stop-color:var(--dish-bot)"/></linearGradient>
+          <radialGradient id="dishshade" cx=".5" cy=".30" r=".70"><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.30"/></radialGradient>
+          <radialGradient id="wellg" cx=".5" cy=".62" r=".6"><stop offset="0" style="stop-color:var(--well)"/><stop offset="1" style="stop-color:var(--well-deep)"/></radialGradient>
+          <linearGradient id="gate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gate-0)"/><stop offset=".48" style="stop-color:var(--gate-1)"/><stop offset=".52" style="stop-color:var(--gate-2)"/><stop offset="1" style="stop-color:var(--gate-3)"/></linearGradient>
+          <linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient>
+          <linearGradient id="bevin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.55"/><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset=".8" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.55"/></linearGradient>
+          <filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter>
+          <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5"/></filter>
+          <filter id="glowblur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+          <filter id="spec" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter>
+          <clipPath id="cdisc"><circle cx="118" cy="118" r="110"/></clipPath>
+          <clipPath id="cwell"><circle cx="118" cy="118" r="77"/></clipPath>
+          <clipPath id="cdish"><circle cx="118.00" cy="118.00" r="38"/></clipPath>
+        </defs>
+        <circle class="housing" cx="118" cy="118" r="113"/>
+        <circle class="contact" cx="118" cy="124" r="106"/>
+        <circle class="disc" cx="118" cy="118" r="110" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
+        <rect class="grain" x="8" y="8" width="220" height="220" filter="url(#gr)" clip-path="url(#cdisc)" opacity=".5"/>
+        <circle class="bevel" cx="118" cy="118" r="109.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
+        <g data-dc-id="dpad-up"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-right" transform="rotate(90 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-down" transform="rotate(180 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-left" transform="rotate(270 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g>
+        <g><line class="div" x1="178.1" y1="57.9" x2="192.2" y2="43.8"/><line class="div" x1="178.1" y1="178.1" x2="192.2" y2="192.2"/><line class="div" x1="57.9" y1="178.1" x2="43.8" y2="192.2"/><line class="div" x1="57.9" y1="57.9" x2="43.8" y2="43.8"/></g>
+        <g data-dc-id="dpad-stick-gate">
+          <circle cx="118" cy="118" r="82" fill="url(#gate)"/><circle class="gate-hi" cx="118" cy="118" r="81.5"/>
+          <circle cx="118" cy="118" r="77" fill="url(#wellg)" data-dc-id="dpad-stick-well"/>
+          <circle cx="118" cy="118" r="75.5" fill="none" stroke="url(#bevin)" stroke-width="3"/>
+          <g class="well-hints" data-dc-id="dpad-stick-hints"><path d="M113 52L118 47L123 52" transform="rotate(0 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(90 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(180 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(270 118 118)"/><circle cx="166.1" cy="69.9" r="1.4" class="dot"/><circle cx="166.1" cy="166.1" r="1.4" class="dot"/><circle cx="69.9" cy="166.1" r="1.4" class="dot"/><circle cx="69.9" cy="69.9" r="1.4" class="dot"/></g>
+        </g>
+        
+        <g clip-path="url(#cwell)"><circle class="stick-shadow" cx="118.00" cy="127.00" r="52" filter="url(#soft)" data-dc-id="dpad-stick-shadow"/></g>
+        <g data-dc-id="dpad-center">
+          <circle cx="118.00" cy="125.00" r="52" fill="url(#wallg)" data-dc-id="dpad-stick-wall"/>
+          <circle cx="118.00" cy="118.00" r="52" fill="url(#dome)" data-dc-id="dpad-stick-cap"/>
+          <path d="M118.00 77.00L118.00 69.00 M124.41 77.50L125.67 69.60 M130.67 79.01L133.14 71.40 M136.61 81.47L140.25 74.34 M142.10 84.83L146.80 78.36 M146.99 89.01L152.65 83.35 M151.17 93.90L157.64 89.20 M154.53 99.39L161.66 95.75 M156.99 105.33L164.60 102.86 M158.50 111.59L166.40 110.33 M159.00 118.00L167.00 118.00 M158.50 124.41L166.40 125.67 M156.99 130.67L164.60 133.14 M154.53 136.61L161.66 140.25 M151.17 142.10L157.64 146.80 M146.99 146.99L152.65 152.65 M142.10 151.17L146.80 157.64 M136.61 154.53L140.25 161.66 M130.67 156.99L133.14 164.60 M124.41 158.50L125.67 166.40 M118.00 159.00L118.00 167.00 M111.59 158.50L110.33 166.40 M105.33 156.99L102.86 164.60 M99.39 154.53L95.75 161.66 M93.90 151.17L89.20 157.64 M89.01 146.99L83.35 152.65 M84.83 142.10L78.36 146.80 M81.47 136.61L74.34 140.25 M79.01 130.67L71.40 133.14 M77.50 124.41L69.60 125.67 M77.00 118.00L69.00 118.00 M77.50 111.59L69.60 110.33 M79.01 105.33L71.40 102.86 M81.47 99.39L74.34 95.75 M84.83 93.90L78.36 89.20 M89.01 89.01L83.35 83.35 M93.90 84.83L89.20 78.36 M99.39 81.47L95.75 74.34 M105.33 79.01L102.86 71.40 M111.59 77.50L110.33 69.60" class="knurl" data-dc-id="dpad-stick-knurl"/>
+          <circle cx="118.00" cy="118.00" r="51.25" fill="none" stroke="url(#bev)" stroke-width="1.5"/>
+          <circle cx="118.00" cy="118.00" r="38" fill="url(#dish)" data-dc-id="dpad-stick-dish"/>
+          <circle cx="118.00" cy="118.00" r="38" fill="url(#dishshade)"/>
+          <rect x="80.00" y="80.00" width="76" height="76" filter="url(#gr)" clip-path="url(#cdish)" opacity=".55" style="mix-blend-mode:overlay"/>
+          <circle cx="118.00" cy="118.00" r="38" fill="none" stroke="url(#bevin)" stroke-width="2"/>
+          <ellipse cx="102.00" cy="78.00" rx="14" ry="4" class="spec" filter="url(#spec)" transform="rotate(-24 102.00 78.00)"/>
+          <g data-dc-id="dpad-center-legend" transform="translate(109.50 108.00) scale(.75)"><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--hi)" transform="translate(0 1.2)"/><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--on-surface-muted)"/></g>
+        </g>
+      </svg></div>
+      <div class="col">
+        <div class="slider well vol" data-dc-id="volume-group">
+          <span class="end" data-dc-id="volume-group-top">+</span>
+          <span class="ticks"></span>
+          <div class="thumb" data-dc-id="volume-group-thumb"><i data-i="speaker" class="i20"></i></div>
+          <span class="end bot" data-dc-id="volume-group-bottom">−</span><div class="mutecap raised" data-dc-id="mute"><i data-i="mute" class="i20"></i></div>
+        </div>
+        <span class="engrave" data-dc-id="volume-group-label">Volume</span>
+      </div>
+    </div>
+
+    <div class="channel well transport" data-dc-id="transport">
+      <div class="mcap sm" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
+      <div class="mcap play" data-dc-id="play-pause"><span class="ring" data-dc-id="play-ring"></span><i data-i="playPause" class="i32"></i></div>
+      <div class="mcap sm" data-dc-id="next"><i data-i="next" class="i28"></i></div>
+    </div>
+  </main><nav class="rail" data-dc-id="mode-rail">
+    <div class="track well" data-dc-id="rail-track">
+      <div class="seg on raised" data-dc-id="rail-media"><i data-i="modeMedia"></i><span class="lb">Media</span></div>
+      <div class="seg" data-dc-id="rail-pad"><i data-i="modeMouse"></i><span class="lb">Mouse</span></div>
+      <div class="seg" data-dc-id="rail-keys"><i data-i="modeKeys"></i><span class="lb">Keys</span></div>
+      <div class="seg" data-dc-id="rail-macros"><i data-i="modeMacros"></i><span class="lb">Macros</span></div>
+    </div>
+  </nav>
+  <div class="navbar"></div></div></div></div></div><p class="cap">Connected<small>The wordmark lights; the pill shows the route</small></p></div><div class="arrow"><svg viewBox="0 0 44 20"><path d="M2 10h36M30 3l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="step" data-dc-id="j8-s4"><span class="num">4</span><div class="row"><div class="phone" data-dc-id="j8-p4"><div class="vp"><div class="screen" data-dc-id="screen"><div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div><header class="topbar" data-dc-id="topbar"><div class="pill raised" style="margin:0"><span class="led"></span><span class="name">MacBook Pro</span><span class="tbadge ts">Tailscale</span><i data-i="chevDown" class="i20 chev"></i></div><div class="brand" data-dc-id="brand">
+      <span class="wordmark lit bulb" data-dc-id="wordmark"><span class="wm-spill" data-dc-id="wordmark-spill"></span><span class="wm-glow" aria-hidden="true">MOTE</span><span class="wm-core">MOTE</span><span class="wm-spec" aria-hidden="true">MOTE</span></span>
+      <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
+    </div></header><main class="content media" data-dc-id="media-content">
+    <section class="fav-wrap" data-dc-id="fav-strip">
+      <div class="fav-head"><span class="t-caps"><i data-i="starFill" class="i16"></i>Favourites</span><span class="edit-chip raised" data-dc-id="fav-edit"><i data-i="edit" class="i16"></i>Edit</span></div>
+      <div class="cap-row"><span>Spaces</span><span>swipe or tap a desktop</span></div>
+      <div class="carousel well" data-dc-id="fav-next-space">
+        <div class="rowc"><div class="scard raised" data-dc-id="fav-next-space-card-1"><span class="num">1</span><span class="nm">Desktop 1</span></div><div class="scard current raised" data-dc-id="fav-next-space-card-2"><span class="cur-dot"></span><span class="num">2</span><span class="nm">Desktop 2</span></div><div class="scard raised" data-dc-id="fav-next-space-card-3"><span class="num">3</span><span class="nm">Desktop 3</span></div><div class="scard raised" data-dc-id="fav-next-space-card-4"><span class="num">4</span><span class="nm">Desktop 4</span></div><div class="scard raised" data-dc-id="fav-next-space-card-5"><span class="num">5</span><span class="nm">Desktop 5</span></div><div class="scard raised" data-dc-id="fav-next-space-card-6"><span class="num">6</span><span class="nm">Desktop 6</span></div></div>
+        <span class="fade-r"></span>
+      </div>
+      <div class="favs"><div class="fav add" style="grid-column: span 4" data-dc-id="fav-add"><i data-i="plus" class="i20"></i><span class="lb">Add favourite</span></div></div>
+    </section>
+
+    <div class="sec-row" data-dc-id="brightness-row">
+      <div class="pair small well" data-dc-id="brightness-group">
+        <div class="cap raised" data-dc-id="brightness-down"><span class="arrowed"><i data-i="sunDown"></i><i data-i="arrowDown" class="i20" data-dc-id="brightness-down-arrow"></i></span></div>
+        <div class="cap raised" data-dc-id="brightness-up"><span class="arrowed"><i data-i="sunUp"></i><i data-i="arrowUp" class="i20" data-dc-id="brightness-up-arrow"></i></span></div>
+      </div>
+    </div>
+
+    <div class="cluster" data-dc-id="dpad-row">
+      <div class="col">
+        <div class="slider well" data-dc-id="scroll-lever">
+          <span class="end" data-dc-id="scroll-lever-top"><i data-i="triUp" class="i16"></i></span>
+          <span class="ticks"></span>
+          <div class="thumb" data-dc-id="scroll-lever-thumb"><span class="grip"></span><span class="grip"></span><span class="grip"></span></div>
+          <span class="end" data-dc-id="scroll-lever-bottom"><i data-i="triDown" class="i16"></i></span>
+        </div>
+        <span class="engrave" data-dc-id="scroll-lever-label">Scroll</span>
+      </div>
+      <div class="dpad-wrap js" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 236 236" data-dc-id="dpad">
+        <defs>
+          <linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient>
+          <radialGradient id="dome" cx=".42" cy=".30" r=".78"><stop offset="0" style="stop-color:var(--stick-hi)"/><stop offset=".55" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></radialGradient>
+          <linearGradient id="wallg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-bot)"/><stop offset="1" style="stop-color:var(--rub-wall)"/></linearGradient>
+          <linearGradient id="dish" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--dish-top)"/><stop offset="1" style="stop-color:var(--dish-bot)"/></linearGradient>
+          <radialGradient id="dishshade" cx=".5" cy=".30" r=".70"><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.30"/></radialGradient>
+          <radialGradient id="wellg" cx=".5" cy=".62" r=".6"><stop offset="0" style="stop-color:var(--well)"/><stop offset="1" style="stop-color:var(--well-deep)"/></radialGradient>
+          <linearGradient id="gate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gate-0)"/><stop offset=".48" style="stop-color:var(--gate-1)"/><stop offset=".52" style="stop-color:var(--gate-2)"/><stop offset="1" style="stop-color:var(--gate-3)"/></linearGradient>
+          <linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient>
+          <linearGradient id="bevin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.55"/><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset=".8" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.55"/></linearGradient>
+          <filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter>
+          <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5"/></filter>
+          <filter id="glowblur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+          <filter id="spec" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter>
+          <clipPath id="cdisc"><circle cx="118" cy="118" r="110"/></clipPath>
+          <clipPath id="cwell"><circle cx="118" cy="118" r="77"/></clipPath>
+          <clipPath id="cdish"><circle cx="118.00" cy="118.00" r="38"/></clipPath>
+        </defs>
+        <circle class="housing" cx="118" cy="118" r="113"/>
+        <circle class="contact" cx="118" cy="124" r="106"/>
+        <circle class="disc" cx="118" cy="118" r="110" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
+        <rect class="grain" x="8" y="8" width="220" height="220" filter="url(#gr)" clip-path="url(#cdisc)" opacity=".5"/>
+        <circle class="bevel" cx="118" cy="118" r="109.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
+        <g data-dc-id="dpad-up"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-right" transform="rotate(90 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-down" transform="rotate(180 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-left" transform="rotate(270 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g>
+        <g><line class="div" x1="178.1" y1="57.9" x2="192.2" y2="43.8"/><line class="div" x1="178.1" y1="178.1" x2="192.2" y2="192.2"/><line class="div" x1="57.9" y1="178.1" x2="43.8" y2="192.2"/><line class="div" x1="57.9" y1="57.9" x2="43.8" y2="43.8"/></g>
+        <g data-dc-id="dpad-stick-gate">
+          <circle cx="118" cy="118" r="82" fill="url(#gate)"/><circle class="gate-hi" cx="118" cy="118" r="81.5"/>
+          <circle cx="118" cy="118" r="77" fill="url(#wellg)" data-dc-id="dpad-stick-well"/>
+          <circle cx="118" cy="118" r="75.5" fill="none" stroke="url(#bevin)" stroke-width="3"/>
+          <g class="well-hints" data-dc-id="dpad-stick-hints"><path d="M113 52L118 47L123 52" transform="rotate(0 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(90 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(180 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(270 118 118)"/><circle cx="166.1" cy="69.9" r="1.4" class="dot"/><circle cx="166.1" cy="166.1" r="1.4" class="dot"/><circle cx="69.9" cy="166.1" r="1.4" class="dot"/><circle cx="69.9" cy="69.9" r="1.4" class="dot"/></g>
+        </g>
+        
+        <g clip-path="url(#cwell)"><circle class="stick-shadow" cx="118.00" cy="127.00" r="52" filter="url(#soft)" data-dc-id="dpad-stick-shadow"/></g>
+        <g data-dc-id="dpad-center">
+          <circle cx="118.00" cy="125.00" r="52" fill="url(#wallg)" data-dc-id="dpad-stick-wall"/>
+          <circle cx="118.00" cy="118.00" r="52" fill="url(#dome)" data-dc-id="dpad-stick-cap"/>
+          <path d="M118.00 77.00L118.00 69.00 M124.41 77.50L125.67 69.60 M130.67 79.01L133.14 71.40 M136.61 81.47L140.25 74.34 M142.10 84.83L146.80 78.36 M146.99 89.01L152.65 83.35 M151.17 93.90L157.64 89.20 M154.53 99.39L161.66 95.75 M156.99 105.33L164.60 102.86 M158.50 111.59L166.40 110.33 M159.00 118.00L167.00 118.00 M158.50 124.41L166.40 125.67 M156.99 130.67L164.60 133.14 M154.53 136.61L161.66 140.25 M151.17 142.10L157.64 146.80 M146.99 146.99L152.65 152.65 M142.10 151.17L146.80 157.64 M136.61 154.53L140.25 161.66 M130.67 156.99L133.14 164.60 M124.41 158.50L125.67 166.40 M118.00 159.00L118.00 167.00 M111.59 158.50L110.33 166.40 M105.33 156.99L102.86 164.60 M99.39 154.53L95.75 161.66 M93.90 151.17L89.20 157.64 M89.01 146.99L83.35 152.65 M84.83 142.10L78.36 146.80 M81.47 136.61L74.34 140.25 M79.01 130.67L71.40 133.14 M77.50 124.41L69.60 125.67 M77.00 118.00L69.00 118.00 M77.50 111.59L69.60 110.33 M79.01 105.33L71.40 102.86 M81.47 99.39L74.34 95.75 M84.83 93.90L78.36 89.20 M89.01 89.01L83.35 83.35 M93.90 84.83L89.20 78.36 M99.39 81.47L95.75 74.34 M105.33 79.01L102.86 71.40 M111.59 77.50L110.33 69.60" class="knurl" data-dc-id="dpad-stick-knurl"/>
+          <circle cx="118.00" cy="118.00" r="51.25" fill="none" stroke="url(#bev)" stroke-width="1.5"/>
+          <circle cx="118.00" cy="118.00" r="38" fill="url(#dish)" data-dc-id="dpad-stick-dish"/>
+          <circle cx="118.00" cy="118.00" r="38" fill="url(#dishshade)"/>
+          <rect x="80.00" y="80.00" width="76" height="76" filter="url(#gr)" clip-path="url(#cdish)" opacity=".55" style="mix-blend-mode:overlay"/>
+          <circle cx="118.00" cy="118.00" r="38" fill="none" stroke="url(#bevin)" stroke-width="2"/>
+          <ellipse cx="102.00" cy="78.00" rx="14" ry="4" class="spec" filter="url(#spec)" transform="rotate(-24 102.00 78.00)"/>
+          <g data-dc-id="dpad-center-legend" transform="translate(109.50 108.00) scale(.75)"><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--hi)" transform="translate(0 1.2)"/><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--on-surface-muted)"/></g>
+        </g>
+      </svg></div>
+      <div class="col">
+        <div class="slider well vol" data-dc-id="volume-group">
+          <span class="end" data-dc-id="volume-group-top">+</span>
+          <span class="ticks"></span>
+          <div class="thumb" data-dc-id="volume-group-thumb"><i data-i="speaker" class="i20"></i></div>
+          <span class="end bot" data-dc-id="volume-group-bottom">−</span><div class="mutecap raised" data-dc-id="mute"><i data-i="mute" class="i20"></i></div>
+        </div>
+        <span class="engrave" data-dc-id="volume-group-label">Volume</span>
+      </div>
+    </div>
+
+    <div class="channel well transport" data-dc-id="transport">
+      <div class="mcap sm" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
+      <div class="mcap play" data-dc-id="play-pause"><span class="ring" data-dc-id="play-ring"></span><i data-i="playPause" class="i32"></i></div>
+      <div class="mcap sm" data-dc-id="next"><i data-i="next" class="i28"></i></div>
+    </div>
+  </main><nav class="rail" data-dc-id="mode-rail">
+    <div class="track well" data-dc-id="rail-track">
+      <div class="seg on raised" data-dc-id="rail-media"><i data-i="modeMedia"></i><span class="lb">Media</span></div>
+      <div class="seg" data-dc-id="rail-pad"><i data-i="modeMouse"></i><span class="lb">Mouse</span></div>
+      <div class="seg" data-dc-id="rail-keys"><i data-i="modeKeys"></i><span class="lb">Keys</span></div>
+      <div class="seg" data-dc-id="rail-macros"><i data-i="modeMacros"></i><span class="lb">Macros</span></div>
+    </div>
+  </nav>
+  <div class="navbar"></div><div class="jscrim"></div><section class="jsheet" data-dc-id="j8-trusted"><div class="handle"></div><div class="hero-dev raised"><i data-i="check"></i></div>
+      <h2 class="t-headline ctr">Connected to MacBook Pro</h2>
+      <p class="t-body-s muted ctr" style="margin-top:6px">Trusted via Tailscale: this phone and the Mac belong to the same tailnet owner, so no prompts were needed.</p></section></div></div></div></div><p class="cap">Variant: same Tailscale owner<small>Zero prompts: trusted via Tailscale</small></p></div><div class="arrow"><svg viewBox="0 0 44 20"><path d="M2 10h36M30 3l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="step" data-dc-id="j8-s5"><span class="num">5</span><div class="row"><div class="mac" data-dc-id="j8-fallback" style="width:370px;padding:18px;background:var(--surface-1);color:var(--on-surface)">
+      <div class="t-caps subtle">Silent reconnect, best route first</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
+        <div class="pill raised" style="margin:0"><span class="led"></span><span class="name">MacBook Pro</span><span class="tbadge lan">Wi-Fi</span><i data-i="chevDown" class="i20 chev"></i></div><span class="t-body-s muted">1. Same Wi-Fi (LAN): fastest</span>
+        <div class="pill raised" style="margin:0"><span class="led amber"></span><span class="name">MacBook Pro</span><span class="tbadge ts">Tailscale</span><i data-i="chevDown" class="i20 chev"></i></div><span class="t-body-s muted">2. Away from home: tailnet</span>
+        <div class="pill raised" style="margin:0"><span class="led"></span><span class="name">MacBook Pro</span><span class="tbadge bt">Bluetooth</span><i data-i="chevDown" class="i20 chev"></i></div><span class="t-body-s muted">3. No network: Bluetooth fallback</span></div></div></div><p class="cap">Later: reconnects silently<small>LAN, then tailnet, then Bluetooth</small></p></div></div>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>
