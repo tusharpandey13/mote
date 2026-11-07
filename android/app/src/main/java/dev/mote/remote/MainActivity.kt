@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
 
     /** mote://pair links (helper pairing page) open the pairing sheet. */
     private fun handleLink(i: Intent?) {
+        dev.mote.remote.labs.open.OpenTv.onIntent(i) // Labs: shared links pre-fill the Open… sheet
         val data = i?.dataString ?: return
         PairLink.parse(data)?.let { Net.pendingLink.value = it }
     }

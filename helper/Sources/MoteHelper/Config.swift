@@ -13,6 +13,7 @@ struct Config {
     var allowTailscale: Bool? = nil   // --allow-tailscale: force the toggle on for this run (tests)
     var webRoot: URL? = nil
     var stdinControl = false  // tests: read pair/revoke/pause/resume commands from stdin (needs --dry-run)
+    var labsTv = false        // --labs-tv: force Labs › TV mode on for this run (tests)
     var fakeSpaces: [Int]? = nil // tests: simulate displays with N,M,... Spaces and generated thumbnails (needs --dry-run)
     var fakeScreen = false    // tests: Labs live screen streams synthetic frames of a fake display (needs --dry-run; turns the lab on)
 
@@ -29,6 +30,7 @@ struct Config {
             case "--allow-tailscale": c.allowTailscale = true
             case "--stdin-control": c.stdinControl = true
             case "--fake-screen": c.fakeScreen = true
+            case "--labs-tv": c.labsTv = true
             case "--fake-spaces":
                 if let v = it.next() {
                     let ns = v.split(separator: ",").compactMap { Int($0) }.prefix(Spaces.maxDisplays).map { min(max($0, 1), Spaces.maxDesktops) }
@@ -41,7 +43,7 @@ struct Config {
                 print("""
                 MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
-                           [--stdin-control] [--fake-spaces N[,M...]] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
+                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
                 """)
                 exit(0)
             default: break // ignore launch-services noise (-psn_..., -NS...)

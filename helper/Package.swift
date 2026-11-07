@@ -17,6 +17,7 @@ let package = Package(
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("ServiceManagement"),
                 .linkedFramework("SystemConfiguration"),
+                .linkedFramework("WebKit"),
             ]
         ),
         // helper/tests/unit.sh: pure helper math (Swift Testing, ships with the Command Line Tools).

@@ -216,7 +216,7 @@ class HelperIntegrationTest {
         t.start()
         withTimeout(10_000) { t.status.first { it is WsStatus.Ready } }
         val events = kotlinx.coroutines.channels.Channel<dev.mote.remote.labs.screen.ScreenProto.In>(kotlinx.coroutines.channels.Channel.UNLIMITED)
-        val sub = scope.launch { t.labs.collect { m -> dev.mote.remote.labs.screen.ScreenProto.parse(m.t, m.o)?.let { events.trySend(it) } } }
+        val sub = scope.launch { dev.mote.remote.labs.LabsBus.incoming.collect { o -> dev.mote.remote.labs.screen.ScreenProto.parse(o)?.let { events.trySend(it) } } }
         Thread.sleep(100)
         assertTrue(t.sendLabs(dev.mote.remote.labs.screen.ScreenProto.start(w = 960, fps = 15)))
         var frames = 0

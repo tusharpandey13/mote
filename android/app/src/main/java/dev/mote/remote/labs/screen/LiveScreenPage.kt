@@ -1,6 +1,15 @@
 package dev.mote.remote.labs.screen
 
+import android.content.Context
 import android.content.pm.ApplicationInfo
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.preferencesDataStore
+import dev.mote.remote.data.Prefs
+import dev.mote.remote.data.typed
+import dev.mote.remote.labs.Labs
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import android.graphics.BitmapFactory
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
@@ -56,7 +65,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import dev.mote.remote.labs.Labs
+import dev.mote.remote.labs.LabsBus
 import dev.mote.remote.net.Net
 import dev.mote.remote.net.Route
 import dev.mote.remote.net.WsStatus
@@ -101,7 +110,7 @@ fun LiveScreenPage(onBack: () -> Unit) {
     val status by (ws?.status ?: remember { kotlinx.coroutines.flow.MutableStateFlow<WsStatus>(WsStatus.Idle) }).collectAsState()
     val ready = status as? WsStatus.Ready
     val plainLan = ready != null && routeOf(ready.address) != Route.TAILNET
-    val warned by remember { Labs.seen(ctx, WARNING) }.collectAsState(initial = true)
+    val warned by remember { ScreenPrefs.warned(ctx) }.collectAsState(initial = true)
     val scope = rememberCoroutineScope()
     var paused by remember { mutableStateOf(false) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -121,8 +130,8 @@ fun LiveScreenPage(onBack: () -> Unit) {
         val times = ArrayDeque<Long>()
         try {
             // Start once subscribed, so an immediate `err` (lab off on the Mac, no permission) isn't missed.
-            ws.labs.onSubscription { ws.sendLabs(ScreenProto.start(w = 960, fps = 12, credits = 2)) }.collect { m ->
-                    when (val e = ScreenProto.parse(m.t, m.o)) {
+            LabsBus.incoming.onSubscription { ws.sendLabs(ScreenProto.start(w = 960, fps = 12, credits = 2)) }.collect { o ->
+                    when (val e = ScreenProto.parse(o)) {
                         is ScreenProto.FrameIn -> {
                             val f = e.f
                             val bmp = withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(f.jpeg, 0, f.jpeg.size)?.asImageBitmap() }
@@ -172,15 +181,13 @@ fun LiveScreenPage(onBack: () -> Unit) {
                     "Your screen travels unencrypted",
                     "On plain Wi-Fi, anyone on this network who can capture traffic could see the Mac's screen. Tailscale encrypts it. Frames are never saved.",
                     action = "Show the screen",
-                ) { scope.launch { Labs.markSeen(ctx, WARNING) } }
+                ) { scope.launch { ScreenPrefs.markWarned(ctx) } }
                 ready == null -> Notice("Connecting to the Mac…", "The screen shows once Mote Helper answers.")
                 else -> Viewer(v, ws, paused)
             }
         }
     }
 }
-
-private const val WARNING = "live_screen_lan_warning"
 
 @Composable
 private fun Notice(title: String, body: String, action: String? = null, onAction: () -> Unit = {}) {
@@ -279,4 +286,20 @@ private fun Viewer(v: View, ws: WsTransport, paused: Boolean) {
         }
         if (paused) Text("Sharing paused", style = T.label, color = Color.White, modifier = Modifier.align(Alignment.TopCenter).padding(12.dp))
     }
+}
+
+/** The live screen's own one-time state (DataStore "labs_screen"): the plain-LAN warning was acknowledged. */
+private object ScreenPrefs {
+    private val Context.store by preferencesDataStore("labs_screen", corruptionHandler = Prefs.corruptionHandler)
+    private val WARNED = booleanPreferencesKey("lan_warning_seen")
+    fun warned(c: Context): Flow<Boolean> = c.store.data.map { it.typed(WARNED) ?: false }
+    suspend fun markWarned(c: Context) { c.store.edit { it[WARNED] = true } }
+}
+
+/** Settings › Labs › Live screen is on (gates the menu entry). */
+@Composable
+fun liveScreenOn(): Boolean {
+    val ctx = LocalContext.current
+    val on by remember { Labs.flow(ctx, Labs.LIVE_SCREEN) }.collectAsState(initial = false)
+    return on
 }

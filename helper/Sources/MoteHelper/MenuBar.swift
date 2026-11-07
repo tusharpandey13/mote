@@ -115,21 +115,16 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         _ = add("Paired devices: \(hub.store.devices.count)")
         menu.addItem(.separator())
 
-        let labs = NSMenu()
-        for (title, action, state) in [("Live screen", #selector(toggleLiveScreen), hub.settings.labsLiveScreen),
+        let labs = NSMenu()   // Labs (previews, off by default)
+        let tvItem = NSMenuItem(title: "TV mode (preview)", action: #selector(toggleTvLab), keyEquivalent: "")
+        tvItem.target = self; tvItem.state = hub.tv.enabled ? .on : .off; labs.addItem(tvItem)
+        if hub.tv.on { let x = NSMenuItem(title: "Exit TV mode", action: #selector(exitTv), keyEquivalent: ""); x.target = self; labs.addItem(x) }
+        // Labs › Live screen (docs/labs/live-screen.md)
+        for (title, action, state) in [("Live screen (preview)", #selector(toggleLiveScreen), hub.settings.labsLiveScreen),
                                        ("Pause screen sharing", #selector(toggleScreenPause), hub.liveScreen.paused)] {
-            let i = NSMenuItem(title: title, action: action, keyEquivalent: "")
-            i.target = self; i.state = state ? .on : .off
-            labs.addItem(i)
+            let i = NSMenuItem(title: title, action: action, keyEquivalent: ""); i.target = self; i.state = state ? .on : .off; labs.addItem(i)
         }
-        let note = NSMenuItem(title: "Preview: streams the active display to an open phone viewer. Plain Wi-Fi is unencrypted.", action: nil, keyEquivalent: "")
-        note.isEnabled = false
-        labs.addItem(note)
-        let labsItem = add("Labs")
-        labsItem.isEnabled = true
-        labsItem.submenu = labs
-        menu.addItem(.separator())
-
+        let labsItem = NSMenuItem(title: "Labs", action: nil, keyEquivalent: ""); labsItem.submenu = labs; menu.addItem(labsItem)
         _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
         _ = add("Revoke all devices…", #selector(revokeAll))
         _ = add("Launch at login", #selector(toggleLogin), state: SMAppService.mainApp.status == .enabled)
@@ -153,6 +148,8 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     @objc func startPairing() { hub.pairing.open(); showPairing() }
     @objc func stopPairing() { hub.pairing.close() }
     @objc func togglePause() { hub.paused.toggle() }
+    @objc func toggleTvLab() { hub.tv.enabled.toggle() }
+    @objc func exitTv() { hub.tv.exit() }
     @objc func toggleShareThumbs() { hub.settings.shareSpaceThumbnails.toggle() }
     @objc func clearThumbs() { hub.spaces.clear() }
     @objc func toggleLiveScreen() {

@@ -37,4 +37,6 @@ object Remote {
     fun clickAt(x: Float, y: Float): Boolean = t.clickAt(x, y)
     /** Switch the Mac to the 1-based desktop [index] of [display] (null = active) (helper `spaces.goto`, or ⌃N / ⌃arrows over Bluetooth). */
     fun spacesGoto(index: Int, display: String? = null) = t.spacesGoto(index, display)
+    /** Labs (preview): raw `labs.*` message to the helper; false over Bluetooth. */
+    fun sendLabs(json: String): Boolean = t.sendLabs(json)
 }

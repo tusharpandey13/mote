@@ -32,9 +32,9 @@ object ScreenProto {
     data class StoppedIn(val reason: String) : In
     data class ErrIn(val code: String, val msg: String) : In
 
-    /** A `labs.*` message ([t] + body) to a live screen event, or null if it isn't one / is malformed. */
-    fun parse(t: String, o: JSONObject): In? = runCatching {
-        when (t) {
+    /** A [dev.mote.remote.labs.LabsBus] message to a live screen event, or null if it isn't one / is malformed. */
+    fun parse(o: JSONObject): In? = runCatching {
+        when (o.optString("t")) {
             "labs.screen.frame" -> {
                 val jpeg = java.util.Base64.getDecoder().decode(o.getString("data"))
                 if (jpeg.size < 4) return null
@@ -49,7 +49,7 @@ object ScreenProto {
                 o.optString("display").ifEmpty { null }, o.optInt("w"), o.optInt("h"), o.optDouble("fps", 0.0), o.optBoolean("encrypted"),
             ))
             "labs.screen.stopped" -> StoppedIn(o.optString("reason", "stop"))
-            "labs.err" -> if (o.optString("ref").startsWith("labs.screen.")) ErrIn(o.optString("code"), o.optString("msg")) else null
+            "err" -> if (o.optString("ref").startsWith("labs.screen.")) ErrIn(o.optString("code"), o.optString("msg")) else null
             else -> null
         }
     }.getOrNull()
@@ -107,7 +107,7 @@ object ViewMath {
     fun clampPan(ox: Float, oy: Float, scale: Float, boxW: Float, boxH: Float, imgW: Float, imgH: Float): Pair<Float, Float> {
         val f = fit(boxW, boxH, imgW, imgH)
         val mx = max(0f, (f.width * scale - boxW) / 2); val my = max(0f, (f.height * scale - boxH) / 2)
-        return ox.coerceIn(-mx, mx) to oy.coerceIn(-my, my)
+        return (ox.coerceIn(-mx, mx) + 0f) to (oy.coerceIn(-my, my) + 0f) // + 0f: no -0f
     }
 }
 

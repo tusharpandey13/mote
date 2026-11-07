@@ -27,17 +27,17 @@ class ScreenTest {
         val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 1, 2, 3)
         val o = JSONObject().put("t", "labs.screen.frame").put("seq", 4).put("display", "1").put("w", 960).put("h", 600)
             .put("data", Base64.getEncoder().encodeToString(jpeg)).put("cx", 1.7).put("cy", 0.25).put("fps", 8.5).put("rtt", 41).put("ts", 123L)
-        val f = (ScreenProto.parse("labs.screen.frame", o) as ScreenProto.FrameIn).f
+        val f = (ScreenProto.parse(o) as ScreenProto.FrameIn).f
         assertEquals(4, f.seq); assertEquals(960, f.w); assertEquals(41, f.rttMs)
         assertEquals(1f, f.cx); assertEquals(0.25f, f.cy)
         assertTrue(f.jpeg.contentEquals(jpeg))
-        assertNull("bad base64", ScreenProto.parse("labs.screen.frame", JSONObject(o.toString()).put("data", "!!")))
-        assertNull("no seq", ScreenProto.parse("labs.screen.frame", JSONObject(o.toString()).apply { remove("seq") }))
-        val st = (ScreenProto.parse("labs.screen.started", JSONObject().put("display", "1").put("w", 960).put("h", 600).put("encrypted", true)) as ScreenProto.StartedIn).s
+        assertNull("bad base64", ScreenProto.parse(JSONObject(o.toString()).put("data", "!!")))
+        assertNull("no seq", ScreenProto.parse(JSONObject(o.toString()).apply { remove("seq") }))
+        val st = (ScreenProto.parse(JSONObject().put("t", "labs.screen.started").put("display", "1").put("w", 960).put("h", 600).put("encrypted", true)) as ScreenProto.StartedIn).s
         assertTrue(st.encrypted)
-        assertEquals(ScreenProto.StoppedIn("paused"), ScreenProto.parse("labs.screen.stopped", JSONObject().put("reason", "paused")))
-        assertEquals(ScreenProto.ErrIn("labs-off", "x"), ScreenProto.parse("labs.err", JSONObject().put("code", "labs-off").put("msg", "x").put("ref", "labs.screen.start")))
-        assertNull("another lab's error", ScreenProto.parse("labs.err", JSONObject().put("code", "bad").put("ref", "labs.other.x")))
+        assertEquals(ScreenProto.StoppedIn("paused"), ScreenProto.parse(JSONObject().put("t", "labs.screen.stopped").put("reason", "paused")))
+        assertEquals(ScreenProto.ErrIn("labs-off", "x"), ScreenProto.parse(JSONObject().put("t", "err").put("code", "labs-off").put("msg", "x").put("ref", "labs.screen.start")))
+        assertNull("another lab's error", ScreenProto.parse(JSONObject().put("t", "err").put("code", "bad").put("ref", "labs.other.x")))
         assertNull(ScreenProto.explain("stop"))
         assertNotNull(ScreenProto.explain("labs-off"))
     }
