@@ -47,9 +47,12 @@ class LabsContextIntegrationTest {
     @After fun stop() { proc?.destroy() }
 
     private suspend fun WsSession.nextLabs(t: String, f: (JSONObject) -> Boolean = { true }): JSONObject = withTimeout(4000) {
-        while (true) { val m = inbox.receive(); if (m is Msg.Labs && m.t == t && f(m.o)) return@withTimeout m.o }
+        while (true) { val o = labs(inbox.receive()) ?: continue; if (o.optString("t") == t && f(o)) return@withTimeout o }
         @Suppress("UNREACHABLE_CODE") error("unreachable")
     }
+
+    /** A `labs.*` message as the app's LabsBus sees it (raw JSON of [Msg.Other]). */
+    private fun labs(m: Msg): JSONObject? = (m as? Msg.Other)?.takeIf { it.t.startsWith("labs.") }?.let { JSONObject(it.raw) }
 
     @Test fun contextNowPlayingAndSeekThroughTheAppCodecs() = runBlocking {
         val bin = helperBinary()
@@ -88,9 +91,9 @@ class LabsContextIntegrationTest {
         var moved: JSONObject? = null
         withTimeout(4000) {
             while (reply == null || moved == null) {
-                val m = s.inbox.receive() as? Msg.Labs ?: continue
-                if (m.t == "labs.np.seek") reply = m.o
-                if (m.t == "labs.np" && m.o.optJSONObject("np")?.optDouble("elapsed") == 150.0) moved = m.o
+                val o = labs(s.inbox.receive()) ?: continue
+                if (o.optString("t") == "labs.np.seek") reply = o
+                if (o.optString("t") == "labs.np" && o.optJSONObject("np")?.optDouble("elapsed") == 150.0) moved = o
             }
         }
         assertEquals("fake", reply!!.getString("via"))

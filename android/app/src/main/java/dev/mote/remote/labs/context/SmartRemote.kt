@@ -2,7 +2,7 @@ package dev.mote.remote.labs.context
 
 import android.os.SystemClock
 import dev.mote.remote.labs.LabsBus
-import dev.mote.remote.net.Msg
+import dev.mote.remote.net.Remote
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,17 +29,21 @@ object SmartRemote {
     val pendingFocus = MutableStateFlow(false)
     /** Keys is showing because a Mac text field has focus (shows the "Stop auto-keyboard" chip). */
     val autoOpened = MutableStateFlow(false)
+    private val _helperUp = MutableStateFlow(false)
+    /** A helper session took our subscription (false over Bluetooth or offline). */
+    val helperUp: StateFlow<Boolean> = _helperUp.asStateFlow()
     @Volatile private var active = false
 
-    /** Runs for as long as the caller's composition: (un)subscribes and feeds [context] / [nowPlaying]. */
+    private fun send(o: JSONObject): Boolean = Remote.sendLabs(o.toString())
+
+    /** Runs for as long as the caller's composition: (un)subscribes on every (re)link and feeds [context] / [nowPlaying]. */
     suspend fun run(enabled: Flow<Boolean>) = coroutineScope {
-        launch { LabsBus.messages.collect { if (active) onMessage(it) } }
-        combine(enabled, LabsBus.session) { on, s -> on to s }.collect { (on, s) ->
-            active = on && s != 0
-            if (s != 0) {
-                LabsBus.send(JSONObject().put("t", "labs.ctx.sub").put("on", on).toString())
-                LabsBus.send(JSONObject().put("t", "labs.np.sub").put("on", on).toString())
-            }
+        launch { LabsBus.incoming.collect { if (active) onMessage(it) } }
+        combine(enabled, Remote.linked) { on, l -> on to l }.collect { (on, linked) ->
+            val up = linked && send(JSONObject().put("t", "labs.ctx.sub").put("on", on))
+            if (up) send(JSONObject().put("t", "labs.np.sub").put("on", on))
+            _helperUp.value = up
+            active = on && up
             if (!active) { _context.value = MacContext(); _nowPlaying.value = NpState() }
         }
     }
@@ -48,20 +52,14 @@ object SmartRemote {
 
     private fun reduce(e: NpEvent) = _nowPlaying.update { NpReducer.reduce(it, e) }
 
-    internal fun onMessage(m: Msg) {
-        when (m) {
-            is Msg.Labs -> when (m.t) {
-                "labs.ctx" -> _context.value = parseContext(m.o)
-                "labs.np" -> reduce(NpEvent.Update(m.o, now()))
-                "labs.np.seek" -> reduce(
-                    NpEvent.SeekReply(
-                        m.o.optString("via"), if (m.o.has("to")) m.o.optDouble("to") else null,
-                        m.o.optString("note").ifEmpty { null }, now(),
-                    ),
-                )
-            }
-            is Msg.Err -> if (m.ref == "labs.np.seek") reduce(NpEvent.Error(m.msg))
-            else -> Unit
+    internal fun onMessage(o: JSONObject) {
+        when (o.optString("t")) {
+            "labs.ctx" -> _context.value = parseContext(o)
+            "labs.np" -> reduce(NpEvent.Update(o, now()))
+            "labs.np.seek" -> reduce(
+                NpEvent.SeekReply(o.optString("via"), if (o.has("to")) o.optDouble("to") else null, o.optString("note").ifEmpty { null }, now()),
+            )
+            "err" -> if (o.optString("ref") == "labs.np.seek") reduce(NpEvent.Error(o.optString("msg")))
         }
     }
 
@@ -69,7 +67,7 @@ object SmartRemote {
     fun seekTo(seconds: Double) {
         val to = seconds.coerceAtLeast(0.0)
         reduce(NpEvent.SeekSent(to, now()))
-        LabsBus.send(JSONObject().put("t", "labs.np.seek").put("to", to).toString())
+        send(JSONObject().put("t", "labs.np.seek").put("to", to))
     }
 
     /** Relative seek (±10 s): absolute when the position is known, so the Mac lands where the card says. */
@@ -77,7 +75,7 @@ object SmartRemote {
         val st = _nowPlaying.value
         val pos = st.displayPosition(now())
         if (st.canScrub && pos != null) seekTo(pos + seconds)
-        else LabsBus.send(JSONObject().put("t", "labs.np.seek").put("by", seconds).toString())
+        else send(JSONObject().put("t", "labs.np.seek").put("by", seconds))
     }
 
     fun parseContext(o: JSONObject): MacContext {

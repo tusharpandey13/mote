@@ -170,7 +170,7 @@ fun SettingsPage(onBack: () -> Unit, update: ((UiSettings) -> UiSettings) -> Uni
             Hairline()
             SettingRow("Extra dim", "For dark rooms and presentations") { Switch(s.extraDim, "Extra dim") { update { st -> st.copy(extraDim = it) } } }
         }
-        dev.mote.remote.labs.LabsSettingsSection()
+        dev.mote.remote.labs.LabsSection()
     }
 }
 

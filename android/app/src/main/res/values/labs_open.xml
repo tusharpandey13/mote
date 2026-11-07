@@ -1,0 +1,4 @@
+<resources>
+    <!-- Labs: Open & TV mode (preview) share target -->
+    <string name="labs_share_label">Open on Mac</string>
+</resources>

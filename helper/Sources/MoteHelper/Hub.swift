@@ -11,6 +11,7 @@ final class Hub {
     let limiter = RateLimiter()
     let injector: Injector
     let spaces: Spaces
+    let tv: TvMode   // Labs (preview): Open… + TV mode, docs/labs/open-tv.md
     private(set) var sessions: [Session] = []
     /// Labs (preview) modules, registered in main.swift; each owns `labs.*` message prefixes and a Labs menu section.
     var labs: [LabsModule] = []
@@ -36,6 +37,9 @@ final class Hub {
         self.settings = Settings(config: config)
         self.injector = Injector(dryRun: config.dryRun)
         self.spaces = Spaces(config: config, settings: settings, injector: injector)
+        self.tv = TvMode(config: config, injector: injector)
+        tv.activeDisplay = { [weak self] in self?.spaces.active?.cgID }
+        tv.onChange = { [weak self] in guard let self else { return }; let st = self.tv.state(); for s in self.authedSessions { s.send(st) }; self.onChange?() }
         spaces.onChange = { [weak self] in self?.broadcastSpaces(); self?.onChange?() }
         spaces.isSubscribed = { [weak self] in self?.sessions.contains(where: { $0.spacesSub }) ?? false }
         pairing.onChange = { [weak self] in self?.onChange?() }
@@ -86,7 +90,8 @@ final class Hub {
         case "macro": try runMacro(m["steps"])
         case "cancel": cancelMacro()
         case "spaces.goto": try spaces.goto(m.int("i"), display: m.optStr("display"))
-        default: try injector.exec(m)
+        case let t? where t.hasPrefix("labs.open.") || t.hasPrefix("labs.tv."): try tv.handle(m)
+        default: if !tv.intercept(m) { try injector.exec(m) }
         }
     }
 
@@ -222,6 +227,7 @@ final class Session {
                 return
             }
             if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
+            if t == "labs.tv.get" { send(hub.tv.state()); return }   // Labs: a read, like spaces.sub
             if t.hasPrefix("labs."), let mod = hub.labs.first(where: { $0.prefixes.contains(where: t.hasPrefix) }) { mod.handle(t, m, from: self); return }
             do { try hub.input(m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
         }

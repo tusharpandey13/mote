@@ -57,7 +57,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mote.remote.labs.Labs
-import dev.mote.remote.labs.LabsBus
 import dev.mote.remote.net.Remote
 import dev.mote.remote.ui.Cap
 import dev.mote.remote.ui.Haptic
@@ -78,7 +77,7 @@ import kotlin.math.roundToInt
 @Composable
 fun SmartRemoteEffects(mode: Mode, setMode: (Mode) -> Unit) {
     val ctx = LocalContext.current
-    val enabled = remember { Labs.enabled(ctx, Labs.SMART_REMOTE) }
+    val enabled = remember { Labs.flow(ctx, Labs.SMART_REMOTE) }
     LaunchedEffect(Unit) { SmartRemote.run(enabled) }
     val on by enabled.collectAsState(initial = false)
     val auto by remember { Labs.bool(ctx, SmartRemote.AUTO_KEYBOARD, true) }.collectAsState(initial = true)
@@ -143,9 +142,9 @@ fun SmartPanel() {
     val ctx = LocalContext.current
     val c = LocalMote.current
     val scope = rememberCoroutineScope()
-    val on by remember { Labs.enabled(ctx, Labs.SMART_REMOTE) }.collectAsState(initial = false)
+    val on by remember { Labs.flow(ctx, Labs.SMART_REMOTE) }.collectAsState(initial = false)
     if (!on) return
-    val session by LabsBus.session.collectAsState()
+    val helperUp by SmartRemote.helperUp.collectAsState()
     val mc by SmartRemote.context.collectAsState()
     val np by SmartRemote.nowPlaying.collectAsState()
     val auto by remember { Labs.bool(ctx, SmartRemote.AUTO_KEYBOARD, true) }.collectAsState(initial = true)
@@ -153,7 +152,7 @@ fun SmartPanel() {
     val info = np.np
 
     val hint = when {
-        session == 0 -> "Smart remote needs the Mote Helper over Wi-Fi or Tailscale."
+        !helperUp ->"Smart remote needs the Mote Helper over Wi-Fi or Tailscale."
         !mc.enabled && !np.enabled -> "Turn on Labs › Context & now playing in the Mote Helper menu on the Mac."
         mc.browser && mc.automation == "denied" -> "Allow Mote Helper to control ${mc.app} (System Settings › Privacy › Automation) to see the tab."
         else -> null
