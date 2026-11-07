@@ -102,7 +102,7 @@ Details: [`docs/protocol.md`](docs/protocol.md).
 - Over Wi-Fi the connection runs only while the app is on screen. Sticky modifiers do not apply to clicks over Wi-Fi, and click-at-point targets the main display.
 - Over Bluetooth typing is US layout only, and `fn` cannot be sent. Scroll direction assumes macOS natural scrolling.
 - The touchpad has mouse semantics: no 3-finger gestures or tap-and-hold drag. Portrait only.
-- The helper is ad-hoc signed and not notarized: after an update you may need to re-grant Accessibility. It does not work at the lock screen.
+- The helper is self-signed (not notarized). Releases signed with the same local identity keep their permissions across updates; an ad-hoc build needs Accessibility granted again (install.sh clears the stale entry for you). It does not work at the lock screen.
 
 Full lists: [`android/README.md`](android/README.md).
 
