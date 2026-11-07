@@ -14,6 +14,7 @@ struct Config {
     var webRoot: URL? = nil
     var stdinControl = false  // tests: read pair/revoke/pause/resume commands from stdin (needs --dry-run)
     var fakeSpaces: [Int]? = nil // tests: simulate displays with N,M,... Spaces and generated thumbnails (needs --dry-run)
+    var fakeScreen = false    // tests: Labs live screen streams synthetic frames of a fake display (needs --dry-run; turns the lab on)
 
     static func parse(_ args: [String]) -> Config {
         var c = Config()
@@ -27,6 +28,7 @@ struct Config {
             case "--memory-store": c.memoryStore = true
             case "--allow-tailscale": c.allowTailscale = true
             case "--stdin-control": c.stdinControl = true
+            case "--fake-screen": c.fakeScreen = true
             case "--fake-spaces":
                 if let v = it.next() {
                     let ns = v.split(separator: ",").compactMap { Int($0) }.prefix(Spaces.maxDisplays).map { min(max($0, 1), Spaces.maxDesktops) }
@@ -39,7 +41,7 @@ struct Config {
                 print("""
                 MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
-                           [--stdin-control] [--fake-spaces N[,M...]]   (tests, need --dry-run; port 0 = any free port)
+                           [--stdin-control] [--fake-spaces N[,M...]] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
                 """)
                 exit(0)
             default: break // ignore launch-services noise (-psn_..., -NS...)
@@ -80,6 +82,16 @@ final class Settings {
         }
     }
 
+    /// Labs › "Live screen" (docs/labs/live-screen.md): stream the active display to an open phone viewer. Default off.
+    var labsLiveScreen: Bool {
+        didSet {
+            guard labsLiveScreen != oldValue else { return }
+            defaults?.set(labsLiveScreen, forKey: "labsLiveScreen")
+            log("labs: live screen \(labsLiveScreen ? "on" : "off")")
+            onChange?()
+        }
+    }
+
     init(config: Config) {
         defaults = config.memoryStore ? nil : UserDefaults.standard
         if let id = defaults?.string(forKey: "hostId"), id.count == 16 {
@@ -90,6 +102,7 @@ final class Settings {
         }
         allowTailscale = config.allowTailscale ?? defaults?.bool(forKey: "allowTailscale") ?? false
         shareSpaceThumbnails = (defaults?.object(forKey: "shareSpaceThumbnails") as? Bool) ?? true
+        labsLiveScreen = (config.fakeScreen && config.dryRun) || (defaults?.bool(forKey: "labsLiveScreen") ?? false)
     }
 }
 
