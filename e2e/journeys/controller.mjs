@@ -121,8 +121,16 @@ const server = http.createServer(async (req, res) => {
       }
       case '/helper/wait': {
         if (!h) return send(404, { error: 'no helper' });
-        const m = await waitFor(h, new RegExp(j.re), Number(j.from) || 0, Math.min(Number(j.timeoutMs) || 5000, 60000));
+        // Java-style \Q...\E literal quoting (Pattern.quote) isn't JS syntax: expand it.
+        const re = String(j.re).replace(/\\Q([\s\S]*?)(?:\\E|$)/g, (_, lit) => lit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        const m = await waitFor(h, new RegExp(re), Number(j.from) || 0, Math.min(Number(j.timeoutMs) || 5000, 60000));
         return send(200, m ? { ok: true, ...m } : { ok: false, tail: h.lines.slice(-8) });
+      }
+      case '/file': { // a fixture for a helper flag (e.g. --fake-context FILE): returns its absolute path
+        const dir = path.join(OUT, 'files'); fs.mkdirSync(dir, { recursive: true });
+        const f = path.join(dir, safe(j.file));
+        fs.writeFileSync(f, String(j.content ?? ''));
+        return send(200, { path: f });
       }
       case '/step': {
         fs.appendFileSync(path.join(OUT, 'results.jsonl'), JSON.stringify({ ...j, at: new Date().toISOString() }) + '\n');

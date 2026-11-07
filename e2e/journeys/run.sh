@@ -59,7 +59,7 @@ for k in window_animation_scale transition_animation_scale animator_duration_sca
 
 # ---- helper build ----
 HELPER="$ROOT/helper/build/MoteHelper.app/Contents/MacOS/MoteHelper"
-if [ ! -x "$HELPER" ] || [ "${MJ_REBUILD_HELPER:-0}" = 1 ]; then (cd "$ROOT" && ARCHS=arm64 ./helper/build.sh >/tmp/mote-journeys-helper-build.log 2>&1) || die "helper build failed: /tmp/mote-journeys-helper-build.log"; fi
+if [ ! -x "$HELPER" ] || [ "${MJ_REBUILD_HELPER:-0}" = 1 ]; then (cd "$ROOT" && MOTE_ADHOC=1 ARCHS=arm64 ./helper/build.sh >/tmp/mote-journeys-helper-build.log 2>&1) || die "helper build failed: /tmp/mote-journeys-helper-build.log"; fi
 
 # ---- controller ----
 mkdir -p "$OUT"
