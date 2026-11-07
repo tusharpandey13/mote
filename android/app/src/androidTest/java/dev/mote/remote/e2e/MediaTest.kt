@@ -102,11 +102,11 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
         }
     }
 
-    /** D-pad arms hold the arrow key down (the host applies its own key repeat) and release on lift. */
+    /** D-pad arms (the r82-110 ring) hold the arrow key down (the host applies its own key repeat) and release on lift. */
     @Test
     fun dpadArmsHoldArrowKeys() {
         val pad = c.desc("Direction pad")
-        val arms = listOf(Offset(0f, -0.7f) to "up", Offset(0.7f, 0f) to "right", Offset(0f, 0.7f) to "down", Offset(-0.7f, 0f) to "left")
+        val arms = listOf(Offset(0f, -0.82f) to "up", Offset(0.82f, 0f) to "right", Offset(0f, 0.82f) to "down", Offset(-0.82f, 0f) to "left")
         for ((dir, key) in arms) {
             c.mainClock.autoAdvance = false
             t.clear()
@@ -119,12 +119,13 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
         }
     }
 
+    /** Rev 7: the D-pad centre is a joystick. Tap = left click, 450 ms hold = right click; OK/Return is gone. */
     @Test
-    fun dpadCenterTapIsReturnAndHoldIsSpace() {
+    fun stickTapIsLeftClickAndHoldIsRightClick() {
         val pad = c.desc("Direction pad")
         t.clear()
         pad.press()
-        assertEquals(listOf(Call.Tap("return")), t.awaitAtLeast(1))
+        assertEquals(listOf(Call.Click(MouseTest.LEFT)), t.awaitAtLeast(1))
 
         c.mainClock.autoAdvance = false
         t.clear()
@@ -132,7 +133,26 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
         c.mainClock.advanceTimeBy(600, ignoreFrameDuration = true)
         pad.performTouchInput { up() }
         c.mainClock.autoAdvance = true
-        assertEquals("hold 500 ms = Space, no Return", listOf(Call.Tap("space")), t.awaitAtLeast(1))
+        assertEquals("hold 450 ms = right click, no left click", listOf(Call.Click(MouseTest.RIGHT)), t.awaitAtLeast(1))
+    }
+
+    /** Full deflection to the right for 1 s ~ 1800 host px at Pointer speed 1.0, all to the right; release stops. */
+    @Test
+    fun stickDeflectionMovesThePointer() {
+        val pad = c.desc("Direction pad")
+        c.mainClock.autoAdvance = false
+        t.clear()
+        pad.performTouchInput { down(center); moveBy(Offset(with(c.density) { 30.dp.toPx() }, 0f)) } // past the 20dp travel
+        c.mainClock.advanceTimeBy(1000, ignoreFrameDuration = true)
+        pad.performTouchInput { up() }
+        val moves = t.settle().filterIsInstance<Call.Move>()
+        c.mainClock.advanceTimeBy(500, ignoreFrameDuration = true)
+        c.mainClock.autoAdvance = true
+        assertEquals("release stops", moves.size, t.settle().filterIsInstance<Call.Move>().size)
+        assertTrue("moves right only: $moves", moves.all { it.dx > 0f && it.dy == 0f })
+        val total = moves.sumOf { it.dx.toDouble() }
+        assertTrue("~1800 px in 1 s, got $total", total in 1500.0..2000.0)
+        assertTrue("no click after a drag", t.settle().none { it is Call.Click })
     }
 
     @Test
@@ -189,10 +209,13 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
         }
     }
 
-    /** Defaults (rev 3+): only Spaces is a favourite; the rest of the strip is one "Add favourite" slot. */
+    /** Defaults (rev 7): Spaces and Return are favourites; the rest of the strip is one "Add favourite" slot. */
     @Test
-    fun defaultFavouritesAreSpacesAndAddSlot() {
+    fun defaultFavouritesAreSpacesReturnAndAddSlot() {
         c.desc("Desktop 1, current").assertExists() // Spaces is the carousel row
+        t.clear()
+        c.desc("Return").press() // OK left the D-pad for the joystick
+        assertEquals(listOf(Call.SetMods(0, 0), Call.TapAwait("return", 0)), t.awaitAtLeast(2))
         c.desc("Escape").assertDoesNotExist() // esc moved to Macros
         c.desc("Lock").assertDoesNotExist()
         c.onNode(hasText("Add favourite") and hasClickAction()).performClick()
