@@ -21,7 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import dev.mote.remote.labs.Labs
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -169,6 +174,22 @@ fun SettingsPage(onBack: () -> Unit, update: ((UiSettings) -> UiSettings) -> Uni
             SettingRow("Keep screen on while connected") { Switch(s.keepScreenOn, "Keep screen on while connected") { update { st -> st.copy(keepScreenOn = it) } } }
             Hairline()
             SettingRow("Extra dim", "For dark rooms and presentations") { Switch(s.extraDim, "Extra dim") { update { st -> st.copy(extraDim = it) } } }
+        }
+        LabsSection()
+    }
+}
+
+/** Settings › Labs: one switch per preview flag in [Labs.all]. */
+@Composable
+private fun LabsSection() {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    Overline("Labs")
+    SettingsCard {
+        Labs.all.forEachIndexed { i, f ->
+            if (i > 0) Hairline()
+            val on by remember(f) { Labs.flow(ctx, f) }.collectAsState(initial = false)
+            SettingRow(f.title, f.summary) { Switch(on, f.title) { v -> scope.launch { Labs.set(ctx, f, v) } } }
         }
     }
 }
