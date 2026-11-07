@@ -1,14 +1,16 @@
-# Labs: Instant pairing (preview)
+# Instant pairing
 
-Status: preview behind a Labs flag on both sides, default off. Android: Settings › Labs › "Instant pairing (preview)". Helper: menu › Labs › "Instant pairing" (or `--labs-pairing` for one run). Nothing here changes `docs/protocol.md` (still v1.4); every message is under `labs.pair.*` and a helper with the flag off answers them like any unknown message before auth (`err` `unauth`).
+Status: default since 0.6 on both sides (it was a Labs preview in 0.5). The wire names keep the `labs.pair.*` prefix of the preview, so 0.5 helpers and phones still recognise them. The 6-digit code (`docs/protocol.md`) stays for the web remote and as a hidden "Pair with code" fallback on the phone (device sheet › More options).
 
-Goal: no codes and no typed addresses. The Mac always advertises over BLE. First connect: one sheet on the phone ("Connect to <Mac>?") and one alert on the Mac ("Allow <Phone> to control this Mac?"). No prompt at all for a phone on the same Tailscale account. Afterwards the phone reconnects silently: LAN, then tailnet, then Bluetooth HID.
+Goal: one tap on the phone, nothing to do on the Mac. The phone finds the Mac (BLE, a LAN sweep, Bonjour, known addresses), shows "Connect to <Mac>" with one button, and the Mac trusts the phone's key because the phone proves it is physically near (a rotating token readable only over Bluetooth) or because both are on the same Tailscale account. The Mac shows a non-blocking notice with a one-click **Block**. Afterwards the phone reconnects silently: LAN, then tailnet, then Bluetooth HID.
+
+Kill switch: helper `--no-instant-pairing` or `defaults write dev.mote.helper instantPairingDisabled -bool YES` (then `labs.pair.*` gets `err unauth` and the BLE pairing characteristics are removed). Cautious users turn on **Require approval for new devices** in the helper menu (default off): every new key then needs Allow on the Mac, as in the preview.
 
 ## 1. Keys and fingerprints
 
 - Both sides hold one long-lived **Ed25519** key pair. Helper: private key in the login Keychain (generic password, service `<keychain service>.labs`, account `identity`; `--memory-store`: a fresh key per run). Phone: Android Keystore Ed25519 key (API 33+, where the Keystore supports it), else a 32-byte seed AES-256-GCM-wrapped by a Keystore key in an app-private pref.
 - `pub`: the 32-byte raw public key, lower-case hex (64 chars). `sig`: the 64-byte Ed25519 signature, hex (128 chars).
-- `fp` (fingerprint): first 16 bytes of SHA-256(raw public key), hex (32 chars). Shown grouped (`3f2a 9c01 …`) where a user might compare it.
+- `fp` (fingerprint): first 16 bytes of SHA-256(raw public key), hex (32 chars).
 - Device id of a trusted phone on the helper: `k:` + its `fp`.
 
 Signed strings (UTF-8, `|`-separated, no trailing newline):
@@ -18,14 +20,16 @@ client proof: mote-labs-pair-v1|client|<hostId>|<hello nonce>|<client pub>
 helper proof: mote-labs-pair-v1|helper|<hostId>|<hello nonce>|<cn>|<client pub>
 ```
 
-`hello nonce` is the per-connection nonce from the protocol's `hello`, `cn` a fresh 32-hex client nonce. Both proofs are bound to this connection and this Mac, so a captured exchange can't be replayed elsewhere or later.
+`hello nonce` is the per-connection nonce from the protocol's `hello`, `cn` a fresh 32-hex client nonce. Both proofs are bound to this connection and this Mac.
 
-## 2. BLE discovery
+## 2. BLE: info and proximity
 
-The helper keeps advertising the Mote service (`3abad8f4-b472-41fc-bfc5-6f645f33564b`, local name `Mote`) while it runs. With Labs on, the service also has a readable **info characteristic** `6d6f7465-0001-4c61-6273-50616972696e` (no notify, no auth; long reads with offsets work). Its value is compact UTF-8 JSON, at most 512 bytes:
+The helper advertises the Mote service (`3abad8f4-b472-41fc-bfc5-6f645f33564b`, local name `Mote`) while it runs. Two read-only characteristics (no notify, no auth; long reads with offsets return the same bytes as the offset-0 read):
+
+**Info** `6d6f7465-0001-4c61-6273-50616972696e`: compact UTF-8 JSON, at most 512 bytes.
 
 ```json
-{"v":1,"id":"<hostId>","n":"Tushar's MacBook Pro","fp":"<fp>","lan":["192.168.1.20"],"ts":"mac.tail1234.ts.net","t4":"100.101.102.103","p":8790}
+{"v":1,"id":"<hostId>","n":"Tushar's MacBook Air","fp":"<fp>","lan":["192.168.1.2"],"ts":"mac.tail1234.ts.net","t4":"100.83.11.75","p":8790}
 ```
 
 | Field | Meaning |
@@ -38,86 +42,125 @@ The helper keeps advertising the Mote service (`3abad8f4-b472-41fc-bfc5-6f645f33
 | `ts`, `t4` | MagicDNS name and tailnet IPv4, only when Tailscale connections are allowed and detected |
 | `p` | WebSocket port |
 
-The phone scans for the service UUID with `BLUETOOTH_SCAN` (`neverForLocation`, no location permission), connects GATT, reads the characteristic, disconnects, and lists each Mac once (keyed by `id`) in a bottom sheet. Bonjour (`_mote._tcp`, TXT `id`) stays an extra source of LAN addresses. Over the WebSocket, `labs.pair.info` returns the same object (used by tests, where `--no-ble` is set; in `--dry-run` the helper also prints it as `LABS PAIR INFO: {json}`).
+Over the WebSocket, `labs.pair.info` returns the same object (allowed before auth; the LAN sweep uses it to learn `fp` and the tailnet addresses).
+
+**Proximity** `6d6f7465-0002-4c61-6273-50616972696e`: UTF-8 `"<w>:<tk>"`, where
+
+```
+w  = floor(unix seconds / 30)                                  (decimal)
+tk = hex(HMAC-SHA256(secret, "mote-prox-v1|<hostId>|<w>"))[first 16 bytes]   (32 hex)
+```
+
+`secret` is 32 random bytes per helper process, never stored or sent. The token is **only** exposed over BLE (the dry-run test flag `--fake-proximity` is the one exception, see section 8). The helper verifies, in order: malformed or wrong HMAC (constant-time) → `bad`; `|w - now| > 1` → `stale` (so a token is good for 30-90 s, tolerating ±1 window of clock or read delay); already accepted once → `replay`; else ok, and the window is marked used. Used windows older than now-1 are pruned. Consequence: one new phone per 30 s window can be trusted by proximity; a second phone in the same window gets `stale` and succeeds in the next window.
+
+The phone scans for the service UUID with `BLUETOOTH_SCAN` (`neverForLocation`, no location permission) and `BLUETOOTH_CONNECT`, connects GATT, reads info then proximity in one session, and disconnects. It asks for these permissions in context only, the first time a Connect needs proof of proximity ("Mote uses Bluetooth once to check this phone is next to your Mac."), never at launch. A token read more than 20 s ago is re-read before use, and a token is handed out once.
 
 ## 3. Handshake
 
 Runs on the WebSocket (or the BLE GATT transport) after `hello`, instead of `pair` / `auth`.
 
 ```
-phone                                         helper
-  | <------------- hello {nonce, hostId, ...} -|
-  | -- labs.pair.hello {pub, name, cn, sig} -> |   sig = client proof
-  | <- labs.pair.hi {pub, fp, sig, host, hostId}|   sig = helper proof; phone checks fp against BLE info / its pin
-  |                                            |
-  |   trusted key, or same Tailscale owner:    |
-  | <------------ labs.pair.ok {via, id, name} |
-  | <------------ authed {id, name, paused, ax}|   standard; input works from here
-  |                                            |
-  |   unknown key: the Mac asks the user       |
-  | <------------ labs.pair.pending {timeout}  |
-  | <------------ labs.pair.ok + authed        |   Allow
-  | <------------ labs.pair.denied {reason}    |   Deny / timeout / busy / rate
+phone                                           helper
+  | <--------------- hello {nonce, hostId, ...} -|
+  | -- labs.pair.hello {pub, name, cn, sig, prox?} -> |  sig = client proof; prox = BLE token
+  | <-- labs.pair.hi {pub, fp, sig, host, hostId} |  sig = helper proof; phone checks fp against BLE info / its pin
+  |   trusted (section 4):                        |
+  | <-------------- labs.pair.ok {via, id, name} -|
+  | <-------------- authed {id, name, paused, ax} |  standard; input works from here
+  |   Require approval on, unknown key:           |
+  | <-------------- labs.pair.pending {timeout}   |
+  | <-------------- labs.pair.ok + authed         |  Allow
+  |   refused:                                    |
+  | <-------------- labs.pair.denied {reason}     |
 ```
 
 | Message | Direction | Fields |
 |---|---|---|
-| `labs.pair.info` | phone -> helper | none. Reply: `labs.pair.info` with the BLE info fields (section 2). Allowed before auth. |
-| `labs.pair.hello` | phone -> helper | `pub`, `name` (phone name, ≤ 64 chars), `cn` (32 hex), `sig` |
+| `labs.pair.info` | phone -> helper | none. Reply: `labs.pair.info` with the info fields. Allowed before auth. |
+| `labs.pair.hello` | phone -> helper | `pub`, `name` (≤ 64 chars), `cn` (32 hex), `sig`, optional `prox` (`"<w>:<tk>"`) |
 | `labs.pair.hi` | helper -> phone | `pub`, `fp`, `sig`, `host` (Mac name), `hostId` |
-| `labs.pair.pending` | helper -> phone | `timeout` (seconds the Mac waits for an answer, 60) |
-| `labs.pair.ok` | helper -> phone | `via`: `trusted` (known key), `approved` (the user clicked Allow), `tailscale` (same tailnet owner); `id` (`k:<fp>`), `name` |
-| `labs.pair.denied` | helper -> phone | `reason`: `denied`, `timeout`, `busy` (another prompt is open), `rate` (too many prompts; `retryAfter` seconds) |
+| `labs.pair.pending` | helper -> phone | `timeout` (seconds, 60); only with Require approval |
+| `labs.pair.ok` | helper -> phone | `via`: `trusted` (known key), `nearby` (valid proximity token), `tailscale` (same tailnet owner), `approved` (Allow clicked); `id` (`k:<fp>`), `name` |
+| `labs.pair.denied` | helper -> phone | `reason`: `far` (no proof of proximity), `stale` (token expired or already used), `bad-proximity` (forged token; counts as a failed attempt), `blocked` (Block was clicked for this key), and with Require approval `denied`, `timeout`, `busy`, `rate` (`retryAfter`) |
 
-Errors (`err`): `bad` (malformed fields or a bad signature; counts as a failed attempt for the per-peer limiter), `rate` (`retryAfter`), `unauth` (Labs is off on this Mac: the phone shows "Turn on Instant pairing in the Mote Helper menu").
+Errors (`err`): `bad` (malformed fields or a bad signature; counts towards the per-peer limiter), `rate` (`retryAfter`), `unauth` (instant pairing turned off on this Mac, or a pre-0.5 helper).
 
-The phone stores, per `hostId`: the helper `pub`, the addresses from the info and from `hello`/connects, and `via`. On later connects it requires the same helper key (pinning): a different key is treated as a different Mac and the phone closes the connection without sending input. (The phone's proof carries no secret, so a wrong helper learns nothing reusable from it.)
-
-After `labs.pair.ok` the session is authenticated exactly like after `auth`: all input, Spaces and pause rules apply, and the session is listed under "Connected devices".
+The phone stores, per `hostId`: the helper `pub`, the addresses it learned, and `via`. Later connects require the same helper key (pinning): a different key is treated as a different Mac and the phone closes the connection without sending input. After `labs.pair.ok` the session is authenticated exactly like after `auth`.
 
 ## 4. Trust decisions on the helper
 
 In order:
 
-1. **Known key** (in the Labs trust list): `ok via trusted`, no prompt.
-2. **Tailscale auto-trust**: the peer address is a tailnet address (100.64/10 or `fd7a:115c:a1e0::/48`) and Tailscale says the peer node belongs to the same user as this Mac: `tailscale whois --json <ip>` → `UserProfile.ID`, compared with `tailscale status --json --peers=false` → `Self.UserID`. Tagged nodes (`Node.Tags` non-empty) never match. On a match the key is stored (`via tailscale`) and `ok via tailscale`. The CLI is looked up at the same paths as for the MagicDNS name; if it is missing or times out (3 s), fall through to 3.
-3. **Ask the user**: an alert on the Mac, "Allow <phone name> to control this Mac?" with the phone's fingerprint and how it connects (Wi-Fi address, Tailscale, Bluetooth), buttons **Allow** / **Deny**, auto-deny after 60 s. Allow stores the key (`via approved`).
+1. **Blocked key**: `denied blocked`.
+2. **Known key** (trust list): `ok via trusted`.
+3. **Require approval for new devices** on: the Allow/Deny alert ("Allow <phone> to control this Mac?", phone fingerprint and route, auto-deny after 60 s; one alert at a time, 3 prompts per peer and 6 overall per 10 minutes, 10-minute cool-down after Deny). Proximity and Tailscale don't bypass it.
+4. **Proximity**: a valid `prox` → store the key (`via nearby`), `ok via nearby`. Checked before the (slower) Tailscale lookup.
+5. **Tailscale owner**: the peer address is a tailnet address (100.64/10 or `fd7a:115c:a1e0::/48`) and the local `tailscale whois --json <ip>` → `UserProfile.ID` equals `tailscale status --json --peers=false` → `Self.UserID`; tagged nodes never match; CLI missing or > 3 s = no match. A stale or bad token still gets this check.
+6. Otherwise `denied` with `stale` / `bad-proximity` from step 4, else `far`.
 
-Prompt rate limits (so a nearby attacker can't spam the Mac):
+On every new trust (steps 3-5) the menu-bar app shows a **non-blocking** floating notice at the top right, "<Phone> connected to Mote.", with the route (Bluetooth proximity / Tailscale / approved) and one **Block** button; it disappears after 15 s and needs no action. Block removes the key, adds its fingerprint and name to a persistent blocked list (Keychain account `blocked`) and revokes its open sessions (`err revoked`). The helper menu's Trusted phones submenu lists trusted phones (with Block) and blocked ones (with **Unblock**, which lets the phone connect again by proximity or Tailscale). "Revoke all devices" clears the trust list and the blocked list. The 6-digit code window moved to Advanced › Pair with code (web remote). Headless runs log `labs: new device <name> via <via> (k:<fp>)` (dry-run also prints `NEW DEVICE: {json}`).
 
-- one alert at a time (others: `denied busy`);
-- per peer (IP or BLE central): 3 prompts per 10 minutes; globally: 6 prompts per 10 minutes (`denied rate`, `retryAfter`);
-- a key the user denied gets no new prompt for 10 minutes (`denied denied`, at once);
-- bad signatures count towards the existing per-peer limiter (5 failures / minute).
+Helper defaults that make "nothing on the Mac" work: instant pairing on, "Allow Tailscale connections" on unless the user turned it off, "Launch at login" turned on once at the first launch.
 
-Turning Labs on in the menu also turns on "Allow Tailscale connections" (tailnet peers are needed for Tailscale reconnects) and, once, "Launch at login", so the Mac is always discoverable. "Revoke all devices" also clears the Labs trust list. Turning Labs off stops answering `labs.pair.*` and removes the info characteristic; trusted keys stay until revoked.
+## 5. Phone: discovery, first run and reconnects
 
-## 5. Phone: connection order and fallback
+**Discovery** runs every source at once and merges them by `hostId` (`mergeFound`), showing the first result as soon as it arrives (typically < 1 s on a LAN):
 
-For a trusted Mac the phone tries, in order: the fresh Bonjour address, the LAN addresses from the last BLE info and the last working LAN address, `<local>.local`, then the tailnet (MagicDNS name, then `100.x`). If none answers for 15 s and the Mac is linked to a Bluetooth HID host on this phone, it switches to Bluetooth HID and keeps probing the helper every 30 s in the background, switching back when it answers. The pill shows the active path (Wi-Fi, Tailscale, BT). A `labs.pair.ok via tailscale` shows "Trusted via Tailscale" under the Mac in the sheet. BLE discovery needs Android 12+ (`BLUETOOTH_SCAN` with `neverForLocation`; older versions require the location permission for BLE scans, which Mote doesn't ask for), so Android 9-11 find Macs through Bonjour only. A reconnect never prompts: if the Mac answers `labs.pair.pending` (it dropped this phone), the phone stops and shows the Mac as needing a new Connect.
+- **LAN sweep** (mandatory, multicast-free): TCP connect to port 8790 on every address of the phone's Wi-Fi /24 (or its smaller subnet), 128 at a time, 300 ms timeout, sockets bound to the Wi-Fi network (not a VPN); each open port is confirmed with `hello` (hostId) and `labs.pair.info`. This is what works on networks that drop multicast (Bonjour and `.local` silently find nothing there).
+- **BLE** info, when Bluetooth is already permitted.
+- **Bonjour** (`_mote._tcp`, TXT `id`), as an extra source.
+- **Known addresses** of saved Macs: last LAN IP, MagicDNS name, tailnet IP.
+
+Every run is time-boxed (8 s), and the card never waits open-endedly: phone not on Wi-Fi → "Turn on Wi-Fi" (`Settings.Panel.ACTION_WIFI`); nothing after 5 s → "Mote Helper not found on this network" with Retry, the install command and a small "Enter address"; a Tailscale-only Mac with the VPN off → the Tailscale prompt; a refusal → its reason in plain words.
+
+**First run** opens straight into this discovery card ("Connect to your Mac", then "Connect to Tushar's MacBook Air"); "Use Bluetooth instead (no helper)" is the secondary path. No permission is asked at launch. On Connect the phone tries the Mac's addresses (LAN first, then tailnet) with a fresh proximity token when Bluetooth is usable; if the Mac answers `far` and Bluetooth isn't permitted or is off, it asks for it in context and retries; `stale` re-reads the token once.
+
+**Reconnect** on every launch, silently and without a token (the key is trusted): fresh Bonjour address, last LAN IP / BLE info addresses, `<local>.local`, then the MagicDNS name, then the tailnet IP. If a trusted Mac doesn't answer for 4 s on Wi-Fi, the phone sweeps the LAN once and adds the new address (DHCP changes). If nothing answers for 15 s and the Mac is linked to a Bluetooth HID host, it switches to Bluetooth HID and probes the helper every 30 s to switch back. The pill shows the active path (Wi-Fi, Tailscale, BT). A reconnect never prompts: a refusal (revoked, blocked) shows the Mac as needing Add a Mac again.
+
+### Bluetooth HID setup (same flow, optional)
+
+Right after the first connect the card offers **Also pair Bluetooth for login screen & backup** (recommended, pre-checked, skippable; "Use Bluetooth instead (no helper)" stays the separate Bluetooth-only path). Bluetooth HID works where the helper can't (login screen, FileVault unlock, helper not running) and is the instant fallback.
+
+1. The phone gets the Bluetooth permissions (in context), turns the adapter on if needed, registers as a keyboard / mouse and asks Android to make itself visible for 120 s (one Android prompt).
+2. Over a trusted helper session it sends `{"t":"bt.pair","name":"<phone adapter name>"}` (authed only; `err unauth` before auth, `err busy` if one is running, `err bad` for a blank name).
+3. The helper runs a 12 s classic inquiry for that name, then `IOBluetoothDevicePair` and answers the numeric-comparison confirmation itself, only for that device, that request (120 s) and while the requesting session is still authed. Progress: `{"t":"bt.pair.status","state":"searching"|"pairing"|"paired"|"failed","reason"?,"address"?}`, `reason` one of `notfound`, `timeout`, `refused`, `unavailable`. Android still shows its own "Pair with <Mac>?" dialog: one tap on the phone, nothing on the Mac.
+4. `{"t":"bt.info"}` → `{"t":"bt.info","address":"AA:BB:…","name":…,"on":bool}` gives the Mac's Bluetooth address; the phone links it to the saved Mac and connects HID. From then on both links stay up and the pill shows both (Wi-Fi / Tailscale badge plus BT).
+
+Limits: matching is by the phone's Bluetooth name (two phones with the same name, or a name not resolved within 12 s, give `notfound`; retry); IOBluetooth is not tested on real hardware by the automated suite; if a macOS version shows its own connection alert anyway, the user clicks it once. The auto-accept trusts the helper's Wi-Fi trust of the phone: someone who could get an instant-pairing key (section 6) could also get a Bluetooth bond.
 
 ## 6. Threat model
 
-| Threat | Mitigation |
-|---|---|
-| BLE spoofing: a fake "Mac" advertising the Mote UUID with a copied name | The info carries the helper's key fingerprint; the phone requires `labs.pair.hi` signed by that key over its own fresh `cn`. A spoofer can copy the fingerprint but not sign. After the first connect the key is pinned per `hostId`. At first contact a spoofer can still present its *own* key and name (TOFU); it then controls nothing on the real Mac and only receives the phone's input, which is the same exposure as connecting to the wrong host. |
-| A nearby attacker getting control of the Mac | Nothing is trusted without the user clicking Allow on the Mac (or the same Tailscale owner). The phone's tap alone grants nothing. |
-| Prompt spam / approval fatigue | One alert at a time, per-peer and global prompt budgets, 10-minute cool-down after Deny, 60 s auto-deny. The alert names the phone and shows its fingerprint and route. |
-| Tailnet auto-trust abuse | Only for peers whose Tailscale node belongs to the same user as this Mac (`whois` UserProfile.ID == Self.UserID), never tagged nodes, never shared-in nodes of other users. The decision comes from the local tailscaled, not from anything the peer sends. Without the CLI there is no auto-trust. |
-| Replay of a captured handshake | Both signatures cover the per-connection `hello` nonce (and the phone's `cn`); a replay on a new connection fails. |
-| Key theft at rest | Helper: Keychain. Phone: Keystore (or a Keystore-wrapped seed); app data is excluded from backup. |
-| Sniffing / tampering on Wi-Fi | Unchanged from protocol.md section 4: no transport encryption on the LAN. The handshake sends no secret (only public keys and signatures), so unlike the 6-digit pairing a sniffer learns no reusable credential; an active man in the middle can still inject into a session after it is authenticated. Tailscale traffic is WireGuard-encrypted. |
-| Lost phone | "Revoke all devices" also clears the Labs trust list. |
+Proximity ≈ Bluetooth range (typically 10-30 m indoors, through walls). Instant pairing trades the old "click Allow on the Mac" for "be near the Mac or on its Tailscale account", which is what makes it one tap.
 
-Known limits of the preview: the alert needs the menu-bar app (headless runs without `--fake-approve` time out); the BLE GATT transport for the handshake is not wired on Android yet (the phone uses BLE for discovery only and connects over Wi-Fi / Tailscale); first contact is trust-on-first-use; the BT HID fallback and Keystore Ed25519 need a real device to verify.
+| Threat | Mitigation | Residual risk |
+|---|---|---|
+| Same LAN, far away (another flat on shared Wi-Fi, a compromised IoT device, a hotel network) | No proximity token without BLE range, no tailnet identity: `denied far`. Forged tokens fail the HMAC (`bad-proximity`, rate-limited); old ones are `stale`. | None beyond the pre-0.6 exposure (the helper port answers `hello` / `labs.pair.info`, which reveal the Mac's name, key fingerprint and addresses). |
+| Someone within Bluetooth range (a neighbour through a wall, a person in the café) | Nothing: by design they can read a token and get trusted. They get a key-pinned device; the Mac shows "<Phone> connected to Mote. Block". | **Real.** A nearby attacker can take control of the Mac until the owner clicks Block (they may not be looking). Turn on "Require approval for new devices" where untrusted people are within ~30 m, or pause input. |
+| Token relay (an accomplice near the Mac reads the token and sends it to someone far away) | The token lives ≤ 90 s and is single-use per window. | Possible with a live relay; it needs a device in BLE range anyway. |
+| Token sniffing on the LAN (Wi-Fi has no transport encryption) | Single use: the honest phone's hello consumes it first. | An on-path attacker who can also beat or block the phone's hello could use it. |
+| BLE spoofing: a fake "Mac" advertising the Mote UUID | The info carries the helper's key fingerprint; `labs.pair.hi` must be signed by that key over the phone's fresh `cn`. After first contact the key is pinned per `hostId`. | At first contact a spoofer can present its own key and name (trust on first use); it then receives the phone's input, but controls nothing on the real Mac. |
+| Tailnet auto-trust abuse | Only nodes owned by the same Tailscale user (local `tailscaled` decides), never tagged or shared-in nodes. Without the CLI there is no auto-trust. | Anyone who can add a device to your Tailscale account can control the Mac. |
+| Replay of a captured handshake | Signatures cover the per-connection `hello` nonce and the phone's `cn`. | None known. |
+| Key theft at rest | Helper: Keychain. Phone: Keystore (or a Keystore-wrapped seed); app data is excluded from backup. | A rooted phone or an unlocked Mac account. |
+| Active man in the middle on Wi-Fi | The handshake sends no reusable secret. | After authentication the session is unencrypted on the LAN (protocol.md section 4): an active attacker can inject input. Tailscale traffic is WireGuard-encrypted. |
+| Lost phone | Block (when it reconnects), or "Revoke all devices" in the helper menu. | Until revoked it keeps working on the LAN / tailnet. |
 
-## 7. Test flags (dry-run only)
+## 7. Compatibility
+
+- 0.6 phone + 0.5 helper with Labs on: the handshake works, but without a proximity characteristic the 0.5 helper falls back to its Allow alert. With Labs off (or older helpers): `unauth` → "Update Mote Helper, or use Pair with code".
+- 0.5 phone + 0.6 helper: the phone sends no `prox`, so it is trusted only via Tailscale or with Require approval.
+- The web remote keeps the 6-digit code.
+
+## 8. Test flags (dry-run only)
 
 | Flag | Effect |
 |---|---|
-| `--labs-pairing` | Labs on for this run |
-| `--fake-approve` | answer every prompt with Allow after 100 ms instead of showing an alert |
-| `--fake-approve-deny` | answer every prompt with Deny |
-| `--fake-tailscale-owner ID` | pretend Tailscale is present: this Mac's owner is `self`, every peer (loopback included) is a tailnet peer owned by `ID` (`self` → auto-trust) |
+| `--fake-proximity` | answer `{"t":"labs.pair.prox","dw":N}` (allowed before auth, `dw` -3...3) with `{"t":"labs.pair.prox","v":"<w>:<tk>","w":w}`, as if read over BLE |
+| `--require-approval` | Require approval on for this run |
+| `--fake-approve` / `--fake-approve-deny` | answer every approval prompt with Allow / Deny after 100 ms |
+| `--fake-tailscale-owner ID` | every peer (loopback included) is a tailnet node owned by `ID` (`self` = this Mac's owner) |
+| `--no-instant-pairing` | turn instant pairing off |
+| `--stdin-control` + `block` / `unblock` | click Block for the most recent new device / Unblock the most recently blocked |
+| `--fake-bt-pair` / `--fake-bt-pair-fail REASON` | `bt.pair` goes searching → pairing → paired (`02:00:00:00:00:01`), or fails with REASON, without real Bluetooth |
 
-`node helper/tests/labs-pairing.mjs <port>` checks the handshake against `MoteHelper --dry-run --headless --no-ble --memory-store --labs-pairing --fake-approve --port N`; the Android `LabsPairingIntegrationTest` drives the same helper with a fake BLE info payload.
+Tests: `swiftc -O helper/Sources/MoteHelper/Proximity.swift helper/tests/proximity/main.swift -o /tmp/prox-test && /tmp/prox-test` (token windows, skew, replay); `node helper/tests/pairing.mjs` (spawns dry-run helpers for every trust path); Android `PairingIntegrationTest` (the app's handshake, sweep and reconnect against the dry-run helper), `SweepTest`, `FirstRunTest`; opt-in `LiveSweepTest` (`-Dmote.liveSweep=192.168.1.0/24`, read-only, against a real helper); emulator `SweepDiscoveryTest` (Bonjour faked empty, `-e moteSweepPort N` with a dry-run helper on the host).

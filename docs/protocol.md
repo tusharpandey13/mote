@@ -13,6 +13,8 @@ Changes in 1.3 (backward compatible): Spaces: `spaces.sub` / `spaces` state, `sp
 
 Changes in 1.2 (backward compatible): `consumer` gains `action` (`down` / `up`) and the keys `fast` / `rewind`, for hold-to-seek (section 2, consumer).
 
+Instant pairing (0.6, default on the phone): key-based trust with no code, under `labs.pair.*` messages. See [`pairing.md`](pairing.md); nothing in this document changes.
+
 Changes in 1.1 (backward compatible): `hello.hostId` and `hello.local`, Bonjour TXT record, extra fields in the pairing link (section 1.1), and the opt-in [Tailscale](#tailscale) access rules (section 4).
 
 ## 1. Handshake and auth
