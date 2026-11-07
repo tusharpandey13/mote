@@ -27,6 +27,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -137,6 +139,13 @@ private fun TypeRow() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var text by rememberSaveable { mutableStateOf("") }
+    // Labs › Smart remote: Keys was opened for a Mac text field, so bring up the soft keyboard.
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val ime = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val autoFocus by dev.mote.remote.labs.context.SmartRemote.pendingFocus.collectAsState()
+    LaunchedEffect(autoFocus) {
+        if (autoFocus) { kotlinx.coroutines.delay(150); runCatching { focus.requestFocus() }; ime?.show(); dev.mote.remote.labs.context.SmartRemote.pendingFocus.value = false }
+    }
     val send = {
         val t = text
         if (t.isNotEmpty()) {
@@ -153,7 +162,7 @@ private fun TypeRow() {
             BasicTextField(
                 text, { text = it }, singleLine = true, textStyle = T.body.copy(color = c.ink), cursorBrush = SolidColor(c.accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { send() }),
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Text to send" },
+                modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = "Text to send" },
             )
         }
         Cap(Modifier.width(72.dp).fillMaxHeight(), RoundedCornerShape(12.dp), description = "Send text", onClick = send) {

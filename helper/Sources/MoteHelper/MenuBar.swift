@@ -112,7 +112,8 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         let tvItem = NSMenuItem(title: "TV mode (preview)", action: #selector(toggleTvLab), keyEquivalent: "")
         tvItem.target = self; tvItem.state = hub.tv.enabled ? .on : .off; labs.addItem(tvItem)
         if hub.tv.on { let x = NSMenuItem(title: "Exit TV mode", action: #selector(exitTv), keyEquivalent: ""); x.target = self; labs.addItem(x) }
-        hub.labs.addMenuItems(to: labs)   // Labs: instant pairing
+        hub.instantPairing.addMenuItems(to: labs)   // Labs: instant pairing
+        hub.labs.flatMap { $0.menuItems() }.forEach(labs.addItem)   // Labs modules (Context & now playing)
         let labsItem = NSMenuItem(title: "Labs", action: nil, keyEquivalent: ""); labsItem.submenu = labs; menu.addItem(labsItem)
         _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
         _ = add("Revoke all devices…", #selector(revokeAll))

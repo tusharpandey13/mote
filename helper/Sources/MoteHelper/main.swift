@@ -6,6 +6,7 @@ let app = NSApplication.shared
 app.setActivationPolicy(.accessory)   // menu-bar only (also LSUIElement in Info.plist)
 
 let hub = Hub(config: config)
+hub.labs.append(LabsContext(hub: hub))
 log("Mote Helper starting\(config.dryRun ? " (dry run)" : "") on \(Host.localName).local:\(config.port)")
 
 // Web root: --web-root, else the bundled copy of site/remote (+ design assets) in Resources/web.
@@ -27,9 +28,9 @@ if !config.headless {
 }
 let refresh: () -> Void = { menu?.refresh() }
 hub.onChange = refresh
-web?.onChange = { refresh(); hub.labs.printInfoIfReady() }
-hub.labs.port = { web?.port ?? 0 }
-hub.labs.onToggle = { ble?.publish(); hub.labs.printInfoIfReady(); refresh() }
+web?.onChange = { refresh(); hub.instantPairing.printInfoIfReady() }
+hub.instantPairing.port = { web?.port ?? 0 }
+hub.instantPairing.onToggle = { ble?.publish(); hub.instantPairing.printInfoIfReady(); refresh() }
 var shareThumbs = hub.settings.shareSpaceThumbnails
 hub.settings.onChange = {
     if !hub.settings.allowTailscale { web?.dropTailnetPeers() }
@@ -47,7 +48,7 @@ func openPairing() {
     if let code = hub.pairing.code { print("PAIRING CODE: \(code)"); fflush(stdout) }
     menu?.showPairing()
 }
-if config.openPairing || (!config.headless && hub.store.devices.isEmpty && !hub.labs.enabled) { openPairing() }
+if config.openPairing || (!config.headless && hub.store.devices.isEmpty && !hub.instantPairing.enabled) { openPairing() }
 
 // Test-only: stand in for the menu-bar actions in headless e2e tests. Dry-run only, so it can never drive real input.
 if config.stdinControl {

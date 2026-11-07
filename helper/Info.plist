@@ -14,6 +14,7 @@
 	<key>NSHighResolutionCapable</key><true/>
 	<key>NSBluetoothAlwaysUsageDescription</key><string>Mote Helper lets your phone's browser connect over Bluetooth to control this Mac.</string>
 	<key>NSLocalNetworkUsageDescription</key><string>Mote Helper serves the Mote web remote to your phone on this network.</string>
+	<key>NSAppleEventsUsageDescription</key><string>Mote Helper reads the active tab of your browser so the Mote remote can show the right controls (Labs, off by default).</string>
 	<key>NSBonjourServices</key><array><string>_mote._tcp</string></array>
 	<key>NSHumanReadableCopyright</key><string>MIT License. github.com/tusharpandey13/mote</string>
 </dict>

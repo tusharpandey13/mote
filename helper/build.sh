@@ -34,8 +34,15 @@ for arch in $ARCHS; do
   cp "$REPO/design/mote-v1/mote.css" "$REPO/design/mote-v1/icons.js" "$APP/Contents/Resources/web/design/"
   cp "$REPO/design/mote-v1/fonts/"*.woff2 "$REPO/design/mote-v1/fonts/OFL.txt" "$APP/Contents/Resources/web/design/fonts/"
 
+  # Labs (preview): the now-playing reader, run by /usr/bin/perl (see helper/LabsNowPlaying/).
+  mkdir -p "$APP/Contents/Resources/labs"
+  clang -dynamiclib -fobjc-arc -O2 -arch "$arch" -mmacosx-version-min=13.0 -framework Foundation -framework AppKit -framework ImageIO \
+    -o "$APP/Contents/Resources/labs/MoteNowPlaying.dylib" "$HERE/LabsNowPlaying/MoteNowPlaying.m"
+  cp "$HERE/LabsNowPlaying/mote-nowplaying.pl" "$APP/Contents/Resources/labs/"
+  codesign --force --sign - "$APP/Contents/Resources/labs/MoteNowPlaying.dylib"
+
   echo "==> ad-hoc codesign"
-  codesign --force --deep --sign - --options runtime --identifier dev.mote.helper "$APP"
+  codesign --force --deep --sign - --options runtime --entitlements "$HERE/MoteHelper.entitlements" --identifier dev.mote.helper "$APP"
   codesign --verify --strict "$APP"
 
   ZIP="$OUT/MoteHelper-macos-$arch.zip"

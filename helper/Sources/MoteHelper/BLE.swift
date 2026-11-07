@@ -42,7 +42,7 @@ final class BLEServer: NSObject, CBPeripheralManagerDelegate {
         let rx = CBMutableCharacteristic(type: BLEServer.rxUUID, properties: [.write, .writeWithoutResponse], value: nil, permissions: [.writeable])
         let tx = CBMutableCharacteristic(type: BLEServer.txUUID, properties: [.notify], value: nil, permissions: [.readable])
         let svc = CBMutableService(type: BLEServer.service, primary: true)
-        svc.characteristics = [rx, tx] + (hub.labs.enabled ? [LabsPairing.infoCharacteristic()] : [])
+        svc.characteristics = [rx, tx] + (hub.instantPairing.enabled ? [LabsPairing.infoCharacteristic()] : [])
         self.tx = tx
         pm.stopAdvertising()
         pm.removeAllServices()
@@ -51,8 +51,8 @@ final class BLEServer: NSObject, CBPeripheralManagerDelegate {
 
     /// Labs: reads of the instant-pairing info characteristic (long reads come with an offset).
     func peripheralManager(_ p: CBPeripheralManager, didReceiveRead r: CBATTRequest) {
-        guard r.characteristic.uuid == LabsPairing.infoUUID, hub.labs.enabled else { p.respond(to: r, withResult: .readNotPermitted); return }
-        let v = hub.labs.infoData(offset: r.offset)
+        guard r.characteristic.uuid == LabsPairing.infoUUID, hub.instantPairing.enabled else { p.respond(to: r, withResult: .readNotPermitted); return }
+        let v = hub.instantPairing.infoData(offset: r.offset)
         guard r.offset <= v.count else { p.respond(to: r, withResult: .invalidOffset); return }
         r.value = v.subdata(in: r.offset..<v.count)
         p.respond(to: r, withResult: .success)

@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import Foundation
 
@@ -11,8 +12,10 @@ final class Hub {
     let injector: Injector
     let spaces: Spaces
     let tv: TvMode   // Labs (preview): Open… + TV mode, docs/labs/open-tv.md
-    private(set) var labs: LabsPairing!   // Labs: instant pairing (Labs/Pairing.swift)
+    private(set) var instantPairing: LabsPairing!   // Labs: instant pairing (Labs/Pairing.swift)
     private(set) var sessions: [Session] = []
+    /// Labs (preview) modules, registered in main.swift; each owns `labs.*` message prefixes and a Labs menu section.
+    var labs: [LabsModule] = []
     private var macroGen = 0
     private(set) var macroRunning = false
     var onChange: (() -> Void)?
@@ -47,7 +50,7 @@ final class Hub {
             let now = AXIsProcessTrusted()
             if now != self.axTrusted { self.axTrusted = now; self.broadcastState(); self.onChange?() }
         }
-        labs = LabsPairing(hub: self)
+        instantPairing = LabsPairing(hub: self)
     }
 
     /// Accessibility doesn't matter in dry-run (nothing is posted).
@@ -56,7 +59,7 @@ final class Hub {
     func add(_ s: Session) { sessions.append(s); onChange?() }
     func remove(_ s: Session) {
         sessions.removeAll { $0 === s }
-        labs.ended(s)
+        instantPairing.ended(s)
         if !sessions.contains(where: { $0.authed }) { injector.releaseAll() }
         onChange?()
     }
@@ -75,7 +78,7 @@ final class Hub {
 
     func revokeAll() {
         store.revokeAll()
-        labs.revokeAll()
+        instantPairing.revokeAll()
         spaces.clear()
         for s in sessions where s.authed { s.revoke() }
         log("all devices revoked")
@@ -132,6 +135,14 @@ final class Hub {
         if macroRunning { log("macro: cancelled") }
         macroGen += 1; macroRunning = false
     }
+}
+
+/// A Labs (preview) feature: handles messages starting with one of [prefixes] (authenticated sessions
+/// only; the module applies pause / Accessibility itself) and adds items to the menu's Labs submenu.
+protocol LabsModule: AnyObject {
+    var prefixes: [String] { get }
+    func handle(_ t: String, _ m: [String: Any], from s: Session)
+    func menuItems() -> [NSMenuItem]
 }
 
 /// One client connection on either transport. Speaks the protocol; never injects before `authed`.
@@ -213,7 +224,7 @@ final class Session {
         case "pong": break
         case "pair": pair(m)
         case "auth": auth(m)
-        case let t where t.hasPrefix("labs.pair.") && hub.labs.enabled: hub.labs.handle(t, m, from: self)
+        case let t where t.hasPrefix("labs.pair.") && hub.instantPairing.enabled: hub.instantPairing.handle(t, m, from: self)
         default:
             guard authed else {
                 unauthStrikes += 1
@@ -223,6 +234,7 @@ final class Session {
             }
             if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
             if t == "labs.tv.get" { send(hub.tv.state()); return }   // Labs: a read, like spaces.sub
+            if t.hasPrefix("labs."), let mod = hub.labs.first(where: { $0.prefixes.contains(where: t.hasPrefix) }) { mod.handle(t, m, from: self); return }
             do { try hub.input(m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
         }
     }

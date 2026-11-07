@@ -18,6 +18,8 @@ struct Config {
     var labsPairing: Bool? = nil       // Labs: --labs-pairing forces "Instant pairing" on for this run (docs/labs/pairing.md)
     var fakeApprove: Bool? = nil       // tests: --fake-approve (Allow) / --fake-approve-deny (Deny) every prompt (needs --dry-run)
     var fakeTailscaleOwner: String? = nil // tests: every peer is a tailnet node owned by this ("self" = this Mac's owner) (needs --dry-run)
+    var fakeContext: String? = nil // Labs tests: read the frontmost-app context from this JSON file (needs --dry-run)
+    var fakeNowPlaying = false     // Labs tests: a synthetic now-playing session (needs --dry-run)
 
     static func parse(_ args: [String]) -> Config {
         var c = Config()
@@ -41,6 +43,8 @@ struct Config {
                     let ns = v.split(separator: ",").compactMap { Int($0) }.prefix(Spaces.maxDisplays).map { min(max($0, 1), Spaces.maxDesktops) }
                     if !ns.isEmpty { c.fakeSpaces = Array(ns) }
                 }
+            case "--fake-context": c.fakeContext = it.next()
+            case "--fake-nowplaying": c.fakeNowPlaying = true
             case "--port": if let v = it.next(), let p = UInt16(v) { c.port = p }
             case "--keychain-service": if let v = it.next() { c.keychainService = v }
             case "--web-root": if let v = it.next() { c.webRoot = URL(fileURLWithPath: v) }
@@ -48,8 +52,8 @@ struct Config {
                 print("""
                 MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
-                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv]   (tests, need --dry-run; port 0 = any free port)
-                           [--labs-pairing] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID]   (Labs; fakes need --dry-run)
+                          [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying]   (tests, need --dry-run; port 0 = any free port)
+                          [--labs-pairing] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID]   (Labs; fakes need --dry-run)
                 """)
                 exit(0)
             default: break // ignore launch-services noise (-psn_..., -NS...)

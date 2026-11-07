@@ -17,10 +17,13 @@ object Labs {
     val INSTANT_PAIRING = LabFlag("instant_pairing", "Instant pairing (preview)", "Find Macs over Bluetooth and connect without a code. Needs Mote Helper with Labs › Instant pairing on.")
     val OPEN_TV = LabFlag("open_tv", "Open & TV mode (preview)", "An Open… sheet that drives the Mac, and a TV remote for YouTube. Needs Mote Helper with Labs › TV mode on.")
 
+    val SMART_REMOTE = LabFlag("smart_remote", "Smart remote (preview)", "Adapts Media to what is on the Mac: now playing with a scrubber, app buttons, keyboard on text fields. Needs Mote Helper with Labs › Context & now playing on.")
+
     /** Shown in Settings › Labs, in this order. */
     val all: List<LabFlag> = listOf(
         OPEN_TV,
         INSTANT_PAIRING,
+        SMART_REMOTE,
     )
 
     private val Context.store by preferencesDataStore("labs", corruptionHandler = Prefs.corruptionHandler)
@@ -30,4 +33,8 @@ object Labs {
     suspend fun set(c: Context, f: LabFlag, on: Boolean) {
         c.store.edit { it[booleanPreferencesKey(f.key)] = on }
     }
+
+    /** Extra per-lab booleans in the same store (a preview's own sub-option). */
+    fun bool(c: Context, key: String, default: Boolean): Flow<Boolean> = c.store.data.map { it.typed(booleanPreferencesKey(key)) ?: default }
+    suspend fun setBool(c: Context, key: String, on: Boolean) { c.store.edit { it[booleanPreferencesKey(key)] = on } }
 }
