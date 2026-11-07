@@ -1208,6 +1208,64 @@ JFILES = {"journey-first-run-bt": j01, "journey-wifi-helper": j02, "journey-tail
           "journey-spaces": j05, "journey-macros": j06, "journey-media": j07, "journey-instant-pairing": j08,
           "journey-smart-remote": j09, "journey-open-tv": j10, "journey-video-bridge": j11, "journey-live-screen": j12}
 
+# Gallery index (served at /mote/design/): grouped like design.json, lazy scaled iframe thumbnails, #<id> deep links.
+import json, html as _h
+GROUP_TITLES = {"media": "Media", "pad": "Mouse", "keys": "Keys", "macros": "Macros", "connection": "Connection",
+                "journeys-shipped": "User journeys", "journeys-labs": "User journeys (Labs)"}
+def gallery_page():
+    d = json.loads((OUT / "design.json").read_text())
+    groups = {}
+    for a in d["artboards"]:
+        groups.setdefault(a.get("group", "misc"), []).append(a)
+    secs = []
+    for g, boards in groups.items():
+        labs = g.endswith("labs")
+        badge = '<span class="bd labs">Preview (Labs)</span>' if labs else '<span class="bd">Shipped</span>'
+        tw = 480 if boards[0]["width"] > 600 else 220
+        cards = []
+        for a in boards:
+            w, h = a["width"], a.get("height", 915)
+            sc = tw / w
+            cards.append(
+                f'<a class="card" id="{a["id"]}" href="{a["file"]}" style="width:{tw}px">'
+                f'<div class="thumb" style="height:{round(h*sc)}px"><iframe src="{a["file"]}" loading="lazy" tabindex="-1" title="{_h.escape(a["title"])}" '
+                f'style="width:{w}px;height:{h}px;transform:scale({sc:.5f})"></iframe></div>'
+                f'<div class="cap"><b>{_h.escape(a["title"])}</b><code>#{a["id"]}</code></div></a>')
+        secs.append(f'<section id="g-{g}"><h2>{GROUP_TITLES.get(g, g)} {badge}</h2><div class="row">{"".join(cards)}</div></section>')
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mote design</title>
+<style>
+@font-face{{font-family:Unbounded;font-weight:900;src:url(fonts/Unbounded-Black.woff2) format("woff2")}}
+:root{{--bg:#E3E5E8;--s1:#E9EAED;--ink:#1C1D20;--mut:#50535A;--acc:#1D6FB8;--edge:#C3C6CB}}
+*{{box-sizing:border-box}}
+body{{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}}
+header,section{{max-width:1500px;margin:0 auto;padding:24px 28px}}
+.wm{{font:900 22px Unbounded,system-ui;letter-spacing:.12em;color:var(--ink);text-decoration:none}}
+h1{{margin:.4em 0 .2em;font-size:28px}} p{{color:var(--mut);max-width:70ch;margin:.2em 0}} a{{color:var(--acc)}}
+h2{{font-size:18px;border-top:1px solid var(--edge);padding-top:18px;display:flex;gap:10px;align-items:center}}
+.bd{{font:600 11px system-ui;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:#D3E3F3;color:#14578F}}
+.bd.labs{{background:#FFE9A8;color:#6B4E00}}
+.row{{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}}
+.card{{display:block;text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--edge);border-radius:14px;overflow:hidden;box-shadow:0 1px 0 #fff inset,0 4px 10px rgba(20,28,40,.08)}}
+.card:hover,.card:target{{outline:2px solid var(--acc)}}
+.thumb{{overflow:hidden;position:relative;background:#D2D5D9}}
+.thumb iframe{{border:0;transform-origin:0 0;pointer-events:none;position:absolute;left:0;top:0}}
+.cap{{padding:8px 12px;display:flex;justify-content:space-between;gap:8px;font-size:13px}}
+.cap code{{color:var(--mut);font-size:12px}}
+</style>
+</head>
+<body>
+<header><a class="wm" href="../">MOTE</a><h1>Design</h1>
+<p>{_h.escape(d["description"].split(" Tokens in")[0])} Click a board to open it full size; link to one with <code>#&lt;id&gt;</code>. PNG copies live in the <a href="https://github.com/tusharpandey13/mote/tree/main/design/exports">repo</a>.</p></header>
+{"".join(secs)}
+</body>
+</html>
+"""
+
 files = {
     "media.html": page("Media (dark)", screen(media_inner(), "media"), MEDIA_CSS, dark=True),
     "media-light.html": page("Media", screen(media_inner(), "media"), MEDIA_CSS),
@@ -1227,6 +1285,7 @@ files = {
     "haptics.html": haptics_page(),
 }
 files["journeys-index.html"] = index_page()
+files["index.html"] = gallery_page()
 for jid, fn in JFILES.items():
     files[jid + ".html"] = fn()
 for name, html in files.items():
