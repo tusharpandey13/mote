@@ -1,4 +1,4 @@
-# Mote helper protocol, v1.3
+# Mote helper protocol, v1.4
 
 One JSON message protocol shared by both transports of the Mote Helper (macOS menu-bar app):
 
@@ -6,6 +6,8 @@ One JSON message protocol shared by both transports of the Mote Helper (macOS me
 - **BLE**: GATT service on the Mac (the helper is the peripheral, the phone is the central). Same JSON, fragmented (see [BLE framing](#ble-framing)).
 
 All messages are JSON objects with a type field `t`. Unknown fields are ignored. Unknown `t` gets an `err`. The protocol version is announced in `hello` (`"v": 1`); a peer that sees a different major version closes the connection. Minor versions only add optional fields, so `v` stays 1.
+
+Changes in 1.4 (backward compatible): Spaces per display. `spaces` gains `displays` (each display's Space list), `display` (the active display) and `shared`; the 1.3 `count` / `current` / `thumbs` now follow the active display instead of the main display. `spaces.thumb` and `spaces.goto` take an optional `display`; the `spaces.thumb` reply carries it. `spaces` is also pushed when the active display changes. A 1.3 helper ignores `display` (it means the main display there).
 
 Changes in 1.3 (backward compatible): Spaces: `spaces.sub` / `spaces` state, `spaces.thumb` thumbnails and `spaces.goto` (section 2, spaces). Error code `notfound`. A 1.2 helper answers `spaces.*` with `err` `unknown`; clients treat that as "no Spaces support".
 
@@ -120,35 +122,41 @@ Typed with `CGEventKeyboardSetUnicodeString`, so it is layout-independent and ha
 
 Gesture tiles (the Spaces "hold & slide") are client-side: each slide step sends `key` ⌃← / ⌃→, a tap sends ⌃↑.
 
-### spaces (protocol 1.3)
+### spaces (protocol 1.3, per display since 1.4)
 
-macOS Spaces ("desktops") on the **main display**, for the app's Spaces carousel. All four messages need an authenticated session (`err` `unauth` otherwise).
+macOS Spaces ("desktops") per display, for the app's Spaces carousel. All four messages need an authenticated session (`err` `unauth` otherwise).
 
 ```json
 {"t": "spaces.sub", "on": true}
-{"t": "spaces", "count": 4, "current": 2, "thumbs": [3, 0, 7, 0], "capture": "on"}
-{"t": "spaces.thumb", "i": 3}
-{"t": "spaces.thumb", "i": 3, "v": 7, "w": 320, "h": 200, "mime": "image/jpeg", "data": "/9j/4AAQ..."}
-{"t": "spaces.goto", "i": 1}
+{"t": "spaces", "count": 4, "current": 2, "thumbs": [3, 0, 7, 0], "capture": "on",
+ "display": "37D8832A-2D66-02CA-B9F7-8F30A301B230", "shared": false,
+ "displays": [
+   {"id": "37D8832A-2D66-02CA-B9F7-8F30A301B230", "name": "Built-in Retina Display", "count": 4, "current": 2, "thumbs": [3, 0, 7, 0]},
+   {"id": "9C1B5E2F-0A4D-4F55-8E61-2B7A1D0C9E33", "name": "DELL U2720Q", "count": 2, "current": 1, "thumbs": [8, 0]}]}
+{"t": "spaces.thumb", "i": 1, "display": "9C1B5E2F-0A4D-4F55-8E61-2B7A1D0C9E33"}
+{"t": "spaces.thumb", "i": 1, "display": "9C1B5E2F-0A4D-4F55-8E61-2B7A1D0C9E33", "v": 8, "w": 320, "h": 180, "mime": "image/jpeg", "data": "/9j/4AAQ..."}
+{"t": "spaces.goto", "i": 2, "display": "9C1B5E2F-0A4D-4F55-8E61-2B7A1D0C9E33"}
 ```
 
 | Message | Direction | Fields |
 |---|---|---|
 | `spaces.sub` | client -> helper | `on` (bool, default true). `true`: the helper replies with `spaces` now and sends it again on every change while subscribed. `false`: stop (no reply). Closing the session unsubscribes. |
-| `spaces` | helper -> client | `count`: desktops on the main display (0 = unknown). `current`: 1-based index of the current desktop (0 = unknown, or a full-screen app's Space is showing). `thumbs`: `count` integers, the version of the cached thumbnail per desktop (index 1 first; 0 = none yet, "not visited"). `capture`: `on`, `off` (the user turned "Share Space thumbnails" off), `denied` (no Screen Recording permission yet), `unavailable` (macOS < 14 or no capture API). |
-| `spaces.thumb` | client -> helper | `i`: 1-based desktop index. |
-| `spaces.thumb` | helper -> client | `i`, `v` (version, as in `thumbs`), `w`, `h` (pixels), `mime` (`image/jpeg`), `data` (base64). `err` `notfound` if there is none for `i`, `bad` for a malformed `i`, `unsupported` over BLE. |
-| `spaces.goto` | client -> helper | `i`: 1-based desktop index. No reply on success. Input rules apply (`paused`, `ax`). `err` `bad` if `i` is outside 1..`count` (1..16 when the count is unknown), `unsupported` if the current Space is unknown and there is no Switch-to-Desktop shortcut for `i`. |
+| `spaces` | helper -> client | `count`: desktops on the active display (0 = unknown; 1.3: main display). `current`: 1-based index of its current desktop (0 = unknown, or a full-screen app's Space is showing). `thumbs`: `count` integers, the version of the cached thumbnail per desktop (index 1 first; 0 = none yet, "not visited"). `capture`: `on`, `off` (the user turned "Share Space thumbnails" off), `denied` (no Screen Recording permission yet), `unavailable` (macOS < 14 or no capture API). 1.4: `displays`: one entry per display in macOS order (at most 8), each with `id` (display UUID, or `Main` when shared), `name` (`NSScreen.localizedName`; `All displays` when shared), `count`, `current`, `thumbs` (as above, per display, at most 16 desktops). `display`: `id` of the active display (absent when unknown). `shared`: true when "Displays have separate Spaces" is off (one entry, `Main`, for all screens). |
+| `spaces.thumb` | client -> helper | `i`: 1-based desktop index. `display` (1.4, optional): display `id`; default the active display. |
+| `spaces.thumb` | helper -> client | `i`, `display` (1.4), `v` (version, as in `thumbs`), `w`, `h` (pixels), `mime` (`image/jpeg`), `data` (base64). `err` `notfound` if there is none for `i` or the display is unknown, `bad` for a malformed `i` or a non-string `display`, `unsupported` over BLE. |
+| `spaces.goto` | client -> helper | `i`: 1-based desktop index. `display` (1.4, optional): display `id`; default the active display. No reply on success. Input rules apply (`paused`, `ax`). `err` `bad` if `i` is outside 1..`count` of that display (1..16 when the count is unknown) or `display` isn't a string, `notfound` for an unknown display, `unsupported` if the current Space is unknown and there is no Switch-to-Desktop shortcut for it. |
 
-`spaces` is sent when a client subscribes, when the Space changes (`NSWorkspace.activeSpaceDidChangeNotification`), when a thumbnail is captured, and when the toggle, permission or cache changes. Only full desktops count: full-screen app Spaces are skipped in `count` and `current`. A client fetches a thumbnail when its `thumbs` version differs from the one it has; versions only increase and are only meaningful within one helper run, so clients drop their cache when the connection ends.
+`spaces` is sent when a client subscribes, when the Space changes, when the active display changes, when a display or desktop is added or removed, when a thumbnail is captured, and when the toggle, permission or cache changes. Only full desktops count: full-screen app Spaces are skipped in `count` and `current`. A client fetches a thumbnail when its `thumbs` version differs from the one it has; versions are unique across displays, only increase and are only meaningful within one helper run, so clients drop their cache when the connection ends (a 1.3 client keyed by index alone therefore refetches correctly after the active display changes).
 
-**Index and count** come from private CoreGraphics (SkyLight) functions, `CGSCopyManagedDisplaySpaces` and `CGSGetActiveSpace`, looked up with `dlsym` at run time. If macOS removes them, the helper reports `count: 0`, `current: 0` and keeps working (`goto` then needs the ⌃N shortcuts).
+**Active display** (1.4): the display holding the frontmost app's frontmost window (the one with keyboard focus; window bounds from `CGWindowListCopyWindowInfo`, which needs no Screen Recording), else the display under the mouse cursor, else the main display. The helper re-reads it on `NSWorkspace.activeSpaceDidChangeNotification`, `didActivateApplicationNotification` and `NSApplication.didChangeScreenParametersNotification` (debounced 150 ms), and polls once a second while a client is subscribed (clicking another window of the same app, or moving the cursor to an empty desktop, posts no notification). With "Displays have separate Spaces" off there is one shared list and `display` is `Main`.
 
-**Thumbnails** are captured with ScreenCaptureKit (`SCScreenshotManager`, macOS 14+), main display only, about 600 ms after each Space change (after the slide animation), and once when a client subscribes. JPEG, 320 px wide, quality 0.6; if a frame would make the message larger than 60 KiB the helper re-encodes it at quality 0.4, then 0.25, so a `spaces.thumb` message always fits the existing 64 KiB message cap (no cap was raised). Capturing starts after the first `spaces.sub` of a helper run and covers every Space visited from then on. Over BLE the `spaces` state works but `spaces.thumb` returns `unsupported` (too slow, and BLE writes aren't encrypted).
+**Index and count** come from private CoreGraphics (SkyLight) functions, `CGSCopyManagedDisplaySpaces` (one entry per display with its "Current Space") and `CGSGetActiveSpace`, looked up with `dlsym` at run time. If macOS removes them, the helper reports `count: 0`, `current: 0` and keeps working (`goto` then needs the ⌃N shortcuts).
+
+**Thumbnails** are captured with ScreenCaptureKit (`SCScreenshotManager`, macOS 14+) per display (the `SCDisplay` of that display), about 600 ms after a display's Space changes (after the slide animation), and once per display when a client subscribes. JPEG, 320 px wide, quality 0.6; if a frame would make the message larger than 60 KiB the helper re-encodes it at quality 0.4, then 0.25, so a `spaces.thumb` message always fits the existing 64 KiB message cap (no cap was raised). Capturing starts after the first `spaces.sub` of a helper run and covers every Space visited from then on. Over BLE the `spaces` state works but `spaces.thumb` returns `unsupported` (too slow, and BLE writes aren't encrypted).
 
 **Screen Recording permission** is requested lazily: the first `spaces.sub` (not launch) triggers the macOS prompt. Until it is granted `capture` is `denied`; macOS may need the helper restarted after granting. The menu shows "Space thumbnails: allowed" or "Space thumbnails: grant…" (opens System Settings), a "Share Space thumbnails" toggle (persisted, default on) and "Clear Space thumbnails".
 
-**`goto`**: if "Switch to Desktop N" (`com.apple.symbolichotkeys`, keys 118-126 for N = 1-9) is enabled, the helper sends that shortcut (as configured, ⌃N by default). Otherwise it steps with ⌃← / ⌃→ from the current index, |target − current| times, 80 ms apart. In `--dry-run` it logs `DRY spaces goto=N from=M via=shortcut|step` and the `DRY key` lines instead.
+**`goto`**: "Switch to Desktop N" numbers desktops across displays in macOS order (display 1's desktops, then display 2's, ...), so for desktop `i` of a display the helper computes N = desktops on the displays before it + `i`. If that shortcut (`com.apple.symbolichotkeys`, keys 118-126 for N = 1-9) is enabled, the helper sends it (as configured, ⌃N by default). Otherwise it steps with ⌃← / ⌃→ from that display's current index, |target − current| times, 80 ms apart. ⌃← / ⌃→ act on the display under the cursor, so if the cursor is on another display the helper first moves it to the centre of the target display with `CGWarpMouseCursorPosition` (no click, no focus change) and starts stepping 100 ms later; the cursor stays there. Limitation: this relies on macOS stepping the cursor's display; if a macOS version only follows keyboard focus, stepping a non-focused display needs a click on it, which the helper deliberately never sends (enable the ⌃N shortcuts instead). In `--dry-run` it logs `DRY spaces goto=N from=M via=shortcut|step display=ID` (and `DRY spaces warp display=ID` instead of moving the cursor) and the `DRY key` lines.
 
 **Privacy.** Thumbnails are pictures of the screen: anything on the desktop (mail, messages, passwords in view) can be in them.
 
@@ -223,8 +231,8 @@ node helper/tests/smoke.mjs 8791 <code>                                       # 
 MOTE_TAILNET=1 node helper/tests/smoke.mjs 8791 <code>
 ```
 
-Test-only flags: `--port 0` binds any free port (the log line `wifi: listening on :N` has the real one); `--stdin-control` (honoured only with `--dry-run`) reads `pair` (open a pairing window, print `PAIRING CODE: nnnnnn`), `revoke`, `pause`, `resume` from stdin, standing in for the menu in headless runs. `e2e/web/` uses both.
+Test-only flags: `--port 0` binds any free port (the log line `wifi: listening on :N` has the real one); `--stdin-control` (honoured only with `--dry-run`) reads `pair` (open a pairing window, print `PAIRING CODE: nnnnnn`), `revoke`, `pause`, `resume`, `display N` (see `--fake-spaces`) from stdin, standing in for the menu in headless runs. `e2e/web/` uses both.
 
-`--fake-spaces N` (honoured only with `--dry-run`) simulates N desktops (current 1) with generated solid-colour thumbnails and no Screen Recording permission, so tests never capture the real screen; `spaces.goto` then also switches the fake current desktop.
+`--fake-spaces N[,M...]` (honoured only with `--dry-run`) simulates one display per number (ids `fake-1`, `fake-2`, ..., names `Fake Display 1`, ...) with that many desktops (current 1, active display `fake-1`), generated solid-colour thumbnails and no Screen Recording permission, so tests never capture the real screen; `spaces.goto` then also switches the fake current desktop (and, on another display, makes it active, as the cursor warp would). With `--stdin-control`, `display N` makes fake display N active and pushes `spaces`.
 
 `--dry-run` logs every input (`DRY key usage=80 mods=1 ...`) instead of posting events, so tests never type into the session. `--memory-store` keeps paired devices out of the Keychain; `--keychain-service NAME` uses a separate Keychain item.
