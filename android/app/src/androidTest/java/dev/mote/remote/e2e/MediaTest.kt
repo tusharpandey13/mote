@@ -90,13 +90,15 @@ class MediaTest(@Suppress("unused") private val name: String, caps: Caps) {
     @Test
     fun holdToSeekVersusTapToSkip() {
         for ((label, seek) in listOf("Next track, hold to fast-forward" to Usage.FAST_FORWARD, "Previous track, hold to rewind" to Usage.REWIND)) {
+            c.mainClock.autoAdvance = false
             t.clear()
             val cap = c.desc(label)
             cap.performTouchInput { down(center) }
-            // SeekHold measures real time; the timer runs on the Compose clock, which waitUntil advances
-            c.waitUntil(5_000) { t.calls.contains(Call.ConsumerHold(seek, true)) }
+            // the seek timer runs on the Compose clock: step it past the 400 ms threshold
+            c.mainClock.advanceTimeBy(600, ignoreFrameDuration = true)
             assertEquals("$label: seek held, no skip yet", listOf(Call.ConsumerHold(seek, true)), t.settle())
             cap.performTouchInput { up() }
+            c.mainClock.autoAdvance = true
             assertEquals("$label: lift releases the seek and never skips",
                 listOf(Call.ConsumerHold(seek, true), Call.ConsumerHold(seek, false)), t.awaitAtLeast(2))
         }

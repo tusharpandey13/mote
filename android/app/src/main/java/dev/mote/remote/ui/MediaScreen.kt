@@ -161,10 +161,13 @@ private fun SeekCap(icon: String, description: String, skip: Int, seek: Int) {
     Cap(
         Modifier.size(76.dp, 96.dp), RoundedCornerShape(24.dp), tone = Tone.METAL, description = description, forcePressed = seeking,
         onDown = {
-            hold.down(now())
+            val downAt = now()
+            hold.down(downAt)
             timer = scope.launch {
                 delay(SeekHold.THRESHOLD_MS)
-                if (hold.tick(now()) == SeekHold.Out.SEEK_START) { seeking = true; h(Haptic.TICK); Remote.consumerHold(seek, true) }
+                // The timer is the clock: re-reading uptime here could disagree with delay's clock (the Compose
+                // test clock runs virtual time) and drop the seek for good, as nothing ticks again.
+                if (hold.tick(downAt + SeekHold.THRESHOLD_MS) == SeekHold.Out.SEEK_START) { seeking = true; h(Haptic.TICK); Remote.consumerHold(seek, true) }
             }
         },
         onUp = { lifted ->
