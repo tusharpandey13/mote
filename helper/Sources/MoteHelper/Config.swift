@@ -21,6 +21,8 @@ struct Config {
     var fakeContext: String? = nil // Labs tests: read the frontmost-app context from this JSON file (needs --dry-run)
     var fakeNowPlaying = false     // Labs tests: a synthetic now-playing session (needs --dry-run)
     var fakeScreen = false    // tests: Labs live screen streams synthetic frames of a fake display (needs --dry-run; turns the lab on)
+    var noBonjour = false     // chaos: don't advertise _mote._tcp (stands in for blocked multicast; needs --dry-run)
+    var fakeNowPlayingReader: String? = nil // chaos: run this executable as the now-playing reader instead of perl (needs --dry-run)
 
     static func parse(_ args: [String]) -> Config {
         var c = Config()
@@ -47,6 +49,8 @@ struct Config {
                 }
             case "--fake-context": c.fakeContext = it.next()
             case "--fake-nowplaying": c.fakeNowPlaying = true
+            case "--no-bonjour": c.noBonjour = true
+            case "--fake-nowplaying-reader": c.fakeNowPlayingReader = it.next()
             case "--port": if let v = it.next(), let p = UInt16(v) { c.port = p }
             case "--keychain-service": if let v = it.next() { c.keychainService = v }
             case "--web-root": if let v = it.next() { c.webRoot = URL(fileURLWithPath: v) }
@@ -55,7 +59,8 @@ struct Config {
                 MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
-                          [--labs-pairing] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID]   (Labs; fakes need --dry-run)
+                          [--labs-pairing] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID|timeout]   (Labs; fakes need --dry-run)
+                          [--no-bonjour] [--fake-nowplaying-reader EXE]   (chaos, need --dry-run)
                 """)
                 exit(0)
             default: break // ignore launch-services noise (-psn_..., -NS...)

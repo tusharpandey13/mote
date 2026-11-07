@@ -269,6 +269,8 @@ final class LabsPairing: NSObject {
         if let fake = fakeOwner {
             let ok = !peer.hasPrefix("ble:") && fake == "self"
             log("labs: fake whois \(peer) owner=\(fake)")
+            // chaos: "timeout" stands in for a Tailscale CLI that hangs until the 3 s kill (falls through to the prompt).
+            if fake == "timeout" { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { done(false) }; return }
             done(ok); return
         }
         guard isTailnetPeer(peer) else { done(false); return }
