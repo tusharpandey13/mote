@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -107,22 +108,28 @@ object InstantPairing {
         val saved = Net.saved.value.firstOrNull { it.hostId == c.hostId }
         val paths = orderPaths(c.addresses + helperCandidates(selectPaths(c.info, saved)))
         if (paths.isEmpty()) throw HelperError("noroute", "No address for ${c.name}. Is the Mac on this Wi-Fi or Tailscale?")
+        Log.i(TAG, "connect ${c.hostId} paths=$paths port=${c.port} ble=${ble.ready()}")
         val me = Identity.get(app)
         var prox: String? = ble.proximity(c.hostId)
+        Log.i(TAG, "proximity token: ${if (prox != null) "read" else "none"}")
         var staleRetry = true
         var last: Exception = HelperError("noroute", "Couldn't reach ${c.name}")
         var i = 0
         while (i < paths.size) {
             val addr = paths[i]
-            val s = try { WsSession.open(Net.http, addr, c.port) } catch (e: CancellationException) { throw e } catch (e: Exception) { last = e; i++; continue }
+            val s = try { WsSession.open(Net.http, addr, c.port) } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                Log.w(TAG, "open $addr:${c.port} failed: $e"); last = worse(last, e); i++; continue
+            }
             try {
-                if (s.hello.hostId != c.hostId) { last = HelperError("helper-key", "Another Mac answered at $addr"); i++; continue }
+                if (s.hello.hostId != c.hostId) { last = worse(last, HelperError("helper-key", "Another Mac answered at $addr")); i++; continue }
                 val pin = _records.value[c.hostId]?.fp ?: c.fp
+                if (prox == null && dev.mote.remote.hid.TestSeam.fakeProximity) prox = fakeProximity(s)
                 val token = prox.also { prox = null } // single-use on the Mac
                 val done = try {
                     labsHandshake(s, me, deviceName(), pin, allowPrompt = true, prox = token, onState = onState)
                 } catch (e: HelperError) {
-                    last = e
+                    Log.w(TAG, "handshake at $addr: ${e.code} ${e.message}")
+                    last = worse(last, e)
                     when {
                         e.code == "stale" && staleRetry -> { staleRetry = false; prox = ble.proximity(c.hostId, maxAgeMs = 0); continue }
                         e.code == "far" -> { i++; continue } // a tailnet path may still be trusted (same owner)
@@ -213,12 +220,27 @@ object InstantPairing {
             if (!Net.foreground || Net.active.value !== ws) return@collectLatest
             val w = wifiAddr(app) ?: return@collectLatest
             val port = Net.saved.value.firstOrNull { it.hostId == ws.hostId }?.port ?: Proto.DEFAULT_PORT
-            val http = Net.http.newBuilder().socketFactory(w.network.socketFactory).build()
+            val sockets = WifiSocketFactory(w.network)
+            val http = Net.http.newBuilder().socketFactory(sockets).build()
             val hit = withTimeoutOrNull(Finder.RUN_MS) {
-                lanSweep(sweepHosts(w.ip, w.prefix), port) { h, p, t -> tcpOpen(h, p, t, w.network.socketFactory) }
+                lanSweep(sweepHosts(w.ip, w.prefix), port) { h, p, t -> tcpOpen(h, p, t, sockets) }
                     .firstOrNull { addr -> probeHelper(http, addr, port)?.hostId == ws.hostId }
             }
             if (hit != null) withContext(Dispatchers.Main) { Net.addAddress(ws.hostId, hit) }
+        }
+    }
+
+    /** Tests only: the token a `--fake-proximity` dry-run helper hands out in place of the BLE read. */
+    private suspend fun fakeProximity(s: WsSession): String? {
+        s.send(org.json.JSONObject().put("t", "labs.pair.prox").toString())
+        return withTimeoutOrNull(3000) {
+            var v: String? = null
+            while (v == null) {
+                val m = s.inbox.receive()
+                if (m is Msg.Err) break
+                if (m is Msg.Other && "labs.pair.prox" in m.raw) v = PairProto.proxOrNull(org.json.JSONObject(m.raw).optString("v").toByteArray()) ?: break
+            }
+            v
         }
     }
 
@@ -228,6 +250,7 @@ object InstantPairing {
         return d.filter { routeOf(it) != Route.TAILNET } + d.filter { routeOf(it) == Route.TAILNET }
     }
 
+    private const val TAG = "MotePair"
     const val FALLBACK_MS = 15_000L
     const val REDISCOVER_MS = 4_000L
     const val PROBE_MS = 30_000L

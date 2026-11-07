@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "dev" build type: a separate app instance (dev.mote.remote.dev) for testing next to the real one. -->
+<resources>
+    <string name="app_name">Mote Dev</string>
+    <color name="launcher_bg">#FF7A1F</color>
+</resources>

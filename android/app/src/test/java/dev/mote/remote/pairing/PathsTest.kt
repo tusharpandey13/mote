@@ -54,4 +54,17 @@ class PathsTest {
         assertEquals(mapOf(r.hostId to r), TrustRecord.decode(TrustRecord.encode(listOf(r))))
         assertEquals(emptyMap<String, TrustRecord>(), TrustRecord.decode("garbage"))
     }
+
+    @Test fun theMacsRefusalBeatsALaterUnreachablePath() {
+        val start = dev.mote.remote.net.HelperError("noroute", "none yet")
+        val far = dev.mote.remote.net.HelperError("far", "far")
+        val timeout = java.net.SocketTimeoutException("connect timed out")
+        // LAN says far, then the tailnet address times out: still far (so the app offers Bluetooth)
+        assertEquals("far", (worse(worse(start, far), timeout) as dev.mote.remote.net.HelperError).code)
+        // nothing answered at all: the network error
+        assertEquals(timeout, worse(start, timeout))
+        // a later refusal replaces an earlier one
+        val stale = dev.mote.remote.net.HelperError("stale", "stale")
+        assertEquals(stale, worse(far, stale))
+    }
 }

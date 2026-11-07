@@ -17,6 +17,7 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
 
 ## Build and test
 - Android: JDK 17, `ANDROID_HOME`/`local.properties` (gitignored). In `android/`: `./gradlew :app:testDebugUnitTest :app:lintRelease`, `./gradlew :app:assembleRelease`. Build the helper first: `HelperIntegrationTest` drives the real `--dry-run` helper over WebSocket (skipped if `helper/build/MoteHelper.app` is missing; `MOTE_HELPER=` overrides).
+- Test app instance: `./gradlew :app:assembleDev` builds `dev.mote.remote.dev` ("Mote Dev", debug-signed, own data and key); use it on real phones, never the installed `dev.mote.remote`. Discovery e2e on the emulator: a `--dry-run --headless --memory-store --no-ble --fake-proximity --port 8795` helper, then `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.mote.remote.e2e.SweepDiscoveryTest -Pandroid.testInstrumentationRunnerArguments.moteSweepPort=8795 [-Pandroid.testInstrumentationRunnerArguments.moteFakeProximity=true]`.
 - Helper: `helper/build.sh` (`ARCHS=arm64 ./helper/build.sh` for one arch). It signs with the stable local identity "Mote Helper Local" (`helper/signing.sh`, created once in the login keychain; see `helper/README.md`), so permission grants survive rebuilds. Agents / non-interactive runs: `MOTE_ADHOC=1` (ad-hoc, no keychain access, no dialogs; CI is ad-hoc automatically). Unit tests: `helper/tests/unit.sh`. Smoke test:
   ```sh
   B=helper/build/MoteHelper.app/Contents/MacOS/MoteHelper

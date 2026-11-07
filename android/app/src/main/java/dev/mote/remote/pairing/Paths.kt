@@ -28,3 +28,13 @@ fun selectPaths(info: BleInfo?, saved: SavedHost?, bonjour: String? = null, btAd
 
 /** The helper (WebSocket) addresses of [paths], in order. */
 fun helperCandidates(paths: List<PairPath>): List<String> = paths.filter { it.route != Route.BT }.map { it.address }
+
+/**
+ * The error worth showing after trying several paths: the Mac's own answer (a refusal such as
+ * `far`) beats a later path that couldn't be reached. (0.6.0 bug: an unreachable tailnet address
+ * hid `far` behind "Couldn't reach", so the Bluetooth proof was never offered.)
+ */
+fun worse(prev: Exception, next: Exception): Exception = when {
+    prev is dev.mote.remote.net.HelperError && prev.code != "noroute" && next !is dev.mote.remote.net.HelperError -> prev
+    else -> next
+}

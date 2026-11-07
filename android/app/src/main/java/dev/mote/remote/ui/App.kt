@@ -157,6 +157,15 @@ private fun Root(theme: ThemeChoice) {
     // Debug builds only: `am start ... --ez mote.demo true` skips the first-run gate so every screen
     // can be screenshotted on an emulator (input stays inert without a host).
     val demo = remember { isDemo(ctx) }
+    // Debuggable builds: `--ei mote.sweepPort N` sweeps port N, `--ez mote.fakeProximity true` reads the token from a --fake-proximity helper (a dry-run helper on the dev Mac, reached from an emulator at 10.0.2.2).
+    remember(ctx) {
+        val a = ctx as? Activity
+        if (a != null && ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            a.intent?.getIntExtra("mote.sweepPort", 0)?.takeIf { it > 0 }?.let { dev.mote.remote.hid.TestSeam.sweepPort = it }
+            if (a.intent?.getBooleanExtra("mote.fakeProximity", false) == true) dev.mote.remote.hid.TestSeam.fakeProximity = true
+        }
+        true
+    }
     LaunchedEffect(demo) { if (demo && (ctx as? Activity)?.intent?.getBooleanExtra("mote.demo.displays", false) == true) DemoSpaces.enable() }
     LaunchedEffect(bt.gate) { if (bt.gate == BtGate.READY && !demo) HidService.start(ctx) }
     LaunchedEffect(bt) { Hid.envChanged() } // bond/ACL/adapter change or resume: fresh reconnect budget
@@ -194,7 +203,13 @@ private fun Root(theme: ThemeChoice) {
         macChosen = wifiChosen, btChosen = btChosen, btPermitted = bt.permitted, btReady = bt.gate == BtGate.READY, skip = demo || link != null,
     )
     if (!loaded && !demo) { Box(Modifier.fillMaxSize().chassis()); return }
-    if (start == StartScreen.FIND_MAC) { FindMacScreen(onBluetooth = { Net.chooseBluetooth() }); return }
+    // Setup stays on screen until its last step (the optional Bluetooth one), even once the Mac is saved.
+    var setup by rememberSaveable { mutableStateOf(false) }
+    if (start == StartScreen.FIND_MAC) setup = true
+    if (setup && (start == StartScreen.FIND_MAC || start == StartScreen.REMOTE)) {
+        FindMacScreen(onBluetooth = { setup = false; Net.chooseBluetooth() }, onDone = { setup = false })
+        return
+    }
     if (start == StartScreen.BT_GATE) {
         BtGateScreen(bt.gate, openSettings, gateAction, onWifi = { Net.chooseWifi() })
         return

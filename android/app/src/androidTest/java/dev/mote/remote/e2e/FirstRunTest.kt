@@ -2,6 +2,7 @@ package dev.mote.remote.e2e
 
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -66,12 +67,14 @@ class FirstRunTest {
  */
 @RunWith(AndroidJUnit4::class)
 class SweepDiscoveryTest {
-    private val port = androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("moteSweepPort")?.toIntOrNull()
+    private val args = androidx.test.platform.app.InstrumentationRegistry.getArguments()
+    private val port = args.getString("moteSweepPort")?.toIntOrNull()
+    private val fakeProx = args.getString("moteFakeProximity") == "true"
     @get:Rule val rule = MoteRule(grantPermissions = false, linked = false)
     private val c get() = rule.compose
 
-    init { TestSeam.noBonjour = true; TestSeam.sweepPort = port } // before the rule launches the activity
-    @After fun clear() { TestSeam.noBonjour = false; TestSeam.sweepPort = null }
+    init { TestSeam.noBonjour = true; TestSeam.sweepPort = port; TestSeam.fakeProximity = fakeProx } // before the rule launches the activity
+    @After fun clear() { TestSeam.noBonjour = false; TestSeam.sweepPort = null; TestSeam.fakeProximity = false }
 
     @Test
     fun sweepFindsTheHelperWithoutBonjour() {
@@ -81,5 +84,30 @@ class SweepDiscoveryTest {
         val ms = System.currentTimeMillis() - t0
         assertTrue("found in $ms ms", ms < 4_000)
         assertFalse(c.onAllNodes(hasText("Mote Helper not found", substring = true)).fetchSemanticsNodes().isNotEmpty())
+    }
+
+    private fun desc(d: String) = c.onAllNodes(hasContentDescription(d, substring = true)).fetchSemanticsNodes().isNotEmpty()
+    private fun text(t: String) = c.onAllNodes(hasText(t, substring = true)).fetchSemanticsNodes().isNotEmpty()
+
+    /**
+     * Regression (0.6.0 on a real phone): Android's platform Ed25519 rejected every helper signature
+     * ("isn't the Mac it claims to be"), and a refused connect could surface as "Couldn't reach".
+     * With `-e moteFakeProximity true` the token comes from the `--fake-proximity` helper: one tap
+     * must end trusted (the Bluetooth step or the remote). Without it (no BLE on an emulator) the
+     * Mac answers `far`, which must ask for Bluetooth, never claim the Mac is unreachable.
+     */
+    @Test
+    fun oneTapConnectsOrAsksForBluetoothNeverUnreachable() {
+        assumeTrue("pass -e moteSweepPort N with a dry-run --fake-proximity helper on the host", port != null)
+        c.waitUntil(4_000) { desc("Connect to ") }
+        c.onAllNodes(hasContentDescription("Connect to ", substring = true)).onFirst().performClick()
+        c.waitUntil(15_000) {
+            text("login screen") || desc("Play or pause") || text("Mote uses Bluetooth once") || text("couldn't confirm") ||
+                text("Couldn't reach") || text("isn't the Mac")
+        }
+        assertFalse("refusal shown as unreachable", text("Couldn't reach"))
+        assertFalse("helper signature rejected", text("isn't the Mac"))
+        if (fakeProx) assertTrue("trusted with no Mac action", text("login screen") || desc("Play or pause"))
+        else assertTrue("asks for Bluetooth proof", text("Mote uses Bluetooth once") || text("couldn't confirm"))
     }
 }
