@@ -88,44 +88,73 @@ def _sector(r0, r1, a0, a1):
     p0 = _pt(r1, a0); p1 = _pt(r1, a1); p2 = _pt(r0, a1); p3 = _pt(r0, a0)
     return (f"M{p0[0]:.2f} {p0[1]:.2f}A{r1} {r1} 0 0 1 {p1[0]:.2f} {p1[1]:.2f}"
             f"L{p2[0]:.2f} {p2[1]:.2f}A{r0} {r0} 0 0 0 {p3[0]:.2f} {p3[1]:.2f}Z")
-ARM_R0, ARM_R1 = 72, 110      # thinner arrow ring (38dp)
-GATE_R, WELL_R, STICK_R = 68, 63, 45
-TRAVEL = WELL_R - STICK_R     # 18dp max deflection
+ARM_R0, ARM_R1 = 82, 110     # arrow ring (28dp) - gave space to the stick in rev 7.1
+GATE_OUT, WELL_R = 82, 77     # metal gate lip, recessed well the stick moves in
+STICK_R, DISH_R = 52, 38      # raised cap, concave thumb dish
+TRAVEL = 20                   # max centre offset; cap edge stays 5dp inside the well
+WALL_H, SHADOW_Y = 7, 9       # side-wall height and cast-shadow drop at rest (dp)
 POINTER = 'M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z'
 
-def dpad(state="rest", angle=45, d=0.7):
-    """state: rest | deflect | pressed. angle: deflection bearing (deg, 0 = up), d: 0..1 of TRAVEL."""
+def _knurl(cx, cy, r0, r1, n=40):
+    out = []
+    for k in range(n):
+        a = 360 * k / n
+        x0, y0 = cx + r0 * math.sin(math.radians(a)), cy - r0 * math.cos(math.radians(a))
+        x1, y1 = cx + r1 * math.sin(math.radians(a)), cy - r1 * math.cos(math.radians(a))
+        out.append(f"M{x0:.2f} {y0:.2f}L{x1:.2f} {y1:.2f}")
+    return " ".join(out)
+
+def dpad(state="rest", angle=45, d=0.75):
+    """state: rest | deflect | pressed. angle: bearing (deg, 0 = up). d: 0..1 of TRAVEL."""
     arm = _sector(ARM_R0, ARM_R1, -45, 45)
-    tri = f"M{C} {C - 91 - 5}l7 9.5h-14z"
+    tri = f"M{C} {C - 96 - 5}l6.5 9h-13z"
     arms = "".join(
         '<g data-dc-id="dpad-%s"%s><path class="arm" d="%s"/><path class="tri" d="%s"/></g>'
         % (n, (f' transform="rotate({r} {C} {C})"') if r else "", arm, tri)
         for n, r in [("up", 0), ("right", 90), ("down", 180), ("left", 270)])
     divs = "".join('<line class="div" x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f"/>' % (*_pt(ARM_R0 + 3, a), *_pt(ARM_R1 - 5, a)) for a in (45, 135, 225, 315))
-    dx = dy = 0.0; glow = ""
+    # engraved 8-direction hints in the well floor (chevrons N/E/S/W, dots on diagonals)
+    hints = []
+    for a in (0, 90, 180, 270):
+        hints.append(f'<path d="M{C - 5} {C - 66}L{C} {C - 71}L{C + 5} {C - 66}" transform="rotate({a} {C} {C})"/>')
+    for a in (45, 135, 225, 315):
+        x, y = _pt(68, a); hints.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="1.4" class="dot"/>')
+    hint_svg = "".join(hints)
+    dx = dy = 0.0; glow = ""; pressed = state == "pressed"
     if state == "deflect":
         dx = TRAVEL * d * math.sin(math.radians(angle)); dy = -TRAVEL * d * math.cos(math.radians(angle))
-        sweep = 30 + 60 * d
-        path = _arc(GATE_R - 2.5, angle - sweep / 2, angle + sweep / 2)
-        glow = f'<g data-dc-id="dpad-stick-glow" opacity="{d:.2f}"><path class="glow-arc soft" d="{path}" filter="url(#glowblur)"/><path class="glow-arc" d="{path}"/></g>'
-    elif state == "pressed":
-        glow = f'<g data-dc-id="dpad-stick-glow" opacity=".7"><circle class="glow-arc soft" cx="{C}" cy="{C}" r="{GATE_R - 2.5}" filter="url(#glowblur)"/><circle class="glow-arc" cx="{C}" cy="{C}" r="{GATE_R - 2.5}"/></g>'
-    press = f' transform="translate({C} {C + 1.5}) scale(.96) translate({-C} {-C})"' if state == "pressed" else ""
+        sweep = 30 + 60 * d; path = _arc(GATE_OUT - 2.5, angle - sweep / 2, angle + sweep / 2)
+        glow = f'<g data-dc-id="dpad-stick-glow" opacity="{min(1, .35 + d):.2f}"><path class="glow-arc soft" d="{path}" filter="url(#glowblur)"/><path class="glow-arc" d="{path}"/></g>'
+    elif pressed:
+        glow = f'<g data-dc-id="dpad-stick-glow" opacity=".75"><circle class="glow-arc soft" cx="{C}" cy="{C}" r="{GATE_OUT - 2.5}" filter="url(#glowblur)"/><circle class="glow-arc" cx="{C}" cy="{C}" r="{GATE_OUT - 2.5}"/></g>'
     sx, sy = C + dx, C + dy
+    wall = 2 if pressed else WALL_H
+    lift = 2.5 if pressed else 0                     # cap sinks toward the well when clicked
+    # shadow: falls below (light from top) and shifts opposite to the deflection (the shaft leans)
+    shx, shy = sx - 0.45 * dx, sy + (3 if pressed else SHADOW_Y) - 0.45 * dy
+    blur = 2.5 if pressed else 5
+    wx, wy = sx - 0.22 * dx, sy + wall - 0.22 * dy  # wall base leans back toward the pivot
+    tx, ty = sx, sy + lift
+    knurl = _knurl(tx, ty, DISH_R + 3, STICK_R - 3)
+    scale = f' transform="translate({tx:.2f} {ty:.2f}) scale(.97) translate({-tx:.2f} {-ty:.2f})"' if pressed else ""
     return f"""<div class="dpad-wrap js" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 236 236" data-dc-id="dpad">
         <defs>
           <linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient>
-          <linearGradient id="conc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-bot)"/><stop offset="1" style="stop-color:var(--rub-top)"/></linearGradient>
-          <radialGradient id="concshade" cx=".5" cy=".38" r=".62"><stop offset=".55" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></radialGradient>
+          <radialGradient id="dome" cx=".42" cy=".30" r=".78"><stop offset="0" style="stop-color:var(--stick-hi)"/><stop offset=".55" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></radialGradient>
+          <linearGradient id="wallg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-bot)"/><stop offset="1" style="stop-color:var(--rub-wall)"/></linearGradient>
+          <linearGradient id="dish" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--dish-top)"/><stop offset="1" style="stop-color:var(--dish-bot)"/></linearGradient>
+          <radialGradient id="dishshade" cx=".5" cy=".30" r=".70"><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.30"/></radialGradient>
+          <radialGradient id="wellg" cx=".5" cy=".62" r=".6"><stop offset="0" style="stop-color:var(--well)"/><stop offset="1" style="stop-color:var(--well-deep)"/></radialGradient>
           <linearGradient id="gate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gate-0)"/><stop offset=".48" style="stop-color:var(--gate-1)"/><stop offset=".52" style="stop-color:var(--gate-2)"/><stop offset="1" style="stop-color:var(--gate-3)"/></linearGradient>
           <linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient>
-          <linearGradient id="bevin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.45"/><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset=".8" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.5"/></linearGradient>
-          <pattern id="grip" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r=".85" style="fill:var(--lo)"/></pattern>
+          <linearGradient id="bevin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.55"/><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset=".8" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.55"/></linearGradient>
           <filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter>
-          <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+          <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="{blur}"/></filter>
           <filter id="glowblur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+          <filter id="spec" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter>
           <clipPath id="cdisc"><circle cx="{C}" cy="{C}" r="110"/></clipPath>
-          <clipPath id="cstick"><circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - 7}"/></clipPath>
+          <clipPath id="cwell"><circle cx="{C}" cy="{C}" r="{WELL_R}"/></clipPath>
+          <clipPath id="cdish"><circle cx="{tx:.2f}" cy="{ty:.2f}" r="{DISH_R}"/></clipPath>
         </defs>
         <circle class="housing" cx="{C}" cy="{C}" r="113"/>
         <circle class="contact" cx="{C}" cy="{C + 6}" r="106"/>
@@ -134,18 +163,25 @@ def dpad(state="rest", angle=45, d=0.7):
         <circle class="bevel" cx="{C}" cy="{C}" r="109.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
         {arms}
         <g>{divs}</g>
-        <g data-dc-id="dpad-stick-gate"><circle cx="{C}" cy="{C}" r="{GATE_R}" fill="url(#gate)"/><circle class="gate-hi" cx="{C}" cy="{C}" r="{GATE_R - .5}"/>
-          <circle cx="{C}" cy="{C}" r="{WELL_R}" style="fill:var(--well)"/><circle cx="{C}" cy="{C}" r="{WELL_R - 1}" fill="none" stroke="url(#bevin)" stroke-width="2"/></g>
+        <g data-dc-id="dpad-stick-gate">
+          <circle cx="{C}" cy="{C}" r="{GATE_OUT}" fill="url(#gate)"/><circle class="gate-hi" cx="{C}" cy="{C}" r="{GATE_OUT - .5}"/>
+          <circle cx="{C}" cy="{C}" r="{WELL_R}" fill="url(#wellg)" data-dc-id="dpad-stick-well"/>
+          <circle cx="{C}" cy="{C}" r="{WELL_R - 1.5}" fill="none" stroke="url(#bevin)" stroke-width="3"/>
+          <g class="well-hints" data-dc-id="dpad-stick-hints">{hint_svg}</g>
+        </g>
         {glow}
-        <g data-dc-id="dpad-center"{press}>
-          <circle class="stick-shadow" cx="{sx:.2f}" cy="{sy + 4:.2f}" r="{STICK_R}" filter="url(#soft)"/>
-          <circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R}" fill="url(#dpk)"/>
-          <circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - 6}" fill="url(#conc)"/>
-          <circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - 6}" fill="url(#concshade)"/>
-          <rect x="{sx - STICK_R:.2f}" y="{sy - STICK_R:.2f}" width="{2 * STICK_R}" height="{2 * STICK_R}" fill="url(#grip)" clip-path="url(#cstick)" opacity=".9"/>
-          <circle class="bevel" cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - .75}" stroke="url(#{'bevin' if state == 'pressed' else 'bev'})"/>
-          <circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - 6}" fill="none" stroke="url(#bevin)" stroke-width="1.2"/>
-          <g data-dc-id="dpad-center-legend" transform="translate({sx - 9.5:.2f} {sy - 11:.2f}) scale(.85)"><path class="legend-engr" d="{POINTER}" style="stroke:var(--hi)" transform="translate(0 1)"/><path class="legend-engr" d="{POINTER}" style="stroke:var(--on-surface-muted)"/></g>
+        <g clip-path="url(#cwell)"><circle class="stick-shadow" cx="{shx:.2f}" cy="{shy:.2f}" r="{STICK_R}" filter="url(#soft)" data-dc-id="dpad-stick-shadow"/></g>
+        <g data-dc-id="dpad-center"{scale}>
+          <circle cx="{wx:.2f}" cy="{wy + lift:.2f}" r="{STICK_R}" fill="url(#wallg)" data-dc-id="dpad-stick-wall"/>
+          <circle cx="{tx:.2f}" cy="{ty:.2f}" r="{STICK_R}" fill="url(#dome)" data-dc-id="dpad-stick-cap"/>
+          <path d="{knurl}" class="knurl" data-dc-id="dpad-stick-knurl"/>
+          <circle cx="{tx:.2f}" cy="{ty:.2f}" r="{STICK_R - .75}" fill="none" stroke="url(#bev)" stroke-width="1.5"/>
+          <circle cx="{tx:.2f}" cy="{ty:.2f}" r="{DISH_R}" fill="url(#dish)" data-dc-id="dpad-stick-dish"/>
+          <circle cx="{tx:.2f}" cy="{ty:.2f}" r="{DISH_R}" fill="url(#dishshade)"/>
+          <rect x="{tx - DISH_R:.2f}" y="{ty - DISH_R:.2f}" width="{2 * DISH_R}" height="{2 * DISH_R}" filter="url(#gr)" clip-path="url(#cdish)" opacity=".55" style="mix-blend-mode:overlay"/>
+          <circle cx="{tx:.2f}" cy="{ty:.2f}" r="{DISH_R}" fill="none" stroke="url(#bevin)" stroke-width="2"/>
+          <ellipse cx="{tx - 16:.2f}" cy="{ty - 40:.2f}" rx="14" ry="4" class="spec" filter="url(#spec)" transform="rotate(-24 {tx - 16:.2f} {ty - 40:.2f})"/>
+          <g data-dc-id="dpad-center-legend" transform="translate({tx - 8.5:.2f} {ty - 10:.2f}) scale(.75)"><path class="legend-engr" d="{POINTER}" style="stroke:var(--hi)" transform="translate(0 1.2)"/><path class="legend-engr" d="{POINTER}" style="stroke:var(--on-surface-muted)"/></g>
         </g>
       </svg></div>"""
 
@@ -721,8 +757,8 @@ def dpad_press_page():
     body = f"""<div class="screen" style="height:560px;grid-template-rows:1fr;padding:16px 0" data-dc-id="screen">
   <div style="display:flex;flex-wrap:wrap;justify-content:space-around;align-content:space-around;row-gap:18px" data-dc-id="dpad-press-compare">
     {cell("dpad-rest", "Rest", dpad())}
-    {cell("dpad-deflected", "Stick deflected 70% up-right: glow arc follows", dpad("deflect", 45, .7))}
-    {cell("dpad-pressed", "Stick pressed (click): legend moves with cap", dpad("pressed"))}
+    {cell("dpad-deflected", "Deflected up-right: cap offset, shadow shifts back", dpad("deflect", 45, .8))}
+    {cell("dpad-pressed", "Pressed (click): cap sinks, wall and shadow shrink", dpad("pressed"))}
   </div>
 </div>"""
     return page("D-pad joystick", body)

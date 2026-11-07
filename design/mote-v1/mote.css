@@ -624,3 +624,14 @@ svg.i.i16 { width: 16px; height: 16px; }
 .wordmark.bulb .wm-core { background: linear-gradient(180deg, #3D9BF0 0%, #BFE3FF 40%, #FFF1DC 50%, #BFE3FF 60%, #2F8BE0 100%); -webkit-background-clip: text; background-clip: text; }
 .dark .wordmark.bulb .wm-core { background: linear-gradient(180deg, #9ED6FF 0%, #E6F5FF 40%, #FFF3E2 50%, #E6F5FF 60%, #7CC6FF 100%); -webkit-background-clip: text; background-clip: text; }
 .wordmark.bulb .wm-glow { text-shadow: 0 0 1px rgba(20,60,110,.55), 0 0 3px rgba(255,236,210,.9), 0 0 7px rgba(64,160,255,.8), 0 0 16px rgba(64,160,255,.5), 0 0 32px rgba(64,160,255,.28); }
+
+/* rev 7.1: thumbstick reads as a raised, draggable cap */
+:root { --stick-hi: #F4F5F7; --dish-top: #B4B8BE; --dish-bot: #DADCE0; --well-deep: #A9ADB3; }
+.dark { --stick-hi: #4A4D54; --dish-top: #17181B; --dish-bot: #2E3035; --well-deep: #050506; }
+.dpad .stick-shadow { fill: #000; opacity: .5; }
+.dark .dpad .stick-shadow { opacity: .75; }
+.dpad .knurl { fill: none; stroke: var(--lo); stroke-width: 1.6; stroke-linecap: round; }
+.dpad .spec { fill: #fff; opacity: .55; }
+.dark .dpad .spec { opacity: .18; }
+.dpad .well-hints path { fill: none; stroke: var(--on-surface-subtle); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .55; }
+.dpad .well-hints .dot { fill: var(--on-surface-subtle); opacity: .45; }

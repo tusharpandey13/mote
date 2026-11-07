@@ -452,3 +452,19 @@ Exact recipes are in `docs/design/tokens.json` (`components.dpad.joystick`, `mat
   - **Dark theme:** uses a darker titanium gradient.
   - All three keep the shared 96dp height and baseline (#67).
   - The glass material is retired from the transport.
+
+## Revision 7.1 (2026-11): the stick must read as a thumbstick (#72)
+
+- **The stick is now a raised, domed cap** in the style of a game-controller thumbstick:
+  - Cap radius 52dp, with a 7dp rubber side wall below the dome.
+  - A radial knurled grip ring (40 ridges).
+  - A 38dp concave thumb dish with grippy grain and a dark top lip.
+  - A small specular highlight top-left.
+  - An engraved pointer legend that moves with the cap.
+- **Height cues:** a soft cast shadow (blur 5, offset 9dp down) sits on the well floor.
+- **Well and gate:** the stick sits in a visible recessed well (r77) inside a metal gate lip (r82). At rest the 25dp gap shows it can move. The well floor has engraved chevrons for the four directions and dots on the diagonals.
+- **The arrow ring gave up space:** it is now 82-110 (28dp). The D-pad stays at 236dp, so the 412dp cluster is unchanged and nothing overlaps.
+- **Deflected:** the cap moves up to 20dp. The side wall leans back toward the pivot (−0.22·d), the cast shadow shifts the opposite way (−0.45·d), and the gate's LED arc follows the direction.
+- **Pressed (click):** the cap sinks 2.5dp and scales to 0.97. The side wall shrinks to 2dp, the shadow tightens to 3dp/2.5 blur, and the gate ring lights fully.
+- **One-time onboarding:** the first time Media shows the joystick, a faint accent ring pulses twice around the cap (r56, scaling 1→1.35 while fading out, 1200ms). It never plays again, and is skipped under reduced motion.
+- **Recipe:** the exact layer stack, with per-deflection shadow/wall offsets, is in `tokens.json` → `components.dpad.joystick`. Interaction tokens are unchanged (travel is now 20dp).

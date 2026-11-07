@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextNumber": 72,
+  "nextNumber": 73,
   "comments": [
     {
       "id": "c-512cf5e39358",
@@ -1705,6 +1705,30 @@
       "sentAt": 1794048596478,
       "resolvedAt": 1794048928545,
       "resolution": "Transport redesigned as brushed-metal caps with embossed glyphs; play/pause in spun metal with concentric rings; same 96dp height and baseline; glass retired."
+    },
+    {
+      "id": "c-708eb07adac3",
+      "number": 72,
+      "body": "visually , this does not look like a joystick, or something user can put their finger on and drag around",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "dpad-center",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > svg:nth-of-type(1) > g:nth-of-type(7)",
+        "tag": "g",
+        "text": "",
+        "html": "<g data-dc-id=\"dpad-center\">\n          <circle class=\"stick-shadow\" cx=\"118.00\" cy=\"122.00\" r=\"45\" filter=\"url(#soft)\"></circle>\n          <circle cx=\"118.00\" cy=\"118.00\" r=\"45\" fill=\"url(#dpk)\"></circle>\n          <circle cx=\"118.00\" cy=\"118.00\" r=\"39\" fill=\"url(#conc)\"></circle>\n          <circle cx=\"118.00\" cy=\"118.00\" r=\"39\" fill=\"url(#concshade)\"></circle>\n          <rect x=\"73.00\" y=\"73.00\" width=\"90\" height=\"90\" fill=\"url(#grip)\" clip-path=\"url(#cstick)\" opacity=\".9\"></rect>\n          <circle class=\"bevel\" cx=\"118.00\" cy=\"118.00\" r=\"44.25\" stroke=\"url(#bev)\"></circle>\n          <circle cx=\"118.00\" cy=\"118.00\" r=\"39\" fill=\"none\" stroke=\"url(#bevin)\" stroke-width=\"1.2\"></circle>\n          <g data-dc-id=\"dpad-center-legend\" transform=\"translate(108.50 107.00) scale(.85)\"><path class=\"legend-engr\" d=\"M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z\" style=\"stroke:var(--hi)\" transform=\"translate(0 1)\"></path><path class=\"legend-engr\" d=\"M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z\" style=\"stroke:var(--on-surface-muted)\"></path></g>\n        </g>",
+        "rect": {
+          "x": 160.99887084960938,
+          "y": 490.0246276855469,
+          "width": 89.99945068359375,
+          "height": 93.99940490722656
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1794049005459,
+      "sentAt": 1794049006771,
+      "resolvedAt": 1794049163477,
+      "resolution": "The centre is now a raised, domed 52dp rubber thumbstick with a side wall, grip ridges, a concave dish and a cast shadow, in a visible recessed well with a 25dp travel gap and engraved direction marks. Deflected and pressed states are on dpad-press; recipe in tokens.json (rev7.1)."
     }
   ]
 }
