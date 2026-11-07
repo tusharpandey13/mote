@@ -6,6 +6,7 @@ struct Config {
     var dryRun = false        // log input instead of injecting it
     var headless = false      // no menu-bar UI (tests)
     var openPairing = false   // open the pairing window at launch and print the code
+    var openSetup = false     // --setup: open the Setup window at launch (install.sh, "Relaunch helper")
     var ble = true
     var port: UInt16 = 8790
     var keychainService = "dev.mote.helper"
@@ -35,6 +36,7 @@ struct Config {
             case "--dry-run": c.dryRun = true
             case "--headless": c.headless = true
             case "--open-pairing": c.openPairing = true
+            case "--setup": c.openSetup = true
             case "--no-ble": c.ble = false
             case "--memory-store": c.memoryStore = true
             case "--allow-tailscale": c.allowTailscale = true
@@ -62,7 +64,7 @@ struct Config {
             case "--web-root": if let v = it.next() { c.webRoot = URL(fileURLWithPath: v) }
             case "-h", "--help":
                 print("""
-                MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
+                MoteHelper [--setup] [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
                           [--no-instant-pairing | --labs-pairing] [--require-approval]   (instant pairing: off / force on; approval prompts)
@@ -98,8 +100,9 @@ final class Settings {
         }
     }
 
-    /// "Share Space thumbnails": capture and serve Space thumbnails (protocol 1.3). Default on;
-    /// it only has an effect once Screen Recording is granted.
+    /// "Share Space thumbnails": capture and serve Space thumbnails (protocol 1.3). Needs Screen Recording,
+    /// so default off: turned on from the Setup window or Advanced, which ask for the permission then.
+    /// --fake-spaces (tests) turns it on.
     var shareSpaceThumbnails: Bool {
         didSet {
             guard shareSpaceThumbnails != oldValue else { return }
@@ -128,7 +131,7 @@ final class Settings {
             defaults?.set(hostId, forKey: "hostId")
         }
         allowTailscale = config.allowTailscale ?? defaults.map { $0.object(forKey: "allowTailscale") as? Bool ?? true } ?? false
-        shareSpaceThumbnails = (defaults?.object(forKey: "shareSpaceThumbnails") as? Bool) ?? true
+        shareSpaceThumbnails = (defaults?.object(forKey: "shareSpaceThumbnails") as? Bool) ?? (config.dryRun && config.fakeSpaces != nil)
         labsLiveScreen = (config.fakeScreen && config.dryRun) || (defaults?.bool(forKey: "labsLiveScreen") ?? false)
     }
 }

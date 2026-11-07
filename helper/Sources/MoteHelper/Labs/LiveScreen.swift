@@ -111,9 +111,8 @@ final class LiveScreen {
         guard !paused else { throw ProtoError("sharing-paused", "Screen sharing is paused in the Mote Helper menu") }
         if !fake {
             guard !dryRun else { throw ProtoError("unavailable", "Live screen is off in a dry run (use --fake-screen)") }
-            guard CGPreflightScreenCaptureAccess() else {
-                _ = CGRequestScreenCaptureAccess()
-                throw ProtoError("denied", "Allow Screen Recording for Mote Helper in System Settings")
+            guard CGPreflightScreenCaptureAccess() else {   // never prompt from a phone message: Setup window / Labs toggle
+                throw ProtoError("denied", "Allow Screen Recording in Mote Helper › Setup on the Mac")
             }
         }
         if let old = viewer, old !== s { stop("taken") }
