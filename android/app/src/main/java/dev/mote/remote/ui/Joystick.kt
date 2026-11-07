@@ -231,7 +231,8 @@ private class PadBody(c: MoteColors, private val ctr: Offset, private val k: Flo
     }
     private val armRect = Rect(ctr, 110 * k)
     private val armShade = Color.Black.copy(alpha = if (c.dark) 0.22f else 0.07f)
-    private val armInk = c.ink.copy(alpha = 0.78f)
+    private val armInk = c.muted
+    private val triStroke = Stroke(3 * k, join = StrokeJoin.Round)
     private val accent = c.accent
     private val divider = if (c.dark) Color.Black.copy(alpha = 0.45f) else c.rubWall.copy(alpha = 0.55f)
     private val gate = Brush.verticalGradient(0f to c.metal[0], 0.48f to c.metal[1], 0.52f to c.metal[2], 1f to c.metal[3],
@@ -254,7 +255,9 @@ private class PadBody(c: MoteColors, private val ctr: Offset, private val k: Flo
         with(disc) { draw() }
         for (i in 0 until 4) rotate(i * 90f, ctr) {
             if (pressedArm == i) drawArc(armShade, 225f, 90f, true, armRect.topLeft, armRect.size)
-            drawPath(tri, if (pressedArm == i) accent else armInk)
+            val ink = if (pressedArm == i) accent else armInk
+            drawPath(tri, ink)
+            drawPath(tri, ink, style = triStroke) // mote.css .tri: fill + 3dp round-join stroke
         }
         for (i in 0 until 4) rotate(45f + i * 90f, ctr) {
             drawLine(divider, Offset(ctr.x, ctr.y - 85 * k), Offset(ctr.x, ctr.y - 105 * k), 1.5f * k, cap = StrokeCap.Round)
@@ -382,7 +385,7 @@ private fun BoxScope.Thumbstick(
                             drawCircle(bevel, 51.25f * k, Offset.Zero, style = bevelStroke)
                             drawCircle(dish, dr, Offset.Zero)
                             drawCircle(dishShade, dr, Offset.Zero)
-                            clipPath(dishPath) { drawCircle(grain, dr, Offset.Zero, alpha = 0.55f, blendMode = BlendMode.Overlay) }
+                            clipPath(dishPath) { drawCircle(grain, dr, Offset.Zero, alpha = 0.3f, blendMode = BlendMode.Overlay) }
                             drawCircle(dishLip, dr, Offset.Zero, style = lipStroke)
                             rotate(-24f, Offset(-16 * k, -40 * k)) {
                                 drawIntoCanvas { it.nativeCanvas.drawOval(-30 * k, -44 * k, -2 * k, -36 * k, spec) }
