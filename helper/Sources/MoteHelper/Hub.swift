@@ -10,6 +10,7 @@ final class Hub {
     let limiter = RateLimiter()
     let injector: Injector
     let spaces: Spaces
+    private(set) var labs: LabsPairing!   // Labs: instant pairing (Labs/Pairing.swift)
     private(set) var sessions: [Session] = []
     private var macroGen = 0
     private(set) var macroRunning = false
@@ -42,6 +43,7 @@ final class Hub {
             let now = AXIsProcessTrusted()
             if now != self.axTrusted { self.axTrusted = now; self.broadcastState(); self.onChange?() }
         }
+        labs = LabsPairing(hub: self)
     }
 
     /// Accessibility doesn't matter in dry-run (nothing is posted).
@@ -50,6 +52,7 @@ final class Hub {
     func add(_ s: Session) { sessions.append(s); onChange?() }
     func remove(_ s: Session) {
         sessions.removeAll { $0 === s }
+        labs.ended(s)
         if !sessions.contains(where: { $0.authed }) { injector.releaseAll() }
         onChange?()
     }
@@ -68,6 +71,7 @@ final class Hub {
 
     func revokeAll() {
         store.revokeAll()
+        labs.revokeAll()
         spaces.clear()
         for s in sessions where s.authed { s.revoke() }
         log("all devices revoked")
@@ -132,13 +136,14 @@ final class Session {
     private let sendRaw: (Data) -> Void
     private let closeRaw: () -> Void
     private unowned let hub: Hub
-    private let nonce = randomHex(16)
+    let nonce = randomHex(16)
     private(set) var authed = false
     private(set) var deviceName = ""
     private(set) var spacesSub = false   // subscribed to `spaces` state (protocol 1.3)
     private var unauthStrikes = 0
     private var closed = false
     private var authDeadline: Timer?
+    var isOpen: Bool { !closed }
 
     init(hub: Hub, transport: String, peer: String, send: @escaping (Data) -> Void, close: @escaping () -> Void) {
         self.hub = hub; self.transport = transport; self.peer = peer
@@ -203,6 +208,7 @@ final class Session {
         case "pong": break
         case "pair": pair(m)
         case "auth": auth(m)
+        case let t where t.hasPrefix("labs.pair.") && hub.labs.enabled: hub.labs.handle(t, m, from: self)
         default:
             guard authed else {
                 unauthStrikes += 1
@@ -262,12 +268,19 @@ final class Session {
             err("auth", "Unknown device or bad credentials", ref: "auth")
             return
         }
+        hub.store.touch(d.id)
+        markAuthed(id: d.id, name: d.name)
+    }
+
+    /// Labs: the instant-pairing handshake (Labs/Pairing.swift) authenticated this session.
+    func labsAuthed(id: String, name: String) { guard !authed else { return }; markAuthed(id: id, name: name) }
+
+    private func markAuthed(id: String, name: String) {
         authed = true
         authDeadline?.invalidate()
-        deviceName = d.name
-        hub.store.touch(d.id)
-        log("authed \(d.name) via \(transport) from \(peer)")
-        send(["t": "authed", "id": d.id, "name": d.name, "paused": hub.paused, "ax": hub.inputReady])
+        deviceName = name
+        log("authed \(name) via \(transport) from \(peer)")
+        send(["t": "authed", "id": id, "name": name, "paused": hub.paused, "ax": hub.inputReady])
         hub.onChange?()
     }
 }

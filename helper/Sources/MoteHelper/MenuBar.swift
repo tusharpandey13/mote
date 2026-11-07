@@ -112,6 +112,8 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         _ = add("Revoke all devices…", #selector(revokeAll))
         _ = add("Launch at login", #selector(toggleLogin), state: SMAppService.mainApp.status == .enabled)
         menu.addItem(.separator())
+        _ = add("Labs", #selector(noop)).submenu = hub.labs.menu()
+        menu.addItem(.separator())
         _ = add("Quit Mote Helper", #selector(quit), key: "q")
     }
 
@@ -144,6 +146,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         guard hub.settings.allowTailscale else { return }
         Tailnet.refresh { [weak self] in self?.refresh() }
     }
+    @objc func noop() {}
     @objc func quit() { NSApp.terminate(nil) }
 
     @objc func revokeAll() {

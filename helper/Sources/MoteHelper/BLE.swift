@@ -28,19 +28,34 @@ final class BLEServer: NSObject, CBPeripheralManagerDelegate {
 
     func peripheralManagerDidUpdateState(_ p: CBPeripheralManager) {
         switch p.state {
-        case .poweredOn:
-            let rx = CBMutableCharacteristic(type: BLEServer.rxUUID, properties: [.write, .writeWithoutResponse], value: nil, permissions: [.writeable])
-            let tx = CBMutableCharacteristic(type: BLEServer.txUUID, properties: [.notify], value: nil, permissions: [.readable])
-            let svc = CBMutableService(type: BLEServer.service, primary: true)
-            svc.characteristics = [rx, tx]
-            self.tx = tx
-            p.removeAllServices()
-            p.add(svc)
+        case .poweredOn: publish()
         case .poweredOff: setStatus("Bluetooth is off")
         case .unauthorized: setStatus("not allowed (System Settings > Privacy > Bluetooth)")
         case .unsupported: setStatus("unsupported on this Mac")
         default: setStatus("unavailable")
         }
+    }
+
+    /// (Re)adds the GATT service. Labs instant pairing adds its read-only info characteristic.
+    func publish() {
+        guard pm.state == .poweredOn else { return }
+        let rx = CBMutableCharacteristic(type: BLEServer.rxUUID, properties: [.write, .writeWithoutResponse], value: nil, permissions: [.writeable])
+        let tx = CBMutableCharacteristic(type: BLEServer.txUUID, properties: [.notify], value: nil, permissions: [.readable])
+        let svc = CBMutableService(type: BLEServer.service, primary: true)
+        svc.characteristics = [rx, tx] + (hub.labs.enabled ? [LabsPairing.infoCharacteristic()] : [])
+        self.tx = tx
+        pm.stopAdvertising()
+        pm.removeAllServices()
+        pm.add(svc)
+    }
+
+    /// Labs: reads of the instant-pairing info characteristic (long reads come with an offset).
+    func peripheralManager(_ p: CBPeripheralManager, didReceiveRead r: CBATTRequest) {
+        guard r.characteristic.uuid == LabsPairing.infoUUID, hub.labs.enabled else { p.respond(to: r, withResult: .readNotPermitted); return }
+        let v = hub.labs.infoData(offset: r.offset)
+        guard r.offset <= v.count else { p.respond(to: r, withResult: .invalidOffset); return }
+        r.value = v.subdata(in: r.offset..<v.count)
+        p.respond(to: r, withResult: .success)
     }
 
     func peripheralManager(_ p: CBPeripheralManager, didAdd service: CBService, error: Error?) {
