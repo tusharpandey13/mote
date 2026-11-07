@@ -67,7 +67,7 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
         val showSpaces = favourites.any { it.kind == Macro.Kind.SPACES }
         val cluster = (maxHeight - (if (showSpaces) 448 else 336).dp).coerceIn(196.dp, 256.dp)
         val slot = cluster - 24.dp
-        val dpad = (cluster - 20.dp).coerceAtMost(236.dp)
+        val dpad = cluster.coerceAtMost(236.dp)
         Column(Modifier.fillMaxSize()) {
             CappedFontScale { // fixed-height header + carousel
             // the Edit chip's 48dp touch target overhangs this 32dp row
@@ -80,7 +80,10 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
             Spacer(Modifier.height(8.dp))
             if (showSpaces) {
                 // rev 6 #60: Spaces is a carousel row of its own at the top of Favourites
-                CarouselCaption("Spaces", "swipe or tap a desktop")
+                val hs = helperSpaces()
+                CarouselCaption("Spaces", "swipe or tap a desktop", trailing = if (hs != null && !hs.shared && hs.displays.size > 1) {
+                    { DisplayIndicator(hs) }
+                } else null)
                 Spacer(Modifier.height(4.dp))
                 SpacesCarousel()
                 Spacer(Modifier.height(8.dp))

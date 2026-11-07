@@ -102,6 +102,8 @@ fun MoteApp() {
     val ctx = LocalContext.current
     val choice by Prefs.theme(ctx).collectAsState(initial = ThemeChoice.LIGHT)
     val dark = when (choice) { ThemeChoice.LIGHT -> false; ThemeChoice.DARK -> true; ThemeChoice.SYSTEM -> isSystemInDarkTheme() }
+        // debug screenshots: `--ez mote.demo.dark true` with mote.demo forces Titanium
+        || remember { isDemo(ctx) && (ctx as? Activity)?.intent?.getBooleanExtra("mote.demo.dark", false) == true }
     val view = LocalView.current
     SideEffect {
         (view.context as? Activity)?.window?.let { w ->
@@ -145,6 +147,7 @@ private fun Root(theme: ThemeChoice) {
     // Debug builds only: `am start ... --ez mote.demo true` skips the first-run gate so every screen
     // can be screenshotted on an emulator (input stays inert without a host).
     val demo = remember { isDemo(ctx) }
+    LaunchedEffect(demo) { if (demo && (ctx as? Activity)?.intent?.getBooleanExtra("mote.demo.displays", false) == true) DemoSpaces.enable() }
     LaunchedEffect(bt.gate) { if (bt.gate == BtGate.READY && !demo) HidService.start(ctx) }
     LaunchedEffect(bt) { Hid.envChanged() } // bond/ACL/adapter change or resume: fresh reconnect budget
     val settings = LocalSettings.current

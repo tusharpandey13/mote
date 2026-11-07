@@ -1,5 +1,6 @@
 package dev.mote.remote.ui
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +43,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -49,7 +55,9 @@ import androidx.compose.ui.unit.sp
 import dev.mote.remote.data.UiPrefs
 import dev.mote.remote.data.UiSettings
 import dev.mote.remote.hid.Mod
+import dev.mote.remote.net.DisplaySpaces
 import dev.mote.remote.net.Remote
+import dev.mote.remote.net.SpacesState
 import dev.mote.remote.ui.theme.LocalMote
 import dev.mote.remote.ui.theme.MIcon
 import dev.mote.remote.ui.theme.SoftShadow
@@ -111,22 +119,132 @@ object BtSpaces {
 // ---------------------------------------------------------------------------------------------
 // UI
 
+/** Debug builds only: a fake two-display helper state for screenshots (`--ez mote.demo.displays true`). */
+object DemoSpaces {
+    val state = MutableStateFlow<SpacesState?>(null)
+
+    fun enable() {
+        state.value = SpacesState(
+            count = 6, current = 2, capture = "on", versions = List(6) { 0 }, thumbs = emptyMap(),
+            displays = listOf(DisplaySpaces("builtin", "Built-in", 6, 2), DisplaySpaces("lg", "LG UltraFine", 3, 1)),
+            activeDisplay = "builtin",
+        )
+    }
+}
+
+/** Helper Spaces for the UI (or the debug demo); null over Bluetooth / unknown. */
+@Composable
+fun helperSpaces(): SpacesState? {
+    val live = Remote.spaces.collectAsState().value
+    val demo = DemoSpaces.state.collectAsState().value
+    return (live ?: demo)?.takeIf { it.count > 0 }
+}
+
+/**
+ * Which display the carousel shows: the Mac's active display, unless the user picked another in the
+ * display menu since the active one last changed. Shared by the chip and the carousel.
+ */
+object DisplayPick {
+    val picked = MutableStateFlow<String?>(null)
+    /** The active display the pick was made against; a new active display clears the pick. */
+    var pickedAgainst: String? = null
+}
+
+/** The display the carousel should show for [s], and its Spaces (null when the helper doesn't list displays). */
+@Composable
+fun shownDisplay(s: SpacesState?): DisplaySpaces? {
+    val picked by DisplayPick.picked.collectAsState()
+    if (s == null || s.displays.isEmpty()) return null
+    val uuid = if (picked != null && DisplayPick.pickedAgainst == s.activeDisplay) picked else s.activeDisplay
+    return s.displays.firstOrNull { it.uuid == uuid } ?: s.displays.firstOrNull { it.uuid == s.activeDisplay } ?: s.displays.first()
+}
+
+/**
+ * Carousel header display indicator (rev 7 #69, tokens.json components.spacesCarousel.displayIndicator):
+ * one dot per display (active lit) and a plastic chip with the display's icon, name and ▾, which opens
+ * a list of displays. Helper only, and only when the Mac has two or more displays.
+ */
+@Composable
+fun DisplayIndicator(s: SpacesState?) {
+    val c = LocalMote.current
+    val shown = shownDisplay(s) ?: return
+    if (s == null || s.shared || s.displays.size <= 1) return
+    var open by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = "Display ${s.displays.indexOf(shown) + 1} of ${s.displays.size}"
+        }) {
+            s.displays.forEach { d ->
+                val on = d.uuid == shown.uuid
+                Box(Modifier.size(6.dp).drawBehind {
+                    if (on) drawCircle(c.accentGlow, radius = size.minDimension / 2 + 2.5.dp.toPx())
+                    drawCircle(if (on) c.accent else c.subtle.copy(alpha = 0.5f))
+                })
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Box {
+            Cap(Modifier.height(26.dp), RoundedCornerShape(9.dp), needsLink = false, haptic = Haptic.TICK,
+                description = "Display: ${shown.name}. Choose display", onClick = { open = true }) {
+                Row(Modifier.padding(start = 7.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    MIcon(displayIcon(shown.name), c.ink, size = 16.dp)
+                    Text(shown.name, style = T.label.copy(fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold), color = c.ink, maxLines = 1)
+                    MIcon("chevDown", c.ink, size = 16.dp)
+                }
+            }
+            DropdownMenu(open, onDismissRequest = { open = false }) {
+                s.displays.forEach { d ->
+                    DropdownMenuItem(
+                        text = { Text(d.name + if (d.uuid == s.activeDisplay) " (active)" else "", style = T.label) },
+                        leadingIcon = { MIcon(displayIcon(d.name), c.ink, size = 20.dp) },
+                        trailingIcon = { if (d.uuid == shown.uuid) MIcon("check", c.accent, size = 20.dp) },
+                        onClick = {
+                            DisplayPick.pickedAgainst = s.activeDisplay
+                            DisplayPick.picked.value = d.uuid
+                            open = false
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun displayIcon(name: String) = if (name.contains("Built-in", ignoreCase = true) || name.contains("Retina", ignoreCase = true)) "laptop" else "desktop"
+
 /**
  * The Spaces carousel (rev 6 #60): an 84dp well holding desktop cards that snap start-aligned, with a
  * 24dp fade at the trailing edge. Tap a card to jump. Over Bluetooth cards are numbered; with the
- * helper they show cached thumbnails or a dashed "Not visited yet" placeholder.
+ * helper they show cached thumbnails or a dashed "Not visited yet" placeholder. Rev 7 #69: when the
+ * shown display changes the cards fade out (120ms), the row jumps to the current card, and the new
+ * cards fade in (200ms).
  */
 @Composable
 fun SpacesCarousel(cardWidth: Dp = 104.dp, modifier: Modifier = Modifier) {
     val c = LocalMote.current
     val cfg = LocalSettings.current
-    val helper = Remote.spaces.collectAsState().value?.takeIf { it.count > 0 }
+    val reduced = reducedMotion()
+    val helper = helperSpaces()
+    val target = shownDisplay(helper)
     val btCurrent by BtSpaces.current.collectAsState()
-    val count = helper?.count ?: cfg.desktopCount
-    val current = helper?.current ?: btCurrent
+    // the display whose cards are on screen; lags [target] through the fade-out
+    var shownUuid by remember { mutableStateOf(target?.uuid) }
+    val fade = remember { Animatable(1f) }
+    val shown = helper?.displays?.firstOrNull { it.uuid == shownUuid }
+    val active = shown == null || shown.uuid == helper.activeDisplay
+    val count = shown?.count ?: helper?.count ?: cfg.desktopCount
+    val current = shown?.current ?: helper?.current ?: btCurrent
     val list = rememberLazyListState()
-    // Re-centre when the Mac's active display changes (its list replaces the previous one).
-    LaunchedEffect(helper?.activeDisplay) { list.scrollToItem((current - 2).coerceAtLeast(0)) }
+    LaunchedEffect(Unit) { list.scrollToItem((current - 2).coerceAtLeast(0)) }
+    // the shown display changed (the Mac's active display, or a pick): fade out, jump, fade in
+    LaunchedEffect(target?.uuid) {
+        val next = target?.uuid
+        if (next == shownUuid) return@LaunchedEffect
+        if (!reduced && shownUuid != null) fade.animateTo(0f, Motion.exit())
+        shownUuid = next
+        list.scrollToItem(((target?.current ?: 1) - 2).coerceAtLeast(0))
+        if (reduced) fade.snapTo(1f) else fade.animateTo(1f, Motion.effectMed())
+    }
     val shape = RoundedCornerShape(22.dp)
     Box(modifier.fillMaxWidth().height(84.dp).well(shape)) {
         LazyRow(
@@ -134,12 +252,12 @@ fun SpacesCarousel(cardWidth: Dp = 104.dp, modifier: Modifier = Modifier) {
             flingBehavior = rememberSnapFlingBehavior(list, SnapPosition.Start),
             contentPadding = PaddingValues(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = fade.value },
         ) {
             items(count) { i ->
                 val n = i + 1
-                SpaceCard(n, n == current, cardWidth, helper != null, helper?.thumbs?.get(n)?.image) {
-                    if (helper != null) Remote.spacesGoto(n, helper.activeDisplay) else BtSpaces.goto(n, cfg)
+                SpaceCard(n, n == current, cardWidth, helper != null, if (active) helper?.thumbs?.get(n)?.image else null) {
+                    if (helper != null) Remote.spacesGoto(n, shown?.uuid ?: helper.activeDisplay) else BtSpaces.goto(n, cfg)
                 }
             }
         }
@@ -200,14 +318,14 @@ private fun SpaceCard(n: Int, current: Boolean, width: Dp, helper: Boolean, thum
     }
 }
 
-/** Header for a carousel: left caption, right hint, 13sp. */
+/** Header for a carousel: left caption, right hint, 13sp; [trailing] (the display indicator) replaces the hint. */
 @Composable
-fun CarouselCaption(left: String, right: String, caps: Boolean = false) {
+fun CarouselCaption(left: String, right: String, caps: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
     val c = LocalMote.current
     Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         val st = if (caps) T.caps else T.body.copy(fontSize = 13.sp, lineHeight = 18.sp)
         Text(if (caps) left.uppercase() else left, style = st, color = c.muted, modifier = Modifier.weight(1f))
-        Text(if (caps) right.uppercase() else right, style = st, color = c.muted)
+        if (trailing != null) trailing() else Text(if (caps) right.uppercase() else right, style = st, color = c.muted)
     }
 }
 
@@ -217,7 +335,7 @@ fun SpacesSheet(onClose: () -> Unit) {
     val c = LocalMote.current
     val ctx = LocalContext.current
     val cfg = LocalSettings.current
-    val helper = Remote.spaces.collectAsState().value?.takeIf { it.count > 0 }
+    val helper = helperSpaces()
     val scope = rememberCoroutineScope()
     var later by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
@@ -228,11 +346,16 @@ fun SpacesSheet(onClose: () -> Unit) {
         Text("Swipe the row or tap a desktop to jump to it. The lit card is the desktop you are on.", style = T.body, color = c.muted)
         Spacer(Modifier.height(16.dp))
         if (helper != null) {
-            CarouselCaption("With the Mote helper", "Thumbnails", caps = true)
+            CarouselCaption("With the Mote helper", "Thumbnails", caps = true, trailing = if (!helper.shared && helper.displays.size > 1) {
+                { DisplayIndicator(helper) }
+            } else null)
             Spacer(Modifier.height(8.dp))
             SpacesCarousel(112.dp)
             Spacer(Modifier.height(12.dp))
-            Text("The helper saves a picture of each desktop when you visit it. It needs Screen Recording permission on the Mac.",
+            val perDisplay = !helper.shared && helper.displays.size > 1
+            Text((if (perDisplay) "Each display has its own desktops. The row follows the display you're using; tap the chip to pick another. " else "") +
+                "The helper saves a picture of each desktop when you visit it" +
+                if (perDisplay) " (needs Screen Recording permission)." else ". It needs Screen Recording permission on the Mac.",
                 style = T.body.copy(fontSize = 16.sp, lineHeight = 22.sp), color = c.muted)
         } else {
             CarouselCaption("Over Bluetooth", "Numbered", caps = true)
