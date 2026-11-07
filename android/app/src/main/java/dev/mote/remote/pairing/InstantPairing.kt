@@ -71,6 +71,7 @@ object InstantPairing {
     private val _records = MutableStateFlow<Map<String, TrustRecord>>(emptyMap())
     val records: StateFlow<Map<String, TrustRecord>> = _records.asStateFlow()
     val ble by lazy { BleScan(app) }
+    val appContext: Context get() = app
     val finder by lazy { Finder(app, Net.scope) }
 
     /** hostId we fell back to Bluetooth HID from; probed every 30 s to switch back. */

@@ -184,7 +184,9 @@ object Net {
             is Selection.Helper -> {
                 if (cur is WsTransport && cur.hostId == sel.hostId) { if (foreground) cur.start(); return }
                 (cur as? WsTransport)?.stop()
-                Hid.deselect()
+                // A Mac linked to its Bluetooth host keeps that link up as the backup; otherwise Bluetooth stands down.
+                val bt = _saved.value.firstOrNull { it.hostId == sel.hostId }?.btAddress
+                if (bt != null) Hid.select(dev.mote.remote.hid.Host(bt, _saved.value.first { it.hostId == sel.hostId }.name)) else Hid.deselect()
                 val ws = WsTransport(http, scope, sel.hostId, { targetFor(sel.hostId) }, ::onReady)
                 _active.value = ws
                 if (foreground) ws.start()

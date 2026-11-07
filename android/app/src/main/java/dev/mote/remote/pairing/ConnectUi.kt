@@ -195,6 +195,8 @@ private sealed interface Step {
     /** Proximity needs Bluetooth: one-line rationale, then the system dialog. */
     data object NeedBluetooth : Step
     data class Done(val via: String) : Step
+    /** Connected over Wi-Fi / Tailscale; next, the optional Bluetooth HID step. */
+    data class OfferBt(val via: String) : Step
     data class Error(val msg: String) : Step
 }
 
@@ -223,6 +225,7 @@ fun ConnectCard(m: FoundMac, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     var step by remember(m.hostId) { mutableStateOf<Step>(Step.Ask) }
     LaunchedEffect(step) { if (step is Step.Done) { delay(900); onDone() } }
+    val btOffer = remember { dev.mote.remote.hid.Bt.snapshot(ctx).supported }
 
     fun go() {
         // Tailscale-only Mac and the VPN is off: the existing prompt, then connect once it is up.
@@ -232,7 +235,8 @@ fun ConnectCard(m: FoundMac, onDone: () -> Unit) {
         scope.launch {
             step = try {
                 val done = InstantPairing.connect(m) { st -> if (st is PairState.Pending) step = Step.Waiting(st.timeout) }
-                Step.Done(done.via)
+                val linked = Net.saved.value.firstOrNull { it.hostId == m.hostId }?.btAddress != null
+                if (btOffer && !linked) Step.OfferBt(done.via) else Step.Done(done.via)
             } catch (e: Exception) {
                 if ((e as? HelperError)?.code == "far" && !InstantPairing.ble.ready() && Build.VERSION.SDK_INT >= 31) Step.NeedBluetooth
                 else Step.Error(pairFailure(e, m.name))
@@ -260,9 +264,93 @@ fun ConnectCard(m: FoundMac, onDone: () -> Unit) {
                 }
             }
             is Step.Done -> Text(when (s.via) { "tailscale" -> "Connected. Trusted via Tailscale"; else -> "Connected" }, style = T.label, color = c.ink)
+            is Step.OfferBt -> {
+                Text("Connected over ${if (s.via == "tailscale") "Tailscale" else "Wi-Fi"}", style = T.label, color = c.ink)
+                BtStep(m.hostId, m.name, onFinish = onDone)
+            }
             is Step.Error -> {
                 Text(s.msg, style = T.body, color = c.danger, textAlign = TextAlign.Center)
                 SecondaryButton("Try again") { go() }
+            }
+        }
+    }
+}
+
+private sealed interface BtUi {
+    data object Offer : BtUi
+    data class Running(val text: String) : BtUi
+    data class Failed(val text: String) : BtUi
+    data object Paired : BtUi
+}
+
+/**
+ * "Also pair Bluetooth for login screen & backup": recommended, pre-checked, skippable. The phone
+ * becomes visible (one Android prompt) and registers as a keyboard; the trusted helper pairs from
+ * the Mac and accepts the pairing itself; Android asks once to confirm. Then the Mac is linked to
+ * its Bluetooth host, so both links are up (pill: Wi-Fi + BT).
+ */
+@android.annotation.SuppressLint("MissingPermission") // adapter name only after Bt.permitted
+@Composable
+fun BtStep(hostId: String, mac: String, onFinish: () -> Unit) {
+    val c = LocalMote.current
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var want by remember { mutableStateOf(true) }
+    var ui by remember { mutableStateOf<BtUi>(BtUi.Offer) }
+    LaunchedEffect(ui) { if (ui == BtUi.Paired) { delay(1500); onFinish() } }
+
+    fun run() {
+        val name = runCatching { ctx.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.name }.getOrNull()
+        if (name.isNullOrBlank()) { ui = BtUi.Failed("Turn on Bluetooth on this phone, then try again."); return }
+        dev.mote.remote.service.HidService.start(ctx) // registers the phone as a keyboard / mouse
+        dev.mote.remote.hid.Hid.pausePairing(120_000)
+        ui = BtUi.Running("Asking $mac to pair…")
+        scope.launch {
+            ui = try {
+                val macBt = BtSetup.pair(hostId, name) { st -> ui = BtUi.Running(btStatusText(st, mac)) }
+                Net.linkBt(hostId, macBt)
+                dev.mote.remote.hid.Hid.select(dev.mote.remote.hid.Host(macBt, mac))
+                BtUi.Paired
+            } catch (e: Exception) {
+                BtUi.Failed(btStatusText(BtPairStatus("failed", (e as? HelperError)?.code), mac))
+            }
+        }
+    }
+    val visible = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        if (r.resultCode == android.app.Activity.RESULT_CANCELED) ui = BtUi.Failed("The phone has to be visible for a moment so $mac can find it.") else run()
+    }
+    fun discoverable() = runCatching {
+        visible.launch(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120))
+    }.onFailure { run() }
+    val enable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { discoverable() }
+    val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        if (!dev.mote.remote.hid.Bt.permitted(ctx)) ui = BtUi.Failed("Mote needs Nearby devices to pair over Bluetooth.")
+        else if (!dev.mote.remote.hid.Bt.snapshot(ctx).enabled) runCatching { enable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
+        else discoverable()
+    }
+    fun start() {
+        if (!dev.mote.remote.hid.Bt.permitted(ctx)) perms.launch(dev.mote.remote.hid.Bt.permissions)
+        else if (!dev.mote.remote.hid.Bt.snapshot(ctx).enabled) runCatching { enable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
+        else discoverable()
+    }
+
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        when (val u = ui) {
+            BtUi.Offer -> {
+                androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().clickable { want = !want }, verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = want, onCheckedChange = { want = it })
+                    Text("Also pair Bluetooth for login screen & backup (recommended)", style = T.body, color = c.ink)
+                }
+                Text("Android asks twice: make the phone visible, then Pair. Nothing to do on the Mac.", style = T.small, color = c.subtle, textAlign = TextAlign.Center)
+                PrimaryButton(if (want) "Continue" else "Done") { if (want) start() else onFinish() }
+                if (want) SmallLink("Skip", onFinish)
+            }
+            is BtUi.Running -> Text(u.text, style = T.body, color = c.muted, textAlign = TextAlign.Center)
+            BtUi.Paired -> Text("Wi-Fi and Bluetooth are both set up.", style = T.label, color = c.ink)
+            is BtUi.Failed -> {
+                Text(u.text, style = T.body, color = c.danger, textAlign = TextAlign.Center)
+                SecondaryButton("Try again") { start() }
+                SmallLink("Skip for now", onFinish)
             }
         }
     }

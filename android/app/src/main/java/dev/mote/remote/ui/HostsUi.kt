@@ -127,6 +127,9 @@ fun HostPill(onClick: () -> Unit) {
             Spacer(Modifier.size(10.dp))
             Text(name, style = T.label, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             route?.let { Spacer(Modifier.size(6.dp)); RouteBadge(it) }
+            // Both links: the helper route plus the linked Bluetooth HID backup, when connected.
+            val btBackup = (active as? WsTransport)?.let { a -> saved.firstOrNull { it.hostId == a.hostId }?.btAddress }
+            if (btBackup != null && s.connected?.address == btBackup) { Spacer(Modifier.size(4.dp)); RouteBadge(Route.BT) }
             Spacer(Modifier.size(4.dp))
             MIcon("chevDown", c.muted, size = 20.dp)
         }

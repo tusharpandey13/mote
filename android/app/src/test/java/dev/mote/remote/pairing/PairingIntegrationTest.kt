@@ -202,6 +202,28 @@ class PairingIntegrationTest {
         assertEquals("127.0.0.1", m.addresses.first())
     }
 
+    @Test fun trustedPhoneAsksTheMacToPairBluetooth() = runBlocking {
+        val info = fakeBle(spawn("--fake-bt-pair"))
+        handshake("127.0.0.1", info.fp, "jvm bt", prox = prox())
+        val s = WsSession.open(http, "127.0.0.1", port)
+        try {
+            assertEquals("trusted", labsHandshake(s, phone, "jvm bt", info.fp, allowPrompt = false).via)
+            s.send(JSONObject().put("t", "bt.pair").put("name", "Nothing Phone (2)").toString())
+            val states = ArrayList<BtPairStatus>()
+            while (states.lastOrNull()?.terminal != true) {
+                val m = withTimeout(5000) { s.inbox.receive() }
+                if (m is Msg.Other) BtPairStatus.parse(JSONObject(m.raw))?.let { states += it }
+            }
+            assertEquals(listOf("searching", "pairing", "paired"), states.map { it.state })
+            assertEquals("02:00:00:00:00:01", states.last().address)
+            assertTrue(btStatusText(states[1], "Air").contains("Nothing to do on the Mac"))
+            s.send(JSONObject().put("t", "bt.info").toString())
+            var mac: String? = null
+            while (mac == null) { val m = withTimeout(5000) { s.inbox.receive() }; if (m is Msg.Other && "bt.info" in m.raw) mac = JSONObject(m.raw).getString("address") }
+            assertEquals("02:00:00:00:00:00", mac)
+        } finally { s.close() }
+    }
+
     @Test fun instantPairingOffOnTheMacIsUnauth() = runBlocking {
         val info = spawnPlain("--no-instant-pairing")
         assertTrue(info)
