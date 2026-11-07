@@ -1,7 +1,7 @@
 // Renders EVERY artboard in design/mote-v1/design.json to design/exports/<group>/<id>.png (@1x) and writes
 // design/exports/README.md (gallery linking to the live Pages boards). Run via tools/design-build.sh; local only.
 // Usage: [PLAYWRIGHT_DIR=<dir with node_modules/playwright>] node tools/design-export/export.mjs
-// pngquant is used if installed. Budget: any PNG > 300 KB or total > 5 MB fails.
+// Journey groups render at 0.5x. pngquant is used if installed. Budget: any PNG > 300 KB or total > 5 MB fails.
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -15,19 +15,22 @@ const src = path.join(root, 'design/mote-v1');
 const out = path.join(root, 'design/exports');
 const LIVE = 'https://tusharpandey.com/mote/design/';
 const MAX_FILE = 300 * 1024, MAX_TOTAL = 5 * 1024 * 1024;
-const GROUP_TITLES = { media: 'Media', pad: 'Mouse', keys: 'Keys', macros: 'Macros', connection: 'Connection', 'journeys-shipped': 'User journeys', 'journeys-labs': 'User journeys (Preview, Labs)' };
+const GROUP_TITLES = { media: 'Media', pad: 'Mouse', keys: 'Keys', macros: 'Macros', connection: 'Connection', 'journeys-shipped': 'User journeys', 'journeys-labs': 'User journeys (Preview, Labs)', 'journeys-next': 'User journeys (Next, 0.6.0)' };
 
 const design = JSON.parse(readFileSync(path.join(src, 'design.json'), 'utf8'));
 rmSync(out, { recursive: true, force: true });
 
 const browser = await chromium.launch();
-const page = await (await browser.newContext({ deviceScaleFactor: 1, reducedMotion: 'reduce' })).newPage();
+const pageAt1x = await (await browser.newContext({ deviceScaleFactor: 1, reducedMotion: 'reduce' })).newPage();
+// Journey storyboards are 1600-3200 px wide and up to 4000 px tall: export them at 0.5x (the live board is full size).
+const half = await (await browser.newContext({ deviceScaleFactor: 0.5, reducedMotion: 'reduce' })).newPage();
 let total = 0; const fails = []; const groups = new Map();
 for (const a of design.artboards) {
   const g = a.group || 'misc';
   mkdirSync(path.join(out, g), { recursive: true });
   const file = path.join(out, g, a.id + '.png');
   const fullPage = !a.height;
+  const page = g.startsWith('journeys') ? half : pageAt1x;
   await page.setViewportSize({ width: a.width, height: a.height || 900 });
   await page.goto(pathToFileURL(path.join(src, a.file)).href);
   await page.evaluate(() => document.fonts.ready);

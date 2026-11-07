@@ -137,7 +137,7 @@
       "title": "Journeys index",
       "file": "journeys-index.html",
       "width": 1600,
-      "height": 1100,
+      "height": 1960,
       "group": "journeys-shipped"
     },
     {
@@ -235,6 +235,78 @@
       "width": 1735,
       "height": 1000,
       "group": "journeys-labs"
+    },
+    {
+      "id": "journey-setup-mac",
+      "title": "A Mac setup",
+      "file": "journey-setup-mac.html",
+      "width": 3234,
+      "height": 2997,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-mac-update",
+      "title": "A2 Mac: login, Tailscale, update, uninstall",
+      "file": "journey-mac-update.html",
+      "width": 2426,
+      "height": 1394,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-setup-phone",
+      "title": "B Phone setup",
+      "file": "journey-setup-phone.html",
+      "width": 2042,
+      "height": 2149,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-connect-now",
+      "title": "C First connect over Wi-Fi (0.4.0)",
+      "file": "journey-connect-now.html",
+      "width": 1923,
+      "height": 2149,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-bt-quirks",
+      "title": "C2 Bluetooth quirks and stale pairing",
+      "file": "journey-bt-quirks.html",
+      "width": 1807,
+      "height": 1455,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-connect-next",
+      "title": "D First connect, 0.6.0 (Next)",
+      "file": "journey-connect-next.html",
+      "width": 1600,
+      "height": 3900,
+      "group": "journeys-next"
+    },
+    {
+      "id": "journey-daily",
+      "title": "E Daily use and reconnect",
+      "file": "journey-daily.html",
+      "width": 1600,
+      "height": 2828,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-recovery",
+      "title": "F Recovery and management",
+      "file": "journey-recovery.html",
+      "width": 1790,
+      "height": 2807,
+      "group": "journeys-shipped"
+    },
+    {
+      "id": "journey-settings",
+      "title": "G Settings and customisation",
+      "file": "journey-settings.html",
+      "width": 2316,
+      "height": 1000,
+      "group": "journeys-shipped"
     }
   ]
 }

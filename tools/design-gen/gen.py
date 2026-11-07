@@ -777,7 +777,7 @@ def jpage(title, body, width_css=""):
 <title>Mote — {title}</title>
 <link rel="stylesheet" href="mote.css">
 <link rel="stylesheet" href="journeys.css">
-<style>{MEDIA_CSS}{SHEET_CSS}{LOST_CSS}{SPACES_CSS}{MACROS_CSS}{KEYS_CSS}{PAD_CSS}{width_css}</style>
+<style>{MEDIA_CSS}{SHEET_CSS}{LOST_CSS}{SPACES_CSS}{MACROS_CSS}{KEYS_CSS}{PAD_CSS}{SUB_CSS_J}{width_css}</style>
 </head>
 <body>
 {body}
@@ -807,13 +807,22 @@ def step(n, dc, cap, small="", phones=(), macs=()):
     sm = f"<small>{small}</small>" if small else ""
     return f'<div class="step" data-dc-id="{dc}"><span class="num">{n}</span><div class="row">{parts}</div><p class="cap">{cap}{sm}</p></div>'
 
-def journey(jid, title, status, sub, steps):
-    badge = '<span class="badge shipped" data-dc-id="status">Shipped</span>' if status == "shipped" else '<span class="badge labs" data-dc-id="status">Preview (Labs)</span>'
+BADGES = {"shipped": '<span class="badge shipped" data-dc-id="status">Shipped</span>',
+          "next": '<span class="badge next" data-dc-id="status">Next (0.6.0)</span>',
+          "labs": '<span class="badge labs" data-dc-id="status">Preview (Labs)</span>'}
+def branch(dc, frm, q, steps, end=""):
+    """A failure/alternative row: decision diamond, then its own steps, then an optional end note."""
+    endh = f'<div class="end well">{end}</div>' if end else ""
+    lab = f"from step {frm}" if str(frm)[0].isdigit() else frm
+    dia = f'<div class="decision"><span class="from">{lab}</span><div class="dia"><span>IF</span></div><div class="q">{q}</div></div>'
+    return f'<div class="branch" data-dc-id="{dc}">{dia}{ARROW}{ARROW.join(steps)}{endh}</div>'
+def journey(jid, title, status, sub, steps, branches=()):
     flow = ARROW.join(steps)
+    br = f'<div class="branches" data-dc-id="branches">{"".join(branches)}</div>' if branches else ""
     body = f"""<div class="jb" data-dc-id="{jid}">
-  <div class="jb-head"><h1 data-dc-id="title">{title}</h1>{badge}</div>
+  <div class="jb-head"><h1 data-dc-id="title">{title}</h1>{BADGES[status]}</div>
   <p class="jb-sub" data-dc-id="summary">{sub}</p>
-  <div class="steps" data-dc-id="steps">{flow}</div>
+  <div class="steps" data-dc-id="steps">{flow}</div>{br}
 </div>"""
     return jpage(title, body)
 
@@ -902,10 +911,19 @@ def open_sheet(query="lofi beats", link=""):
       <span class="t-caps subtle" style="display:block;margin-top:14px">Quick actions</span>
       <div class="qa"><span class="raised"><i data-i="close" class="i20"></i>Close this tab</span><span class="raised"><i data-i="windows" class="i20"></i>Exit fullscreen</span><span class="raised"><i data-i="playPause" class="i20"></i>Pause everything</span><span class="raised"><i data-i="tv" class="i20"></i>Open TV mode on the Mac</span></div>
       <span class="t-caps subtle" style="display:block;margin-top:14px">Pinned</span><div class="sites">{sites}</div>""")
+def dpad_ok():
+    """TV-remote D-pad: same rubber ring and arrows, a big raised OK cap in the centre (no stick)."""
+    html = dpad()
+    a = html.index('<g data-dc-id="dpad-stick-gate">'); b = html.index("</svg></div>")
+    ok = (f'<g data-dc-id="dpad-center"><circle cx="{C}" cy="{C + 4}" r="64" style="fill:var(--rub-wall)"/>'
+          f'<circle cx="{C}" cy="{C}" r="64" fill="url(#dome)"/><circle cx="{C}" cy="{C}" r="63.25" fill="none" stroke="url(#bev)" stroke-width="1.5"/>'
+          f'<text x="{C}" y="{C + 8}" text-anchor="middle" class="ok" style="font-size:24px" data-dc-id="dpad-center-legend">OK</text></g>')
+    return html[:a] + ok + html[b:]
+
 def tv_remote_inner():
     return f"""<main class="content media" data-dc-id="media-content">
       <div style="display:flex;align-items:center;gap:8px;margin:4px 0 2px"><span class="t-caps">TV mode</span><span class="preview-tag">Preview</span><span class="edit-chip raised" style="margin-left:auto" data-dc-id="j10-exit-tv">Exit</span></div><p class="t-body-s muted" style="margin-bottom:12px">YouTube</p>
-      <div class="tvpad" data-dc-id="j10-tv-remote">{dpad()}
+      <div class="tvpad" data-dc-id="j10-tv-remote">{dpad_ok()}
         <div class="tvkeys"><span class="raised">Back</span><span class="raised">Home</span><span class="raised"><i data-i="search" class="i20"></i>Search</span>
           <span class="raised"><i data-i="volDown" class="i20"></i></span><span class="raised"><i data-i="playPause" class="i20"></i></span><span class="raised"><i data-i="volUp" class="i20"></i></span></div></div></main>"""
 def tv_window(kind="results"):
@@ -972,6 +990,35 @@ def j12():
     ]
     return journey("journey-live-screen", "12. Live screen", "labs",
         "See the Mac’s screen on the phone and click by tapping on it. Explicit, visible and it stops the moment you close it.", steps)
+
+# ---------------- system UI helpers for exhaustive journeys (illustrative OS chrome; Mote copy verbatim)
+def tcc(title, body, buttons, icon="lock"):
+    btns = "".join(f'<span class="{"def" if i == 0 else ""}">{b}</span>' for i, b in enumerate(buttons))
+    return f'<div class="tcc"><div class="ic"><i data-i="{icon}" class="i20"></i></div><b>{title}</b><p>{body}</p><div class="btns">{btns}</div></div>'
+def sysset(pane, title, rows, side=("Wi-Fi", "Bluetooth", "Notifications", "Privacy & Security", "General")):
+    sd = "".join(f'<span class="{"on" if x == pane else ""}">{x}</span>' for x in side)
+    def _tg(on):
+        if on is True: return '<span class="tg on"></span>'
+        if on is False: return '<span class="tg"></span>'
+        return f'<span style="color:#888">{on}</span>'
+    li = "".join(f'<div class="li"><span>{n}</span>{_tg(on)}</div>' for n, on in rows)
+    return f'<div class="sysset"><div class="side">{sd}</div><div class="main"><h4>{title}</h4>{li}</div></div>'
+def mnote(title, body, act=""):
+    a = f'<span class="act">{act}</span>' if act else ""
+    return f'<div class="note-banner"><span class="ic"><i data-i="modeMedia" class="i16"></i></span><div><b>{title}</b>{body}</div>{a}</div>'
+def browser(url, inner):
+    return f'<div class="browser"><div class="url">{url}</div><div class="pg">{inner}</div></div>'
+def asys(title, inner):
+    return f'<div class="asys"><h3>{title}</h3>{inner}</div>'
+def anote(title, body, acts=()):
+    a = "".join(f"<span>{x}</span>" for x in acts)
+    return f'<div class="anote"><b>{title}</b><br>{body}{f"<div class=acts>{a}</div>" if acts else ""}</div>'
+def toast(t):
+    return f'<div class="toast">{t}</div>'
+def asw(on): return f'<span class="sw{" on" if on else ""}"></span>'
+def aphone(inner, dc, taps=()):
+    """Android system screen (not Mote): status bar + content."""
+    return phone(f'<div class="screen" style="grid-template-rows:var(--status-h) 1fr var(--nav-h);background:#F3F4F9" data-dc-id="screen">{STATUS}<div style="position:relative">{inner}</div><div class="navbar" style="background:#F3F4F9"></div></div>', dc, taps)
 
 # ---------------- shipped journeys (strings verbatim from android/ + helper/, v0.4.0)
 def media_shipped(offline=False, stick=None):
@@ -1175,38 +1222,292 @@ def j07():
     return journey("journey-media", "7. Media controls", "shipped",
         "The Media screen is a whole remote: pointer stick, arrows, levers for scroll and volume, and transport keys that seek when held.", steps)
 
+# ---------------- exhaustive journeys (A–G). Copy verbatim from code where it exists; OS chrome illustrative.
+SUB_CSS_J = SUB_CSS.replace("  .screen { grid-template-rows: var(--status-h) var(--top-h) 1fr var(--nav-h); }\n", "")
+def sub_screen(title, inner, dc="sub"):
+    return (f'<div class="screen" style="grid-template-rows:var(--status-h) var(--top-h) 1fr var(--nav-h)" data-dc-id="screen">{STATUS}'
+            f'<header class="topbar"><div class="back"><div class="icon-btn"><i data-i="chevLeft"></i></div><span class="t-title">{title}</span></div>{brand("connected")}</header>'
+            f'<main class="content sub" data-dc-id="{dc}">{inner}</main><div class="navbar"></div></div>')
+def term(lines):
+    return '<div class="term">' + "<br>".join(lines) + '</div>'
+SITE = '<b style="font:900 13px/1 Unbounded;letter-spacing:2px">MOTE</b><div style="margin-top:8px;font-size:15px;font-weight:650">Your Android phone as a remote for your Mac</div>'
+def site_page(copied=False):
+    btn = '<span style="color:#7EC699">Copied</span>' if copied else '<span style="color:#9CC3EA">Copy</span>'
+    return desk(win(14, 12, 312, 300, "tusharpandey13.github.io/mote", browser("tusharpandey13.github.io/mote", SITE +
+        f'<div style="margin-top:10px;display:flex;gap:6px"><span style="padding:5px 10px;border-radius:6px;background:#26282C;color:#fff;font-size:11px">Download APK</span><span style="padding:5px 10px;border-radius:6px;background:#EEE;font-size:11px">Install Mac helper</span></div>'
+        f'<div class="code"><span>curl -fsSL https://tusharpandey13.github.io/mote/install.sh | bash</span>{btn}</div>'
+        '<div style="margin-top:8px;color:#777;font-size:11px">Read the script first. No sudo; installs into ~/Applications.</div>'), "site"))
+INSTALL_OK = ['<span class="p">~ %</span> curl -fsSL https://tusharpandey13.github.io/mote/install.sh | bash', '<span class="dim">This will:</span>',
+    '<span class="dim">    download  …/MoteHelper-macos-arm64.zip</span>', '<span class="dim">    verify    its SHA-256 against MoteHelper-macos-arm64.zip.sha256 from the same release</span>',
+    '<span class="dim">    install   ~/Applications/MoteHelper.app</span>', '<span class="dim">    clear the quarantine flag on that app only, then open it</span>',
+    '==&gt; Downloading MoteHelper-macos-arm64.zip', '==&gt; Verifying SHA-256', '    ok 9f2c…e41a', '==&gt; Installing to ~/Applications/MoteHelper.app', '==&gt; Opening Mote Helper',
+    '', 'Done. Next steps:', '  1. Allow Accessibility when macOS asks (System Settings &gt; Privacy &amp; Security &gt; Accessibility).',
+    '  4. The menu-bar icon has Pause input, Revoke all devices, Launch at login and Quit.', '', 'Uninstall: quit it from the menu, then  rm -rf "~/Applications/MoteHelper.app"']
+def ax_prompt():
+    return desk(tcc("“MoteHelper.app” would like to control this computer using accessibility features.", "Grant access to this application in Privacy &amp; Security settings, located in System Settings.", ["Open System Settings", "Deny"]))
+def ax_pane(on=True, title="Accessibility"):
+    return desk(sysset("Privacy &amp; Security", title, [("MoteHelper", on), ("Terminal", False)]))
+def mac_menu(items):
+    return '<div class="menu" style="width:262px">' + "".join(items) + '</div>'
+def mi(t, cls="", r=""): return f'<div class="it {cls}">{t}<span>{r}</span></div>'
+SEP = '<div class="sep"></div>'
+
+def jA():
+    bt = desk(tcc("“MoteHelper.app” would like to use Bluetooth.", "Mote Helper lets your phone's browser connect over Bluetooth to control this Mac.", ["OK", "Don’t Allow"], "bluetooth"))
+    ln = desk(tcc("Allow “MoteHelper.app” to find devices on local networks?", "Mote Helper serves the Mote web remote to your phone on this network.", ["Allow", "Don’t Allow"], "wifiBars"))
+    sr = desk(sysset("Privacy &amp; Security", "Screen &amp; System Audio Recording", [("MoteHelper", True)]))
+    auto = desk(tcc("“MoteHelper.app” wants access to control “Safari”.", "Mote Helper reads the active tab of your browser so the Mote remote can show the right controls (Labs, off by default).", ["Allow", "Don’t Allow"], "apps"))
+    menu = desk(mac_menu([mi("<b>Mote Helper: Ready</b>"), mi("Pair new device…", "", "⌘N"), SEP, mi("Wi-Fi remote: http://macbook-pro.local:8790"), SEP,
+        mi("Allow Tailscale connections", "hl", "✓"), mi("Tailscale: http://macbook-pro.tail1234.ts.net:8790", "dis"), SEP, mi("Space thumbnails: grant…"), mi("Share Space thumbnails", "", "✓"),
+        SEP, mi("No connected devices", "dis"), mi("Paired devices: 0", "dis"), SEP, mi("Labs", "", "▸"), mi("Pause input", "", "⌘P"), mi("Revoke all devices…"), mi("Launch at login", "", "✓"), mi("Quit Mote Helper", "", "⌘Q")]))
+    menu_ax = desk(mac_menu([mi("<b>Needs Accessibility permission</b>"), mi("Grant Accessibility…", "hl"), SEP, mi("Pair new device…", "", "⌘N"), SEP, mi("Quit Mote Helper", "", "⌘Q")]))
+    steps = [
+        step(1, "jA-s1", "Find Mote", "Website or README › Install Mac helper", macs=[mac(site_page(), "jA-m1", items=mote_menubar_icon(False))]),
+        step(2, "jA-s2", "Copy the install line", "curl … install.sh | bash; no sudo", macs=[mac(site_page(True), "jA-m2", items=mote_menubar_icon(False))]),
+        step(3, "jA-s3", "Terminal: download, verify, install", "Quits a running helper first; clears quarantine on this app only", macs=[mac(term(INSTALL_OK), "jA-m3", items=mote_menubar_icon(False))]),
+        step(4, "jA-s4", "Launch: Accessibility prompt", "Asked at launch; needed to type and click", macs=[mac(ax_prompt(), "jA-m4", items=mote_menubar_icon(False))]),
+        step(5, "jA-s5", "Turn on Mote Helper", "System Settings › Privacy &amp; Security › Accessibility", macs=[mac(ax_pane(), "jA-m5", items=mote_menubar_icon(False))]),
+        step(6, "jA-s6", "Local network and Bluetooth", "When the server starts and BLE starts advertising", macs=[mac(ln, "jA-m6a", items=mote_menubar_icon(False)), mac(bt, "jA-m6b", items=mote_menubar_icon(False))]),
+        step(7, "jA-s7", "The menu-bar tour", "Pair, Wi-Fi address, Tailscale, thumbnails, Labs, Pause, Revoke, Launch at login", macs=[mac(menu, "jA-m7", items=mote_menubar_icon(False, True))]),
+    ]
+    branches = [
+        branch("jA-b1", 3, "Not a Mac, checksum mismatch, or bad archive", [step("3a", "jA-b1s", "The script stops; nothing installed", "", macs=[mac(term(['<span class="p">~ %</span> curl … | bash', '==&gt; Verifying SHA-256', '<span style="color:#FF6B66">error:</span> checksum mismatch (expected 9f2c…, got 1b07…). Not installing.', '', '<span style="color:#FF6B66">error:</span> Mote Helper is a macOS app. On other systems use the Android app or the web remote.', '<span style="color:#FF6B66">error:</span> unsupported CPU: …']), "jA-b1m", items=mote_menubar_icon(False))])], "Re-run later, or download the zip from GitHub Releases"),
+        branch("jA-b2", 4, "Accessibility denied or skipped", [step("4a", "jA-b2s", "Menu says so; input is ignored", "“Needs Accessibility permission” › Grant Accessibility…", macs=[mac(menu_ax, "jA-b2m", items=mote_menubar_icon(False, True))]),
+                                                              step("4b", "jA-b2s2", "Grant it in System Settings", "The phone shows “Mote Helper needs Accessibility on the Mac”", macs=[mac(ax_pane(), "jA-b2m2", items=mote_menubar_icon(False))])]),
+        branch("jA-b3", 7, "First use of Space thumbnails or Live screen", [step("7a", "jA-b3s", "Screen Recording, only then", "Menu: “Space thumbnails: grant…”; Live screen: “Allow Screen Recording for Mote Helper in System Settings”", macs=[mac(sr, "jA-b3m", items=mote_menubar_icon(False))])]),
+        branch("jA-b4", 7, "First use of Smart remote (Labs)", [step("7b", "jA-b4s", "Automation, per browser", "Plus “Allow JavaScript from Apple Events” in the browser’s Develop menu", macs=[mac(auto, "jA-b4m", items=mote_menubar_icon(False))])], "No macOS notification prompt: the helper sends none today"),
+    ]
+    return journey("journey-setup-mac", "A. Mac setup", "shipped",
+        "Install the menu-bar helper and grant macOS permissions in the order they actually appear: Accessibility at launch, Local network and Bluetooth when they start, Screen Recording and Automation only when a feature first needs them.", steps, branches)
+
+def jA2():
+    menu_login = desk(mac_menu([mi("<b>Mote Helper: Ready</b>"), SEP, mi("Allow Tailscale connections", "hl", "✓"), mi("Tailscale: not detected (is it running?)", "dis"), SEP, mi("Launch at login", "hl", "✓"), mi("Quit Mote Helper", "", "⌘Q")]))
+    reinst = term(['<span class="p">~ %</span> curl -fsSL https://tusharpandey13.github.io/mote/install.sh | bash', '==&gt; Quitting the running Mote Helper', '==&gt; Installing to ~/Applications/MoteHelper.app', '==&gt; Opening Mote Helper',
+        '     After an update you may have to switch it off and on', '     again there (the app is ad-hoc signed, so each version has a new signature).'])
+    offon = desk(sysset("Privacy &amp; Security", "Accessibility", [("MoteHelper  (off, then on again)", False)]))
+    quit_ = desk(mac_menu([mi("<b>Mote Helper: Ready</b>"), SEP, mi("Launch at login", "", ""), mi("Quit Mote Helper", "hl", "⌘Q")]))
+    rm = term(['<span class="p">~ %</span> rm -rf ~/Applications/MoteHelper.app', '<span class="dim"># optional: remove it from Accessibility and Screen Recording in System Settings</span>'])
+    steps = [
+        step(1, "jA2-s1", "Launch at login, Tailscale", "Menu checkboxes; Tailscale shows its MagicDNS URL when detected", macs=[mac(menu_login, "jA2-m1", items=mote_menubar_icon(False, True))]),
+        step(2, "jA2-s2", "Update: run the same line", "It quits the old helper and replaces it", macs=[mac(reinst, "jA2-m2", items=mote_menubar_icon(False))]),
+        step(3, "jA2-s3", "Re-grant Accessibility", "Ad-hoc signed: switch it off and on (or remove and re-add); click Always Allow on the Keychain prompt", macs=[mac(offon, "jA2-m3a", items=mote_menubar_icon(False)), mac(ax_pane(True), "jA2-m3b", items=mote_menubar_icon(False))]),
+        step(4, "jA2-s4", "Uninstall: quit", "Turn off Launch at login first", macs=[mac(quit_, "jA2-m4", items=mote_menubar_icon(False, True))]),
+        step(5, "jA2-s5", "Delete the app", "From the installer’s own instructions", macs=[mac(rm, "jA2-m5", menubar=False)]),
+    ]
+    branches = [branch("jA2-b1", 3, "Skipped the re-grant", [step("3a", "jA2-b1s", "Phone keeps the link but nothing moves", "Devices row: “Mote Helper needs Accessibility on the Mac”", [phone(scr_badge(media_shipped(), "media", pill("MacBook Pro", "led amber", "Wi-Fi", "lan"), devices(rows=devrow("d", "laptop", "MacBook Pro", "Mote Helper needs Accessibility on the Mac", badges("Wi-Fi"), sel=True)), lit=False), "jA2-b1p")])], "Fix: step 3")]
+    return journey("journey-mac-update", "A2. Mac: login, Tailscale, update and uninstall", "shipped",
+        "Keeping the helper around: start it at login, allow Tailscale, update it (and re-grant Accessibility, because every ad-hoc-signed build is a new app to macOS), remove it.", steps, branches)
+
+def jB():
+    rel = '<div style="padding:8px 4px;font-size:14px"><b>Releases · tusharpandey13/mote</b><div style="margin-top:10px;padding:10px;border-radius:12px;background:#fff">v0.4.0 · Latest<div style="margin-top:8px;color:#1D6FB8">mote-v0.4.0.apk</div><div style="color:#1D6FB8">mote-v0.4.0.apk.sha256</div><div style="color:#888;margin-top:4px">MoteHelper-macos-arm64.zip …</div></div></div>'
+    dl = anote("Download complete", "mote-v0.4.0.apk", ("Open",))
+    unk = asys("Install unknown apps", '<div class="li">Chrome<span></span></div><div class="li">Allow from this source' + asw(True) + '</div><p style="font-size:13px;color:#555;margin-top:10px">Your phone and personal data are more vulnerable to attack by unknown apps.</p>')
+    inst = asys("Mote", '<p style="font-size:16px">Do you want to install this app?</p><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px"><span class="btnt">Cancel</span><span class="btnp">Install</span></div>')
+    perm = sysdlg("b-nearby", "Allow Mote to find, connect to and determine the relative position of nearby devices?", "", ["Don’t allow", "Allow"])
+    notif = sysdlg("b-notif", "Allow Mote to send you notifications?", "Used for the ongoing link notification: “Connected to …”, “Searching for …”.", ["Don’t allow", "Allow"])
+    steps = [
+        step(1, "jB-s1", "Get the APK", "README › Download APK (GitHub Releases); .sha256 alongside", [aphone(asys("github.com", rel), "jB-p1", taps=[(170, 250)])]),
+        step(2, "jB-s2", "Open the download", "", [aphone(dl, "jB-p2", taps=[(70, 110)])]),
+        step(3, "jB-s3", "Allow unknown sources", "Once per browser or file app", [aphone(unk, "jB-p3", taps=[(360, 236)])]),
+        step(4, "jB-s4", "Install", "Android’s package installer", [aphone(inst, "jB-p4", taps=[(350, 240)])]),
+        step(5, "jB-s5", "First launch: the gate", "Nearby devices is asked only when you choose Bluetooth", [phone(bare(gate("perm")), "jB-p5", taps=[(206, 560)]), phone(bare(gate("perm"), overlay=perm), "jB-p5b", taps=[(336, 470)])]),
+        step(6, "jB-s6", "Notifications (Android 13+)", "Asked together with Nearby devices on the gate button, then Bluetooth on", [phone(bare(gate("off"), overlay=notif), "jB-p6", taps=[(336, 490)])]),
+    ]
+    branches = [
+        branch("jB-b1", 5, "Nearby devices denied twice", [step("5a", "jB-b1s", "Gate switches to Open settings", "“…Allow Nearby devices in Settings, then come back.”", [phone(bare(gate("perm").replace("Connect with Bluetooth", "Open settings").replace("so it can pair and connect, then turn Bluetooth on.", "in Settings, then come back.")), "jB-b1p")])], "Or: Use Wi-Fi with Mote Helper (no Bluetooth permission needed)"),
+        branch("jB-b2", 5, "Phone has no usable Bluetooth", [step("5b", "jB-b2s", "Wi-Fi only", "“This phone has no Bluetooth adapter Mote can use.”", [phone(bare(gate("perm").replace('<div class="btn-primary accent-cap" style="margin-top:12px" data-dc-id="gate-primary">Connect with Bluetooth</div>', '').replace("Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices so it can pair and connect, then turn Bluetooth on.", "This phone has no Bluetooth adapter Mote can use.")), "jB-b2p")])]),
+    ]
+    return journey("journey-setup-phone", "B. Phone setup", "shipped",
+        "Sideload the APK, then let Mote ask for permissions only when they matter. There is no separate onboarding: the Bluetooth gate is the first screen.", steps, branches)
+
+def jC():
+    nomac = bare(wifi_add(False).replace("Looking for Macs on this Wi-Fi…", "No Macs found. Guest and hotel Wi-Fi often block this. Try Enter address, Tailscale or Bluetooth."), top=topbar_with(pill("Choose a device", "led red"), False))
+    addr = bare('''<main class="content" style="display:flex;flex-direction:column;gap:14px"><h1 class="t-headline">Enter address</h1>
+      <p class="t-body-s muted">For Tailscale, use the Mac's MagicDNS name or its 100.x address, and turn on Allow Tailscale connections in the Mote Helper menu. A LAN IP or name.local works too.</p>
+      <div class="field focus"><span class="t-body">192.168.1.20</span></div><div class="btn-primary accent-cap">Connect</div></main>''', top=topbar_with(pill("Choose a device", "led red"), False))
+    err = lambda msg: bare(code_screen("482910", f'<p class="t-body-s" style="color:var(--danger)">{msg}</p>'), top=topbar_with(pill("MacBook Pro", "led amber"), False))
+    steps = [
+        step(1, "jC-s1", "Use Wi-Fi with Mote Helper", "From the gate or Devices › Add Mac over Wi-Fi", [phone(bare(gate("off")), "jC-p1", taps=[(206, 594)])]),
+        step(2, "jC-s2", "Bonjour (NSD) looks for Macs", "“Looking for Macs on this Wi-Fi…”", [phone(bare(wifi_add(False), top=topbar_with(pill("Choose a device", "led red"), False)), "jC-p2")]),
+        step(3, "jC-s3", "Found: pick the Mac", "Row with name, IP and a WI-FI badge", [phone(bare(wifi_add(), top=topbar_with(pill("Choose a device", "led red"), False)), "jC-p3", taps=[(206, 376)])]),
+        step(4, "jC-s4", "Mac: Pair new device…", "The pairing window shows the code", macs=[mac(pairing_window(), "jC-m4", items=mote_menubar_icon(False))]),
+        step(5, "jC-s5", "Enter the code", "Pair", [phone(bare(code_screen(), top=topbar_with(pill("MacBook Pro", "led amber"), False)), "jC-p5", taps=[(206, 360)])]),
+        step(6, "jC-s6", "Connected", "", [phone(scr_route(media_shipped(), "Wi-Fi"), "jC-p6")]),
+    ]
+    branches = [
+        branch("jC-b1", 2, "Multicast blocked: no Macs found", [step("2a", "jC-b1s", "“No Macs found…”", "Guest, hotel and many office networks", [phone(nomac, "jC-b1p", taps=[(300, 300)])]),
+                                                             step("2b", "jC-b1s2", "Enter address", "IP from the helper menu: Wi-Fi remote: …", [phone(addr, "jC-b1p2", taps=[(206, 340)])])], "Then step 4"),
+        branch("jC-b2", 5, "Code rejected", [step("5a", "jC-b2s", "Wrong code", "“Wrong code. Check the code in the Mote Helper window.”", [phone(err("Wrong code. Check the code in the Mote Helper window."), "jC-b2p")]),
+                                             step("5b", "jC-b2s2", "Pairing window closed", "“Pairing isn't open. On the Mac choose Pair new device in the Mote Helper menu.”", [phone(err("Pairing isn't open. On the Mac choose Pair new device in the Mote Helper menu."), "jC-b2p2")]),
+                                             step("5c", "jC-b2s3", "Too many tries / no answer", "“Too many attempts. Try again in 30 s.” · “The Mac didn't answer. Is Mote Helper running?”", [phone(err("Too many attempts. Try again in 30 s."), "jC-b2p3")])]),
+    ]
+    return journey("journey-connect-now", "C. First connect over Wi-Fi today (0.4.0)", "shipped",
+        "The honest current path, including the network that hides the Mac and every code error. Bluetooth-only first connect is journey 1.", steps, branches)
+
+def jC2():
+    ksa = desk(win(30, 30, 280, 200, "Keyboard Setup Assistant", '<div style="padding:16px;font-size:12px"><b>Your keyboard cannot be identified and will not be usable until it is identified.</b><p style="color:#666;margin-top:6px">To identify your keyboard, click Continue.</p><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><span style="padding:4px 10px;border-radius:6px;background:#E3E3E7">Quit</span><span style="padding:4px 10px;border-radius:6px;background:#2F7CF6;color:#fff">Continue</span></div></div>', "ksa"))
+    forget_mac = desk(sysset("Bluetooth", "Bluetooth", [("Pixel 8  ⓘ  › Forget This Device…", "Connected"), ("AirPods Pro", "Not connected")]))
+    stale = scr_route(media_shipped(), "BT")
+    steps = [
+        step(1, "jC2-s1", "After pairing: Keyboard Setup Assistant", "macOS asks to identify the “keyboard”; Quit is fine (ANSI default)", macs=[mac(ksa, "jC2-m1", items=mote_menubar_icon(False))]),
+        step(2, "jC2-s2", "Connected over BT", "Works at the login screen too", [phone(stale, "jC2-p2")]),
+    ]
+    branches = [branch("jC2-b1", 2, "Shows Connected but buttons do nothing", [
+        step("2a", "jC2-b1s", "Stale HID pairing", "The Mac kept an old key for this phone", [phone(stale, "jC2-b1p", taps=[(206, 532)])]),
+        step("2b", "jC2-b1s2", "Forget on the phone", "Devices › long-press › Forget", [phone(scr_badge(media_shipped(True), "media", pill("MacBook Pro", "led amber", "BT", "bt"), sysdlg("f", "Forget MacBook Pro on this phone?", "", ["Cancel", "Forget"]), lit=False), "jC2-b1p2", taps=[(348, 470)])]),
+        step("2c", "jC2-b1s3", "Forget on the Mac", "System Settings › Bluetooth › ⓘ › Forget This Device…", macs=[mac(forget_mac, "jC2-b1m", items=mote_menubar_icon(False))]),
+        step("2d", "jC2-b1s4", "Pair again", "Journey 1, step 4", [phone(scr(media_shipped(), "media"), "jC2-b1p3")])], "No in-app detection of this state yet")]
+    return journey("journey-bt-quirks", "C2. Bluetooth first connect: macOS quirks", "shipped",
+        "What macOS does after Mote pairs as a keyboard, and the recovery when a stale pairing makes the remote look connected but dead.", steps, branches)
+
+def connect_sheet(name="MacBook Pro", sub="Nearby · Wi-Fi", via=""):
+    v = f'<p class="t-body-s ctr" style="color:var(--accent);margin-top:6px">{via}</p>' if via else ""
+    return jsheet("jD-connect", f'''<div class="hero-dev raised"><i data-i="laptop"></i></div><h2 class="t-headline ctr">Connect to {name}</h2>
+      <p class="t-body-s muted ctr" style="margin-top:6px">{sub}</p>{v}<div class="btn-row"><div class="btn-secondary raised">Not now</div><div class="btn-primary accent-cap">Connect</div></div>''')
+def discovering():
+    return jsheet("jD-discover", '''<div class="scan" style="margin:6px auto 12px"><i data-i="bluetooth" class="i28"></i></div><h2 class="t-headline ctr">Looking for your Mac…</h2><p class="t-body-s muted ctr" style="margin-top:4px">Searching this Wi-Fi, Bluetooth and Tailscale.</p>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:14px">''' + "".join(f'<div class="row-item flat" style="min-height:40px"><span class="led{" amber" if i else ""}"></span><span class="t-body-s">{t}</span></div>' for i, t in enumerate(["Known Macs", "Bluetooth LE nearby", "This Wi-Fi (sweep)", "Bonjour"])) + '</div>')
+def jD():
+    note = desk(mnote("Mote", "Pixel 8 connected to Mote.<br>via Bluetooth proximity", "Block"))
+    wifioff = jsheet("jD-wifi-off", '<h2 class="t-headline ctr">Turn on Wi-Fi</h2><p class="t-body-s muted ctr" style="margin-top:6px">Wi-Fi is off. Connect to the same Wi-Fi as your Mac, or turn on Tailscale.</p><div class="btn-row"><div class="btn-secondary raised">Enter address</div><div class="btn-primary accent-cap">Turn on Wi-Fi</div></div>')
+    nohelper = jsheet("jD-no-helper", '<h2 class="t-headline ctr">Mote Helper not found on this network</h2><p class="t-body-s muted ctr" style="margin-top:6px">Install it on the Mac (Terminal), keep it running, and use the same Wi-Fi:</p><div class="field" style="margin-top:8px"><span class="t-body-s">curl -fsSL https://tusharpandey13.github.io/mote/install.sh | bash</span></div><p class="t-body-s subtle ctr" style="margin-top:6px">or download it from tusharpandey13.github.io/mote</p><div class="btn-row"><div class="btn-secondary raised">Enter address</div><div class="btn-primary accent-cap">Retry</div></div>')
+    far = jsheet("jD-far", '<h2 class="t-headline ctr">Connect to MacBook Pro</h2><p class="t-body-s ctr" style="margin-top:6px;color:var(--danger)">MacBook Pro couldn’t confirm this phone is nearby. Bring it next to the Mac with Bluetooth on, or use the same Tailscale account.</p><div class="btn-row"><div class="btn-primary accent-cap">Try again</div></div>')
+    approval = desk('<div class="alert"><div class="ic">MOTE</div><b>Allow “Pixel 8” to control this Mac?</b><p>It will be able to type, click and move the pointer, like a keyboard and mouse.<br>Via Wi-Fi (192.168.1.44) · Key 3f2a 9c01 77de 0b41<br>Deny if you didn’t just tap Connect on this phone.</p><div class="btns"><span>Deny</span><span class="def">Allow</span></div></div>')
+    req = desk(mac_menu([mi("<b>Mote Helper: Ready</b>"), SEP, mi("Trusted phones: 1", "dis"), mi("This Mac's key: 9a1c 44f0 …", "dis"), mi("Require approval for new devices", "hl", "✓"), SEP, mi("Connected devices:"), mi("&nbsp;&nbsp; Pixel 8 · Wi-Fi", "dis")]))
+    steps = [
+        step(1, "jD-s1", "Open Mote: “Connect to your Mac”", "No permission asked first. Known Macs, BLE (if allowed), /24 sweep, Bonjour in parallel", [phone(scr_badge(media_shipped(True), "media", pill("Choose a device", "led amber"), discovering(), lit=False), "jD-p1")]),
+        step(2, "jD-s2", "“Connect to MacBook Pro”", "“Mote uses Bluetooth once to check this phone is next to your Mac.” › Allow and connect", [phone(scr_badge(media_shipped(True), "media", pill("Choose a device", "led amber"), connect_sheet(), lit=False), "jD-p2", taps=[(306, 790)])]),
+        step(3, "jD-s3", "One tap: connected", "No code, nothing to click on the Mac", [phone(scr_route(media_shipped(), "Wi-Fi"), "jD-p3")]),
+        step(4, "jD-s4", "Mac: a non-blocking notice", "Floats top right, closes after 15 s; never for already-trusted phones", macs=[mac(note, "jD-m4", items=mote_menubar_icon(True))]),
+    ]
+    branches = [
+        branch("jD-b1", 1, "Wi-Fi off on the phone", [step("1a", "jD-b1s", "Turn on Wi-Fi", "Or fall back to Bluetooth HID", [phone(scr_badge(media_shipped(True), "media", pill("Choose a device", "led red"), wifioff, lit=False), "jD-b1p", taps=[(306, 790)])])], "Then step 2"),
+        branch("jD-b2", 1, "No helper answers within 5 s", [step("1b", "jD-b2s", "Install link, Try again, Enter address", "", [phone(scr_badge(media_shipped(True), "media", pill("Choose a device", "led red"), nohelper, lit=False), "jD-b2p")])], "See journey A"),
+        branch("jD-b3", 2, "Same Tailscale owner, away from home", [step("2a", "jD-b3s", "Zero prompts, over the internet", "“Connected. Trusted via Tailscale”", [phone(scr_badge(media_shipped(), "media", pill("MacBook Pro", "led", "Tailscale", "ts"), connect_sheet(sub="Over Tailscale", via="Connected. Trusted via Tailscale")), "jD-b3p")])]),
+        branch("jD-b4", 3, "On this LAN but out of Bluetooth range", [step("3a", "jD-b4s", "Rejected with a reason", "Proximity check", [phone(scr_badge(media_shipped(True), "media", pill("MacBook Pro", "led red"), far, lit=False), "jD-b4p")])]),
+        branch("jD-b5", 3, "“Require approval for new devices” is on", [step("3b", "jD-b5s", "Mac setting", "", macs=[mac(desk(req), "jD-b5m0", items=mote_menubar_icon(True, True))]), step("3c", "jD-b5s2", "The Mac asks", "Phone: “Click Allow on MacBook Pro. It asks before trusting new devices.”", macs=[mac(approval, "jD-b5m", items=mote_menubar_icon(True))])]),
+    ]
+    return journey("journey-connect-next", "D. First connect, target 0.6.0", "next",
+        "Proposed: one tap from the phone, nothing on the Mac. Discovery runs in parallel; the Mac only tells you it happened and lets you Block. From docs/labs/pairing.md and the in-flight connection branch.", steps, branches)
+
+def jE():
+    rows2 = devrow("e-mbp", "laptop", "MacBook Pro", "Connected · Wi-Fi", badges("Wi-Fi", "BT", active="Wi-Fi"), sel=True) + devrow("e-mini", "desktop", "Mac mini", "Paired", badges("Wi-Fi"))
+    asleep = scr_badge(disconnected_inner(), "media", pill("MacBook Pro", "led amber"), lit=False)
+    helperdown = scr_badge(media_shipped(True), "media", pill("MacBook Pro", "led amber"), devices(rows=devrow("d", "laptop", "MacBook Pro", "Searching…", badges("Wi-Fi"), sel=True)) + toast("The Mac didn't answer. Is Mote Helper running?"), lit=False)
+    steps = [
+        step(1, "jE-s1", "Launch: reconnects to the selected Mac", "Notification: “Searching for MacBook Pro…”", [phone(scr_badge(media_shipped(True), "media", pill("MacBook Pro", "led amber"), anote("Mote", "Searching for MacBook Pro…"), lit=False), "jE-p1")]),
+        step(2, "jE-s2", "Best route wins", "Bonjour › LAN › name.local › tailnet › manual. Wi-Fi stops 30 s after the app leaves the screen", [phone(scr_route(media_shipped(), "Wi-Fi"), "jE-p2"), phone(scr_route(media_shipped(), "Tailscale"), "jE-p2b")]),
+        step(3, "jE-s3", "Switch Macs", "Pill › Devices › tap the other Mac", [phone(scr_badge(media_shipped(), "media", pill("MacBook Pro", "led", "Wi-Fi", "lan"), devices(rows=rows2)), "jE-p3", taps=[(206, 300)])]),
+        step(4, "jE-s4", "Connected to the other Mac", "One active Mac at a time; the other stays paired", [phone(scr_badge(media_shipped(), "media", pill("Mac mini", "led", "Wi-Fi", "lan")), "jE-p4")]),
+    ]
+    branches = [
+        branch("jE-b1", 1, "The Mac is asleep", [step("1a", "jE-b1s", "Keeps searching", "Only “Searching…” / “Connecting…”: no Mac-asleep copy", [phone(asleep, "jE-b1p")])], "Reconnects on wake"),
+        branch("jE-b2", 1, "Helper not running", [step("1b", "jE-b2s", "No answer", "Generic failure copy; start Mote Helper or turn on Launch at login", [phone(helperdown, "jE-b2p")])]),
+        branch("jE-b3", 2, "Input paused on the Mac", [step("2a", "jE-b3s", "“Paused on the Mac”", "Menu › Pause input; keys are ignored, not queued", [phone(scr_badge(media_shipped(), "media", pill("MacBook Pro", "led amber", "Wi-Fi", "lan"), devices(rows=devrow("p", "laptop", "MacBook Pro", "Paused on the Mac", badges("Wi-Fi"), sel=True))), "jE-b3p")])]),
+    ]
+    return journey("journey-daily", "E. Daily use and reconnect", "shipped",
+        "Opening Mote on an ordinary day: it finds the Mac it used last, picks the best route, and says what it is doing when it can’t.", steps, branches)
+
+def jF():
+    revoke = desk('<div class="alert"><div class="ic">MOTE</div><b>Revoke all devices?</b><p>Every paired phone and browser is disconnected and has to pair again with a new code.</p><div class="btns"><span>Cancel</span><span class="def">Revoke All</span></div></div>')
+    np = scr_badge(media_shipped(True), "media", pill("Not paired: pair again", "led red"), devices("The Mac no longer knows this phone. Long-press it to forget, then pair again.", devrow("r", "laptop", "MacBook Pro", "Not paired: pair again", badges("Wi-Fi"), sel=True)), lit=False)
+    block = desk(mnote("Mote", "Pixel 8 connected to Mote.<br>via Bluetooth proximity", "Block"))
+    fresh = bare(gate("perm"))
+    sig = aphone(asys("Mote", '<p style="font-size:16px">App not installed as package conflicts with an existing package.</p><div style="display:flex;justify-content:flex-end;margin-top:24px"><span class="btnt">OK</span></div>'), "jF-p5")
+    btoff = scr_badge(media_shipped(True), "media", pill("MacBook Pro", "led red", "BT", "bt"), toast("Connecting…"), lit=False)
+    permgone = bare(gate("perm"))
+    axgone = scr_badge(media_shipped(), "media", pill("MacBook Pro", "led amber", "Wi-Fi", "lan"), devices(rows=devrow("a", "laptop", "MacBook Pro", "Mote Helper needs Accessibility on the Mac", badges("Wi-Fi"), sel=True)), lit=False)
+    steps = [
+        step(1, "jF-s1", "Lost phone: Revoke all devices…", "Helper menu; also clears Instant pairing trust", macs=[mac(revoke, "jF-m1", items=mote_menubar_icon(True))]),
+        step(2, "jF-s2", "Every phone: Not paired", "Pair again from Devices", [phone(np, "jF-p2")]),
+        step(3, "jF-s3", "Block one phone (0.6.0)", "From the connect notice: forget its key, refuse it from now on", macs=[mac(block, "jF-m3", items=mote_menubar_icon(True))]),
+        step(4, "jF-s4", "Reinstalled Mote or cleared data", "No special copy: back to the gate with no Macs; the Mac still lists the old phone until revoked", [phone(fresh, "jF-p4")]),
+        step(5, "jF-s5", "Lost signing key (maintainers)", "Nothing user-facing in Mote: Android refuses the update; uninstall loses pairings", [sig]),
+    ]
+    branches = [
+        branch("jF-b1", "any time", "Nearby devices revoked mid-use", [step("5a", "jF-b1s", "Back to the gate", "Bluetooth link drops; Wi-Fi keeps working", [phone(permgone, "jF-b1p")])]),
+        branch("jF-b2", "any time", "Bluetooth turned off mid-session", [step("5b", "jF-b2s", "The gate returns", "“…Bluetooth is off; turn it on to continue.” (unless Wi-Fi was chosen)", [phone(bare(gate("off")), "jF-b2p")])]),
+        branch("jF-b3", "any time", "Accessibility revoked on the Mac", [step("5c", "jF-b3s", "Connected, but input ignored", "“Mote Helper needs Accessibility on the Mac”", [phone(axgone, "jF-b3p")])], "Fix: journey A2, step 3"),
+    ]
+    return journey("journey-recovery", "F. Recovery and management", "shipped",
+        "Taking control back: revoke or block phones, pause input, and what users see when data, keys, permissions or Bluetooth disappear.", steps, branches)
+
+def jG():
+    pointer = ''.join([
+        '<span class="t-caps grp-h">Pointer</span><section class="grp raised">',
+        setrow("g-speed", "Pointer speed", "1x (default). Higher moves farther per swipe.", ""), '<div class="hslider well"><span class="ticks"></span><span class="fill" style="width:55%"></span><span class="thumb" style="left:57%"></span></div>',
+        setrow("g-scroll", "Scroll speed", None, ""), '<div class="hslider well"><span class="ticks"></span><span class="fill" style="width:40%"></span><span class="thumb" style="left:42%"></span></div>',
+        setrow("g-natural", "Natural scrolling", "Content follows your fingers", SW_ON), setrow("g-rc", "Right-click", None, '<div class="seg-ctl well" style="width:180px"><div class="on raised">Hold</div><div>2-finger tap</div></div>'), '</section>',
+        '<span class="t-caps grp-h">Keyboard</span><section class="grp raised">', setrow("g-clear", "Clear modifiers on mode switch", None, SW_OFF), setrow("g-idle", "Release modifiers after 30 s idle", None, SW_ON), '</section>'])
+    desks = ''.join(['<span class="t-caps grp-h">Spaces</span><section class="grp raised">',
+        setrow("g-desks", "Desktops", "6 on the Mac. Sets the cards in the Spaces carousel over Bluetooth.", '<span class="t-label">6</span>'), setrow("g-ctrln", "Use ⌃1–⌃9 shortcuts", "Turn on Switch to Desktop 1-9 on the Mac (System Settings, Keyboard Shortcuts, Mission Control). Off: Mote steps with ⌃← and ⌃→.", SW_ON), '</section>',
+        '<span class="t-caps grp-h">Screen</span><section class="grp raised">', setrow("g-awake", "Keep screen on while connected", None, SW_ON), setrow("g-dim", "Extra dim", "For dark rooms and presentations", SW_OFF), '</section>'])
+    labs = ''.join(['<span class="t-caps grp-h">Labs</span><section class="grp raised">'] + [setrow(f"g-lab{i}", n, d, SW_OFF) for i, (n, d) in enumerate([
+        ("Instant pairing (preview)", "Find Macs over Bluetooth and connect without a code. Needs Mote Helper with Labs › Instant pairing on."),
+        ("Smart remote (preview)", "Adapts Media to what is on the Mac: now playing with a scrubber, app buttons, keyboard on text fields."),
+        ("Open &amp; TV mode (preview)", "An Open… sheet that drives the Mac, and a TV remote for YouTube."),
+        ("Live screen (preview)", "See the Mac's screen and tap to click."),
+        ("Browser video control (preview)", "Control the video in the Mac's browser tab with the Mote Video Bridge extension.")])] + ['</section>'])
+    ks = desk(sysset("Keyboard", "Keyboard Shortcuts › Mission Control", [("Mission Control", True), ("Switch to Desktop 1  ⌃1", True), ("Switch to Desktop 2  ⌃2", True), ("Switch to Desktop 3  ⌃3", False)], side=("General", "Desktop &amp; Dock", "Keyboard", "Mouse")))
+    helper_labs = desk(mac_menu([mi("<b>Mote Helper: Ready</b>"), SEP, mi("Labs", "hl", "▸")]) + '<div class="menu" style="right:auto;left:20px;top:60px;width:220px">' + "".join(mi(x, "", "✓" if i == 0 else "") for i, x in enumerate(["Instant pairing (preview)", "Context &amp; now playing (preview)", "TV mode (preview)", "Live screen (preview)", "Browser extension bridge"])) + '</div>')
+    steps = [
+        step(1, "jG-s1", "⋯ menu", "Theme, Manage devices, Haptics, Settings, About Mote", [phone(scr(media_shipped(), "media", overlay=menu_sheet()), "jG-p1", taps=[(206, 790)])]),
+        step(2, "jG-s2", "Pointer and keyboard", "Speeds, natural scrolling, right-click, modifiers", [phone(sub_screen("Settings", pointer), "jG-p2", taps=[(230, 330)])]),
+        step(3, "jG-s3", "Desktops: ⌃1–⌃9", "Mote can’t turn this on for you", [phone(sub_screen("Settings", desks), "jG-p3", taps=[(366, 236)])]),
+        step(4, "jG-s4", "On the Mac: enable the shortcuts", "System Settings › Keyboard › Keyboard Shortcuts › Mission Control", macs=[mac(ks, "jG-m4", items=mote_menubar_icon(True))]),
+        step(5, "jG-s5", "Haptics", "Strength and which events tick", [phone(body_of(haptics_page()).replace('<div class="screen"', '<div class="screen" style="grid-template-rows:var(--status-h) var(--top-h) 1fr var(--nav-h)"', 1), "jG-p5", taps=[(250, 318)])]),
+        step(6, "jG-s6", "Labs: both sides", "Each preview needs the phone toggle and the helper’s Labs item", [phone(sub_screen("Settings", labs), "jG-p6", taps=[(366, 220)])], [mac(helper_labs, "jG-m6", items=mote_menubar_icon(True, True))]),
+    ]
+    return journey("journey-settings", "G. Settings and customisation", "shipped",
+        "Everything a user can tune, including the one macOS setting Mote depends on for direct desktop jumps.", steps)
+def body_of(html):
+    a = html.index('<div class="screen"'); b = html.rindex('<script src="icons.js">')
+    return html[a:b]
+
 # ---- index
-JOURNEYS = [
-    ("journey-first-run-bt", "1. First run over Bluetooth", "shipped", "Gate, Android prompts, pair from the Mac, connected."),
-    ("journey-wifi-helper", "2. Wi-Fi with Mote Helper", "shipped", "One-line install, Pair new device…, 6-digit code or mote://pair."),
-    ("journey-tailscale", "3. Tailscale", "shipped", "Tailscale is off › Turn on Tailscale › auto-connect."),
-    ("journey-reconnect", "4. Reconnect and disconnected", "shipped", "Auto-search, Not paired: pair again, Devices."),
-    ("journey-spaces", "5. Spaces", "shipped", "Carousel, ⌃N hint, helper thumbnails, display chip."),
-    ("journey-macros", "6. Macros", "shipped", "Record, click at point, favourite to Media, confirm."),
-    ("journey-media", "7. Media controls", "shipped", "Stick, right click, hold-to-seek, levers."),
-    ("journey-instant-pairing", "8. Instant pairing", "labs", "Connect sheet near the Mac, one Mac prompt, Tailscale trust, route fallback."),
-    ("journey-smart-remote", "9. Smart remote", "labs", "Per-app controls for Netflix and YouTube; auto keyboard."),
-    ("journey-open-tv", "10. Open on Mac and TV mode", "labs", "Search YouTube, TV window, TV remote, share a link. On main."),
-    ("journey-video-bridge", "11. Browser video bridge", "labs", "Extension pairs with the helper; exact web video control."),
-    ("journey-live-screen", "12. Live screen", "labs", "LAN warning, live view, tap to click, menu-bar indicator."),
+JOURNEYS = [  # (id, title, status, phase, one line)
+    ("journey-setup-mac", "A. Mac setup", "shipped", "setup", "Find Mote, install line, Terminal, Accessibility, Local network, Bluetooth, menu tour; Screen Recording and Automation on first use."),
+    ("journey-mac-update", "A2. Mac: login, Tailscale, update, uninstall", "shipped", "setup", "Launch at login, Allow Tailscale connections, re-grant Accessibility after updates, rm -rf."),
+    ("journey-setup-phone", "B. Phone setup", "shipped", "setup", "APK from Releases, unknown sources, install, gate, Nearby devices, Notifications."),
+    ("journey-first-run-bt", "1. First connect over Bluetooth", "shipped", "connect", "Gate, Android prompts, pair from the Mac, code confirm."),
+    ("journey-bt-quirks", "C2. Bluetooth quirks", "shipped", "connect", "Keyboard Setup Assistant; connected-but-dead stale pairing → forget both sides."),
+    ("journey-wifi-helper", "2. Wi-Fi with Mote Helper", "shipped", "connect", "Install, Pair new device…, code or mote://pair, connected."),
+    ("journey-connect-now", "C. First connect over Wi-Fi today", "shipped", "connect", "NSD, No Macs found, Enter address, code errors."),
+    ("journey-tailscale", "3. Tailscale", "shipped", "connect", "Tailscale is off › Turn on Tailscale › auto-connect."),
+    ("journey-connect-next", "D. First connect, 0.6.0", "next", "connect", "Parallel discovery, one tap, Block notice; Wi-Fi off, no helper, Tailscale owner, out of range, Require approval."),
+    ("journey-instant-pairing", "8. Instant pairing (Labs)", "labs", "connect", "Connect sheet, Mac allow prompt, Tailscale trust, route fallback."),
+    ("journey-daily", "E. Daily use and reconnect", "shipped", "use", "Silent reconnect, best route, Mac asleep, helper down, paused, switch Macs."),
+    ("journey-media", "7. Media controls", "shipped", "use", "Stick, right click, hold-to-seek, levers."),
+    ("journey-spaces", "5. Spaces", "shipped", "use", "Carousel, ⌃N hint, thumbnails, display chip."),
+    ("journey-macros", "6. Macros", "shipped", "use", "Record, click at point, favourite, confirm."),
+    ("journey-settings", "G. Settings and customisation", "shipped", "use", "Speeds, ⌃1–⌃9 + macOS shortcut setup, haptics, theme, Labs on both sides."),
+    ("journey-smart-remote", "9. Smart remote (Labs)", "labs", "use", "Per-app panels, auto keyboard."),
+    ("journey-open-tv", "10. Open on Mac and TV mode (Labs)", "labs", "use", "Open sheet, TV window, OK-centre TV remote, share a link."),
+    ("journey-video-bridge", "11. Browser video bridge (Labs)", "labs", "use", "Extension, pairing, Web video panel."),
+    ("journey-live-screen", "12. Live screen (Labs)", "labs", "use", "LAN warning, live view, tap to click, indicator."),
+    ("journey-reconnect", "4. Disconnected states", "shipped", "recover", "Searching, Devices, Not paired: pair again, Forget."),
+    ("journey-recovery", "F. Recovery and management", "shipped", "recover", "Revoke all, Block, reinstall, lost key, permissions or Bluetooth lost mid-use."),
 ]
+PHASES = [("setup", "1 · Set up"), ("connect", "2 · Connect"), ("use", "3 · Use"), ("recover", "4 · Recover")]
 def index_page():
-    def card(jid, t, st, d):
-        b = '<span class="badge shipped">Shipped</span>' if st == "shipped" else '<span class="badge labs">Preview (Labs)</span>'
-        return f'<div class="jcard raised" data-dc-id="idx-{jid}"><div>{b}</div><div class="t">{t}</div><div class="d">{d}</div><div class="id">{jid}</div></div>'
-    shipped = "".join(card(*j) for j in JOURNEYS if j[2] == "shipped")
-    labs = "".join(card(*j) for j in JOURNEYS if j[2] == "labs")
+    def card(jid, t, st, ph, d):
+        b = BADGES[st].replace(' data-dc-id="status"', "")
+        return f'<a class="jcard raised" href="{jid}.html" style="color:inherit;text-decoration:none" data-dc-id="idx-{jid}"><div>{b}</div><div class="t">{t}</div><div class="d">{d}</div><div class="id">{jid}</div></a>'
+    cols = "".join(f'<div class="jphase" data-dc-id="phase-{k}"><div class="jgroup" style="margin-top:0">{lbl}</div>' + "".join(card(*j) for j in JOURNEYS if j[3] == k) + "</div>" for k, lbl in PHASES)
     body = f'''<div class="jb" data-dc-id="journeys-index">
   <div class="jb-head"><h1 data-dc-id="title">Mote user journeys</h1></div>
-  <p class="jb-sub" data-dc-id="summary">Twelve storyboards: seven that ship in v0.4.0 and five Labs previews. Each artboard reads left to right; blue dots are taps, dashed rings are holds.</p>
-  <div class="jgroup">Shipped</div><div class="jmap" data-dc-id="idx-shipped">{shipped}</div>
-  <div class="jgroup">Preview (Labs)</div><div class="jmap" data-dc-id="idx-labs">{labs}</div>
+  <p class="jb-sub" data-dc-id="summary">Every path a user takes, in order: set up the Mac and the phone, connect, use, recover. Each storyboard reads left to right; rows under a yellow IF diamond are the failure and alternative branches. Blue dots are taps, dashed rings are holds.</p>
+  <div class="legend">{BADGES["shipped"]}{BADGES["next"]}{BADGES["labs"]}</div>
+  <div class="jcols" data-dc-id="journey-map">{cols}</div>
 </div>'''
     return jpage("User journeys", body)
 
-JFILES = {"journey-first-run-bt": j01, "journey-wifi-helper": j02, "journey-tailscale": j03, "journey-reconnect": j04,
+JFILES = {j[0]: None for j in JOURNEYS}
+JFILES.update({"journey-first-run-bt": j01, "journey-wifi-helper": j02, "journey-tailscale": j03, "journey-reconnect": j04,
           "journey-spaces": j05, "journey-macros": j06, "journey-media": j07, "journey-instant-pairing": j08,
-          "journey-smart-remote": j09, "journey-open-tv": j10, "journey-video-bridge": j11, "journey-live-screen": j12}
+          "journey-smart-remote": j09, "journey-open-tv": j10, "journey-video-bridge": j11, "journey-live-screen": j12,
+          "journey-setup-mac": jA, "journey-mac-update": jA2, "journey-setup-phone": jB, "journey-connect-now": jC,
+          "journey-bt-quirks": jC2, "journey-connect-next": jD, "journey-daily": jE, "journey-recovery": jF, "journey-settings": jG})
 
 # Gallery index (served at /mote/design/): grouped like design.json, lazy scaled iframe thumbnails, #<id> deep links.
 import json, html as _h

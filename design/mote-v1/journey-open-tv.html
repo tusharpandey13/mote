@@ -91,6 +91,25 @@
   .banner .esc { height: 44px; padding: 0 14px; border-radius: 14px; display: grid; place-items: center; font: 600 14px/1 var(--font-ui); }
   .toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; height: 36px; padding: 0 14px; border-radius: 18px; display: inline-flex; align-items: center; gap: 8px; font: 500 13px/1 var(--font-ui); color: var(--on-surface-muted); white-space: nowrap; }
   .sel { position: absolute; left: 70px; top: 250px; width: 210px; height: 150px; border: 1.5px dashed var(--on-surface-muted); border-radius: 4px; background: rgba(255,138,61,.06); }
+
+  .back { display: flex; align-items: center; gap: 4px; }
+  .back .icon-btn { margin-left: -12px; color: var(--on-surface); }
+  .sub { display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+  .grp { border-radius: 20px; padding: 6px 14px; }
+  .grp-h { color: var(--on-surface-subtle); margin: 14px 4px 2px; }
+  .set { display: flex; align-items: center; gap: 12px; min-height: 60px; }
+  .set + .set { border-top: 1px solid var(--outline); }
+  .set .tx { flex: 1; }
+  .set .tx .sub2 { font: 400 13px/18px var(--font-ui); color: var(--on-surface-muted); }
+  .hslider { position: relative; height: 40px; border-radius: 20px; margin: 4px 0 12px; }
+  .hslider .ticks { position: absolute; left: 18px; right: 18px; top: 6px; bottom: 6px; background: repeating-linear-gradient(90deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 10%) top / 100% 5px no-repeat, repeating-linear-gradient(90deg, var(--on-surface-subtle) 0 1.5px, transparent 1.5px 10%) bottom / 100% 5px no-repeat; opacity: .5; }
+  .hslider .fill { position: absolute; left: 6px; top: 17px; height: 6px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+  .hslider .thumb { position: absolute; top: 4px; width: 48px; height: 32px; border-radius: 10px; transform: translateX(-50%);
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.06) 1px 2px), var(--metal);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px var(--metal-edge), 0 3px 4px var(--dshadow); }
+  .chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 4px 0 12px; }
+  .chips > div { height: 48px; border-radius: 14px; display: grid; place-items: center; font: 600 13px/1 var(--font-ui); color: var(--on-surface); }
+  .warn { display: flex; gap: 10px; padding: 14px; border-radius: 16px; color: var(--on-surface-muted); font: 400 14px/20px var(--font-ui); }
 </style>
 </head>
 <body>
@@ -259,27 +278,7 @@
         <circle class="bevel" cx="118" cy="118" r="109.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
         <g data-dc-id="dpad-up"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-right" transform="rotate(90 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-down" transform="rotate(180 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g><g data-dc-id="dpad-left" transform="rotate(270 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L175.98 60.02A82 82 0 0 0 60.02 60.02Z"/><path class="tri" d="M118 17l6.5 9h-13z"/></g>
         <g><line class="div" x1="178.1" y1="57.9" x2="192.2" y2="43.8"/><line class="div" x1="178.1" y1="178.1" x2="192.2" y2="192.2"/><line class="div" x1="57.9" y1="178.1" x2="43.8" y2="192.2"/><line class="div" x1="57.9" y1="57.9" x2="43.8" y2="43.8"/></g>
-        <g data-dc-id="dpad-stick-gate">
-          <circle cx="118" cy="118" r="82" fill="url(#gate)"/><circle class="gate-hi" cx="118" cy="118" r="81.5"/>
-          <circle cx="118" cy="118" r="77" fill="url(#wellg)" data-dc-id="dpad-stick-well"/>
-          <circle cx="118" cy="118" r="75.5" fill="none" stroke="url(#bevin)" stroke-width="3"/>
-          <g class="well-hints" data-dc-id="dpad-stick-hints"><path d="M113 52L118 47L123 52" transform="rotate(0 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(90 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(180 118 118)"/><path d="M113 52L118 47L123 52" transform="rotate(270 118 118)"/><circle cx="166.1" cy="69.9" r="1.4" class="dot"/><circle cx="166.1" cy="166.1" r="1.4" class="dot"/><circle cx="69.9" cy="166.1" r="1.4" class="dot"/><circle cx="69.9" cy="69.9" r="1.4" class="dot"/></g>
-        </g>
-        
-        <g clip-path="url(#cwell)"><circle class="stick-shadow" cx="118.00" cy="127.00" r="52" filter="url(#soft)" data-dc-id="dpad-stick-shadow"/></g>
-        <g data-dc-id="dpad-center">
-          <circle cx="118.00" cy="125.00" r="52" fill="url(#wallg)" data-dc-id="dpad-stick-wall"/>
-          <circle cx="118.00" cy="118.00" r="52" fill="url(#dome)" data-dc-id="dpad-stick-cap"/>
-          <path d="M118.00 77.00L118.00 69.00 M124.41 77.50L125.67 69.60 M130.67 79.01L133.14 71.40 M136.61 81.47L140.25 74.34 M142.10 84.83L146.80 78.36 M146.99 89.01L152.65 83.35 M151.17 93.90L157.64 89.20 M154.53 99.39L161.66 95.75 M156.99 105.33L164.60 102.86 M158.50 111.59L166.40 110.33 M159.00 118.00L167.00 118.00 M158.50 124.41L166.40 125.67 M156.99 130.67L164.60 133.14 M154.53 136.61L161.66 140.25 M151.17 142.10L157.64 146.80 M146.99 146.99L152.65 152.65 M142.10 151.17L146.80 157.64 M136.61 154.53L140.25 161.66 M130.67 156.99L133.14 164.60 M124.41 158.50L125.67 166.40 M118.00 159.00L118.00 167.00 M111.59 158.50L110.33 166.40 M105.33 156.99L102.86 164.60 M99.39 154.53L95.75 161.66 M93.90 151.17L89.20 157.64 M89.01 146.99L83.35 152.65 M84.83 142.10L78.36 146.80 M81.47 136.61L74.34 140.25 M79.01 130.67L71.40 133.14 M77.50 124.41L69.60 125.67 M77.00 118.00L69.00 118.00 M77.50 111.59L69.60 110.33 M79.01 105.33L71.40 102.86 M81.47 99.39L74.34 95.75 M84.83 93.90L78.36 89.20 M89.01 89.01L83.35 83.35 M93.90 84.83L89.20 78.36 M99.39 81.47L95.75 74.34 M105.33 79.01L102.86 71.40 M111.59 77.50L110.33 69.60" class="knurl" data-dc-id="dpad-stick-knurl"/>
-          <circle cx="118.00" cy="118.00" r="51.25" fill="none" stroke="url(#bev)" stroke-width="1.5"/>
-          <circle cx="118.00" cy="118.00" r="38" fill="url(#dish)" data-dc-id="dpad-stick-dish"/>
-          <circle cx="118.00" cy="118.00" r="38" fill="url(#dishshade)"/>
-          <rect x="80.00" y="80.00" width="76" height="76" filter="url(#gr)" clip-path="url(#cdish)" opacity=".55" style="mix-blend-mode:overlay"/>
-          <circle cx="118.00" cy="118.00" r="38" fill="none" stroke="url(#bevin)" stroke-width="2"/>
-          <ellipse cx="102.00" cy="78.00" rx="14" ry="4" class="spec" filter="url(#spec)" transform="rotate(-24 102.00 78.00)"/>
-          <g data-dc-id="dpad-center-legend" transform="translate(109.50 108.00) scale(.75)"><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--hi)" transform="translate(0 1.2)"/><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--on-surface-muted)"/></g>
-        </g>
-      </svg></div>
+        <g data-dc-id="dpad-center"><circle cx="118" cy="122" r="64" style="fill:var(--rub-wall)"/><circle cx="118" cy="118" r="64" fill="url(#dome)"/><circle cx="118" cy="118" r="63.25" fill="none" stroke="url(#bev)" stroke-width="1.5"/><text x="118" y="126" text-anchor="middle" class="ok" style="font-size:24px" data-dc-id="dpad-center-legend">OK</text></g></svg></div>
         <div class="tvkeys"><span class="raised">Back</span><span class="raised">Home</span><span class="raised"><i data-i="search" class="i20"></i>Search</span>
           <span class="raised"><i data-i="volDown" class="i20"></i></span><span class="raised"><i data-i="playPause" class="i20"></i></span><span class="raised"><i data-i="volUp" class="i20"></i></span></div></div></main>
   <nav class="rail" data-dc-id="mode-rail">
