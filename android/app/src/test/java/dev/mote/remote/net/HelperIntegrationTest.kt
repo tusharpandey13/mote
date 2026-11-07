@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -195,6 +196,49 @@ class HelperIntegrationTest {
         assertEquals(6, back.count)
         // fake-1's desktop 1 thumbnail survived the round trip through fake-2 in the per-display cache.
         assertEquals(v1, back.thumbs[1]?.version)
+        t.stop()
+    }
+
+    /**
+     * Labs › Live screen against `--fake-screen` (synthetic frames, a 1512x982 pt Retina display at
+     * (-1512, -200)): frames reach [WsTransport.labs], acks pace them, a tap maps onto the offset display,
+     * and leaving (stop) ends the stream on the Mac.
+     */
+    @Test fun liveScreenFramesClicksAndStop() = runBlocking {
+        proc.destroy(); proc.waitFor()
+        log.clear()
+        val started = runCatching { spawn("--fake-screen") }.isSuccess
+        assumeTrue("helper without --fake-screen; rebuild helper", started && seen("fake screen: fake-screen", 3000) != null)
+
+        val p = pairWith(http, "127.0.0.1", port, code, "jvm screen")
+        val token = p.token.copyOf()
+        val t = WsTransport(http, scope, p.hostId, { WsTarget(listOf("127.0.0.1"), port, p.deviceId) { Proto.hmacHex(token, it) } })
+        t.start()
+        withTimeout(10_000) { t.status.first { it is WsStatus.Ready } }
+        val events = kotlinx.coroutines.channels.Channel<dev.mote.remote.labs.screen.ScreenProto.In>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+        val sub = scope.launch { t.labs.collect { m -> dev.mote.remote.labs.screen.ScreenProto.parse(m.t, m.o)?.let { events.trySend(it) } } }
+        Thread.sleep(100)
+        assertTrue(t.sendLabs(dev.mote.remote.labs.screen.ScreenProto.start(w = 960, fps = 15)))
+        var frames = 0
+        var last: dev.mote.remote.labs.screen.ScreenProto.Frame? = null
+        withTimeout(10_000) {
+            while (frames < 10) {
+                val e = events.receive()
+                if (e is dev.mote.remote.labs.screen.ScreenProto.FrameIn) {
+                    frames++; last = e.f
+                    t.sendLabs(dev.mote.remote.labs.screen.ScreenProto.ack(e.f.seq))
+                }
+            }
+        }
+        val f = last!!
+        assertEquals("fake-screen", f.display)
+        assertEquals(960, f.w)
+        assertTrue("JPEG", f.jpeg[0] == 0xFF.toByte() && f.jpeg[1] == 0xD8.toByte())
+        t.sendLabs(dev.mote.remote.labs.screen.ScreenProto.click(0.25, 0.5, "right", 1, f.display))
+        waitFor("DRY clickAt (-1134.0, 291.0) b=right count=1")
+        t.sendLabs(dev.mote.remote.labs.screen.ScreenProto.stop())
+        waitFor("screen: stopped (stop)")
+        sub.cancel()
         t.stop()
     }
 

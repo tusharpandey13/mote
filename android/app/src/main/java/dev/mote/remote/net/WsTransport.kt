@@ -7,7 +7,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,6 +61,13 @@ class WsTransport(
     private val _spaces = MutableStateFlow<SpacesState?>(null)
     /** Spaces state with thumbnails; null until the helper answers `spaces.sub` (pre-1.3 helpers never do). */
     override val spaces: StateFlow<SpacesState?> = _spaces.asStateFlow()
+
+    private val _labs = MutableSharedFlow<Msg.Labs>(extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    /** `labs.*` messages (docs/labs/) and errors about them, for preview features; nothing is buffered across sessions. */
+    val labs: SharedFlow<Msg.Labs> = _labs
+
+    /** Sends a `labs.*` message (after pending motion). False when not linked. */
+    fun sendLabs(json: String): Boolean = synchronized(sendLock) { flushMotionLocked(); session?.send(json) ?: false }
 
     @Volatile private var session: WsSession? = null
     private var loop: Job? = null
@@ -112,8 +122,10 @@ class WsTransport(
                         is Msg.State -> _status.value = WsStatus.Ready(s.address, m.paused, m.ax)
                         is Msg.Spaces -> onSpaces(s, m)
                         is Msg.SpacesThumb -> onThumb(m)
+                        is Msg.Labs -> _labs.tryEmit(m)
                         // `spaces*` errors (old helper: `unknown`; `notfound`, `unsupported`) leave the link up.
                         is Msg.Err -> if (m.code == "revoked") throw HelperError(m.code, m.msg)
+                            else if (m.ref?.startsWith("labs.") == true) _labs.tryEmit(Msg.Labs("labs.err", org.json.JSONObject().put("code", m.code).put("msg", m.msg).put("ref", m.ref)))
                         else -> Unit
                     }
                 } catch (e: CancellationException) {
