@@ -210,7 +210,7 @@ private final class HTTPConnection {
         conn.send(content: Data(resp.utf8), completion: .contentProcessed { _ in })
         let s = Session(hub: server.hubRef, transport: tailnet ? "Tailscale" : "Wi-Fi", peer: peer,
                         send: { [weak self] d in self?.sendFrame(opcode: 1, payload: d) },
-                        close: { [weak self] in self?.sendFrame(opcode: 8, payload: Data([0x03, 0xE8])); self?.conn.cancel() })
+                        close: { [weak self] in self?.sendFrame(opcode: 8, payload: Data([0x03, 0xE8])); self?.cancelAfterFlush() })
         s.backlog = { [weak self] in self?.unsent ?? 0 }
         session = s
         s.start()
@@ -250,6 +250,14 @@ private final class HTTPConnection {
     private func protocolClose() {
         sendFrame(opcode: 8, payload: Data([0x03, 0xEA]))
         conn.cancel()
+    }
+
+    /// Cancels once the queued frames (e.g. `err revoked` + close) are written, at most 2 s later.
+    /// A plain cancel() drops what is still queued.
+    private func cancelAfterFlush() {
+        let c = conn
+        c.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in c.cancel() })
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { c.cancel() }
     }
 
     private func sendFrame(opcode: UInt8, payload: Data) {

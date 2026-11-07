@@ -1,4 +1,4 @@
-package dev.mote.remote.labs.pairing
+package dev.mote.remote.pairing
 
 import dev.mote.remote.net.Proto
 import dev.mote.remote.net.toHex
@@ -6,12 +6,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
 
-/** Instant pairing wire format (docs/labs/pairing.md). Pure JVM. */
+/** Instant pairing wire format (docs/pairing.md). Pure JVM. Wire names keep the `labs.pair.` prefix of the 0.5 preview. */
 object PairProto {
     const val VERSION = "mote-labs-pair-v1"
-    /** Mote service (docs/protocol.md section 3) and the Labs info characteristic inside it. */
+    /** Mote service (docs/protocol.md section 3) and the pairing characteristics inside it. */
     const val SERVICE_UUID = "3abad8f4-b472-41fc-bfc5-6f645f33564b"
     const val INFO_UUID = "6d6f7465-0001-4c61-6273-50616972696e"
+    /** Rotating proximity token (`<window>:<32 hex>`), readable only over BLE. */
+    const val PROX_UUID = "6d6f7465-0002-4c61-6273-50616972696e"
+    private val PROX = Regex("^[0-9]{1,12}:[0-9a-f]{32}$")
+
+    /** The proximity characteristic's value, or null when it isn't one (the bytes are untrusted). */
+    fun proxOrNull(bytes: ByteArray?): String? = bytes?.toString(Charsets.UTF_8)?.trim()?.takeIf(PROX::matches)
 
     /** First 16 bytes of SHA-256(raw public key), hex. */
     fun fingerprint(pub: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(pub).copyOf(16).toHex()
@@ -25,8 +31,9 @@ object PairProto {
     fun helperProof(hostId: String, nonce: String, cn: String, clientPub: String): ByteArray =
         "$VERSION|helper|$hostId|$nonce|$cn|$clientPub".toByteArray(Charsets.UTF_8)
 
-    fun hello(pub: String, name: String, cn: String, sig: String): String =
-        JSONObject().put("t", "labs.pair.hello").put("pub", pub).put("name", name.take(64)).put("cn", cn).put("sig", sig).toString()
+    fun hello(pub: String, name: String, cn: String, sig: String, prox: String? = null): String =
+        JSONObject().put("t", "labs.pair.hello").put("pub", pub).put("name", name.take(64)).put("cn", cn).put("sig", sig)
+            .putOpt("prox", prox).toString()
 
     fun info(): String = JSONObject().put("t", "labs.pair.info").toString()
 

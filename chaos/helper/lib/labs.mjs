@@ -1,4 +1,4 @@
-// Labs helpers shared by the chaos scenarios: Ed25519 instant-pairing handshake (docs/labs/pairing.md),
+// Labs helpers shared by the chaos scenarios: Ed25519 instant-pairing handshake (docs/pairing.md),
 // helper feature detection (flags in --help, message probes), bridge/raw sockets.
 import crypto from 'node:crypto';
 import os from 'node:os';

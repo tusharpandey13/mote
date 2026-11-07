@@ -1,9 +1,10 @@
-package dev.mote.remote.labs.pairing
+package dev.mote.remote.pairing
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -11,8 +12,9 @@ import dev.mote.remote.data.Prefs
 import dev.mote.remote.data.typed
 import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.Host
-import dev.mote.remote.labs.Labs
-import dev.mote.remote.net.Found
+import dev.mote.remote.net.Route
+import dev.mote.remote.net.routeOf
+import kotlinx.coroutines.withTimeoutOrNull
 import dev.mote.remote.net.HelperError
 import dev.mote.remote.net.Msg
 import dev.mote.remote.net.Net
@@ -32,6 +34,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -54,27 +57,11 @@ data class TrustRecord(val hostId: String, val helperPub: String, val fp: String
     }
 }
 
-/** A Mac the sheet can offer: from BLE (with its key fingerprint) and/or Bonjour (address only). */
-data class Candidate(val hostId: String, val name: String, val info: BleInfo?, val bonjour: Found?) {
-    val fp: String? get() = info?.fp
-    val port: Int get() = info?.port ?: bonjour?.port ?: Proto.DEFAULT_PORT
-}
-
-/** Pure merge of BLE and Bonjour results: one entry per hostId, BLE first (it carries the fingerprint). */
-fun candidates(ble: List<NearbyMac>, bonjour: List<Found>): List<Candidate> {
-    val byId = LinkedHashMap<String, Candidate>()
-    for (n in ble) byId[n.info.hostId] = Candidate(n.info.hostId, n.info.name, n.info, null)
-    for (f in bonjour) {
-        val id = f.hostId ?: continue
-        byId[id] = byId[id]?.copy(bonjour = f) ?: Candidate(id, f.service, null, f)
-    }
-    return byId.values.toList()
-}
-
 /**
- * Instant pairing (Labs): BLE + Bonjour discovery, the key handshake, trust records, silent
- * reconnects (LAN, then tailnet) and the Bluetooth HID fallback. Owns no transport: a trusted Mac
- * becomes a normal [SavedHost] whose [WsTarget] authenticates with [labsHandshake].
+ * Instant pairing (docs/pairing.md), the default way to add a Mac: discovery ([finder]), the key
+ * handshake with a BLE proximity token, trust records, silent reconnects (LAN, then tailnet) and
+ * the Bluetooth HID fallback. Owns no transport: a trusted Mac becomes a normal [SavedHost] whose
+ * [WsTarget] authenticates with [labsHandshake].
  */
 @SuppressLint("StaticFieldLeak") // application context only
 object InstantPairing {
@@ -84,10 +71,9 @@ object InstantPairing {
 
     private val _records = MutableStateFlow<Map<String, TrustRecord>>(emptyMap())
     val records: StateFlow<Map<String, TrustRecord>> = _records.asStateFlow()
-    private val _enabled = MutableStateFlow(false)
-    /** Settings › Labs › Instant pairing. */
-    val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
     val ble by lazy { BleScan(app) }
+    val appContext: Context get() = app
+    val finder by lazy { Finder(app, Net.scope) }
 
     /** hostId we fell back to Bluetooth HID from; probed every 30 s to switch back. */
     @Volatile private var fallbackFrom: String? = null
@@ -96,10 +82,10 @@ object InstantPairing {
     suspend fun load(c: Context) {
         if (::app.isInitialized) return
         app = c.applicationContext
-        Net.scope.launch { Labs.flow(app, Labs.INSTANT_PAIRING).collect { _enabled.value = it } }
         _records.value = TrustRecord.decode(app.store.data.first().typed(TRUST))
         Net.scope.launch { watchForFallback() }
         Net.scope.launch { probeBack() }
+        Net.scope.launch { rediscover() }
     }
 
     private suspend fun save(r: TrustRecord) {
@@ -112,21 +98,44 @@ object InstantPairing {
         Settings.Global.getString(app.contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() } ?: Build.MODEL
 
     /**
-     * First connect to [c]: tries its paths in order, runs the handshake (the Mac may ask its user;
-     * [onState] reports `Pending`), stores the trust and selects the Mac. Throws [HelperError].
+     * First connect to [c]: tries its addresses in order (LAN, then tailnet) and runs the handshake
+     * with a proximity token read over BLE when Bluetooth is usable. The Mac trusts a new key
+     * without anyone touching it when the token is fresh or both are on the same Tailscale account
+     * (docs/pairing.md section 4). Stores the trust and selects the Mac. Throws [HelperError]:
+     * `far` with Bluetooth unusable means the caller should ask for it and try again.
      */
-    suspend fun connect(c: Candidate, onState: (PairState) -> Unit = {}): PairState.Done = withContext(Dispatchers.IO) {
+    suspend fun connect(c: FoundMac, onState: (PairState) -> Unit = {}): PairState.Done = withContext(Dispatchers.IO) {
         val saved = Net.saved.value.firstOrNull { it.hostId == c.hostId }
-        val paths = helperCandidates(selectPaths(c.info, saved, c.bonjour?.address))
+        val paths = orderPaths(c.addresses + helperCandidates(selectPaths(c.info, saved)))
         if (paths.isEmpty()) throw HelperError("noroute", "No address for ${c.name}. Is the Mac on this Wi-Fi or Tailscale?")
+        Log.i(TAG, "connect ${c.hostId} paths=$paths port=${c.port} ble=${ble.ready()}")
         val me = Identity.get(app)
+        var prox: String? = ble.proximity(c.hostId)
+        Log.i(TAG, "proximity token: ${if (prox != null) "read" else "none"}")
+        var staleRetry = true
         var last: Exception = HelperError("noroute", "Couldn't reach ${c.name}")
-        for (addr in paths) {
-            val s = try { WsSession.open(Net.http, addr, c.port) } catch (e: CancellationException) { throw e } catch (e: Exception) { last = e; continue }
+        var i = 0
+        while (i < paths.size) {
+            val addr = paths[i]
+            val s = try { WsSession.open(Net.http, addr, c.port) } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                Log.w(TAG, "open $addr:${c.port} failed: $e"); last = worse(last, e); i++; continue
+            }
             try {
-                if (s.hello.hostId != c.hostId) { last = HelperError("helper-key", "Another Mac answered at $addr"); continue }
+                if (s.hello.hostId != c.hostId) { last = worse(last, HelperError("helper-key", "Another Mac answered at $addr")); i++; continue }
                 val pin = _records.value[c.hostId]?.fp ?: c.fp
-                val done = labsHandshake(s, me, deviceName(), pin, allowPrompt = true, onState = onState)
+                if (prox == null && dev.mote.remote.hid.TestSeam.fakeProximity) prox = fakeProximity(s)
+                val token = prox.also { prox = null } // single-use on the Mac
+                val done = try {
+                    labsHandshake(s, me, deviceName(), pin, allowPrompt = true, prox = token, onState = onState)
+                } catch (e: HelperError) {
+                    Log.w(TAG, "handshake at $addr: ${e.code} ${e.message}")
+                    last = worse(last, e)
+                    when {
+                        e.code == "stale" && staleRetry -> { staleRetry = false; prox = ble.proximity(c.hostId, maxAgeMs = 0); continue }
+                        e.code == "far" -> { i++; continue } // a tailnet path may still be trusted (same owner)
+                        else -> throw e
+                    }
+                }
                 save(TrustRecord(c.hostId, done.helper.pub, done.helper.fp, done.via, c.info))
                 withContext(Dispatchers.Main) { adopt(c, s, addr, done) }
                 return@withContext done
@@ -135,12 +144,14 @@ object InstantPairing {
         throw last
     }
 
-    private fun adopt(c: Candidate, s: WsSession, addr: String, done: PairState.Done) {
+    private fun adopt(c: FoundMac, s: WsSession, addr: String, done: PairState.Done) {
         val old = Net.saved.value.firstOrNull { it.hostId == c.hostId }
         var h = (old ?: SavedHost(c.hostId, s.hello.host.ifBlank { c.name }, done.authed.id, port = c.port))
             .copy(deviceId = done.authed.id, wrapped = null, local = s.hello.local ?: old?.local)
             .withAddress(addr)
         c.info?.tailnetDns?.let { h = h.withAddress(it) }
+        if (h.btAddress == null) dev.mote.remote.hid.Bt.snapshot(app).hosts.firstOrNull { it.name.equals(h.name, ignoreCase = true) }
+            ?.let { h = h.copy(btAddress = it.address) } // enables the Bluetooth HID fallback
         Net.adoptTrusted(h)
     }
 
@@ -159,13 +170,13 @@ object InstantPairing {
         labsHandshake(s, Identity.get(app), deviceName(), r.fp, allowPrompt = false).authed
     } catch (e: HelperError) {
         // WsTransport stops on `auth`: wrong key, revoked or denied need the user, not a retry loop.
-        throw if (e.code in setOf("helper-key", "revoked", "denied", "unauth")) HelperError("auth", e.message ?: e.code) else e
+        throw if (e.code in setOf("helper-key", "revoked", "denied", "unauth", "blocked", "far", "stale", "bad-proximity")) HelperError("auth", e.message ?: e.code) else e
     }
 
     /** Helper unreachable for 15 s and the Mac is linked to a Bluetooth HID host: use Bluetooth. */
     private suspend fun watchForFallback() {
         Net.wsStatus.collectLatest { st ->
-            if (st is WsStatus.Ready || st is WsStatus.Idle || !enabled.value) return@collectLatest
+            if (st is WsStatus.Ready || st is WsStatus.Idle) return@collectLatest
             val ws = Net.active.value as? WsTransport ?: return@collectLatest
             if (_records.value[ws.hostId] == null) return@collectLatest
             val h = Net.saved.value.firstOrNull { it.hostId == ws.hostId } ?: return@collectLatest
@@ -196,6 +207,51 @@ object InstantPairing {
         }
     }
 
+    /**
+     * The Mac's LAN IP changed (DHCP) and Bonjour is blocked: when a trusted Mac doesn't answer for
+     * [REDISCOVER_MS], sweep the LAN once per outage and add the address it answers at.
+     */
+    private suspend fun rediscover() {
+        Net.wsStatus.collectLatest { st ->
+            if (st is WsStatus.Ready || st is WsStatus.Idle) return@collectLatest
+            val ws = Net.active.value as? WsTransport ?: return@collectLatest
+            if (_records.value[ws.hostId] == null) return@collectLatest
+            delay(REDISCOVER_MS)
+            if (!Net.foreground || Net.active.value !== ws) return@collectLatest
+            val w = wifiAddr(app) ?: return@collectLatest
+            val port = Net.saved.value.firstOrNull { it.hostId == ws.hostId }?.port ?: Proto.DEFAULT_PORT
+            val sockets = WifiSocketFactory(w.network)
+            val http = Net.http.newBuilder().socketFactory(sockets).build()
+            val hit = withTimeoutOrNull(Finder.RUN_MS) {
+                lanSweep(sweepHosts(w.ip, w.prefix), port) { h, p, t -> tcpOpen(h, p, t, sockets) }
+                    .firstOrNull { addr -> probeHelper(http, addr, port)?.hostId == ws.hostId }
+            }
+            if (hit != null) withContext(Dispatchers.Main) { Net.addAddress(ws.hostId, hit) }
+        }
+    }
+
+    /** Tests only: the token a `--fake-proximity` dry-run helper hands out in place of the BLE read. */
+    private suspend fun fakeProximity(s: WsSession): String? {
+        s.send(org.json.JSONObject().put("t", "labs.pair.prox").toString())
+        return withTimeoutOrNull(3000) {
+            var v: String? = null
+            while (v == null) {
+                val m = s.inbox.receive()
+                if (m is Msg.Err) break
+                if (m is Msg.Other && "labs.pair.prox" in m.raw) v = PairProto.proxOrNull(org.json.JSONObject(m.raw).optString("v").toByteArray()) ?: break
+            }
+            v
+        }
+    }
+
+    /** LAN addresses first, then tailnet (stable), without duplicates. */
+    fun orderPaths(addrs: List<String>): List<String> {
+        val d = addrs.distinctBy { it.lowercase() }
+        return d.filter { routeOf(it) != Route.TAILNET } + d.filter { routeOf(it) == Route.TAILNET }
+    }
+
+    private const val TAG = "MotePair"
     const val FALLBACK_MS = 15_000L
+    const val REDISCOVER_MS = 4_000L
     const val PROBE_MS = 30_000L
 }

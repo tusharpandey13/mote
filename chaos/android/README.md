@@ -105,7 +105,7 @@ its own once its code lands. Extend the generic body with the feature's own asse
 | `connect-wifi-first`: Wi-Fi-first auto-connect | `(class or object) AutoConnect`, `WifiFirst` or `ConnectPlanner` | PENDING |
 | `connect-auto-trust`: phone side (I6 itself is decided by the helper) | `(class, object or fun) AutoTrust` or `autoTrust` | PENDING |
 | `connect-vpn-storm`: Tailscale CONNECT/DISCONNECT_VPN storm with a tailnet host | `com.tailscale.ipn` installed on the device | PENDING |
-| `connect-failover`: LAN, tailnet and BT failover and switch-back (docs/labs/pairing.md section 5) | never on an emulator (no BT HID); still manual on a phone | PENDING |
+| `connect-failover`: LAN, tailnet and BT failover and switch-back (docs/pairing.md section 5) | never on an emulator (no BT HID); still manual on a phone | PENDING |
 
 ## Physical device
 

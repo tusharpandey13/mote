@@ -1,4 +1,4 @@
-// Trust (chaos/RUBRIC.md I6): the instant-pairing handshake (docs/labs/pairing.md) under hostile input.
+// Trust (chaos/RUBRIC.md I6): the instant-pairing handshake (docs/pairing.md) under hostile input.
 // Forged / replayed / cross-host signatures, field fuzz, the approval prompt (fake Allow / Deny, busy,
 // cool-down), Tailscale auto-trust with a fake whois (same owner, other owner, CLI timeout), revocation
 // mid-session, a spoofed Mac (another key behind the same info), and, once the one-tap rework lands

@@ -31,7 +31,7 @@ let refresh: () -> Void = { menu?.refresh() }
 hub.onChange = refresh
 web?.onChange = { refresh(); hub.instantPairing.printInfoIfReady() }
 hub.instantPairing.port = { web?.port ?? 0 }
-hub.instantPairing.onToggle = { ble?.publish(); hub.instantPairing.printInfoIfReady(); refresh() }
+hub.instantPairing.onNewDevice = { name, via, fp in menu?.showNewDevice(name: name, via: via, fp: fp) }
 var shareThumbs = hub.settings.shareSpaceThumbnails
 hub.settings.onChange = {
     if !hub.settings.allowTailscale { web?.dropTailnetPeers() }
@@ -61,6 +61,8 @@ if config.stdinControl {
                     switch line.trimmingCharacters(in: .whitespaces) {
                     case "pair": openPairing()
                     case "revoke": hub.revokeAll()
+                    case "block": hub.instantPairing.blockLast()
+                    case "unblock": hub.instantPairing.unblockLast()
                     case "pause": hub.paused = true
                     case "resume": hub.paused = false
                     case let c where c.hasPrefix("bridge "): labsBridge?.stdin(c)

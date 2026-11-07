@@ -81,6 +81,10 @@ import dev.mote.remote.labs.context.SmartRemoteEffects
 import dev.mote.remote.labs.Labs
 import dev.mote.remote.labs.video.VideoBridge
 import dev.mote.remote.net.Net
+import dev.mote.remote.net.Selection
+import dev.mote.remote.pairing.FindMacScreen
+import dev.mote.remote.pairing.StartScreen
+import dev.mote.remote.pairing.startScreen
 import dev.mote.remote.net.Remote
 import dev.mote.remote.service.HidService
 import dev.mote.remote.ui.theme.LocalMote
@@ -140,7 +144,6 @@ private fun Root(theme: ThemeChoice) {
     val modeState = rememberSaveableStateHolder()
     var deviceSheet by remember { mutableStateOf(false) }
     var addHost by remember { mutableStateOf(false) } // open the host sheet on "Add Mac over Wi-Fi"
-    val wifiChosen by Net.wifiChosen.collectAsState()
     val link by Net.pendingLink.collectAsState()
     LaunchedEffect(link) { if (link != null) deviceSheet = true }
     val linked by Remote.linked.collectAsState()
@@ -154,6 +157,15 @@ private fun Root(theme: ThemeChoice) {
     // Debug builds only: `am start ... --ez mote.demo true` skips the first-run gate so every screen
     // can be screenshotted on an emulator (input stays inert without a host).
     val demo = remember { isDemo(ctx) }
+    // Debuggable builds: `--ei mote.sweepPort N` sweeps port N, `--ez mote.fakeProximity true` reads the token from a --fake-proximity helper (a dry-run helper on the dev Mac, reached from an emulator at 10.0.2.2).
+    remember(ctx) {
+        val a = ctx as? Activity
+        if (a != null && ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            a.intent?.getIntExtra("mote.sweepPort", 0)?.takeIf { it > 0 }?.let { dev.mote.remote.hid.TestSeam.sweepPort = it }
+            if (a.intent?.getBooleanExtra("mote.fakeProximity", false) == true) dev.mote.remote.hid.TestSeam.fakeProximity = true
+        }
+        true
+    }
     LaunchedEffect(demo) { if (demo && (ctx as? Activity)?.intent?.getBooleanExtra("mote.demo.displays", false) == true) DemoSpaces.enable() }
     LaunchedEffect(bt.gate) { if (bt.gate == BtGate.READY && !demo) HidService.start(ctx) }
     LaunchedEffect(bt) { Hid.envChanged() } // bond/ACL/adapter change or resume: fresh reconnect budget
@@ -181,8 +193,25 @@ private fun Root(theme: ThemeChoice) {
             else -> permLauncher.launch(requestedPermissions())
         }
     }
-    if (bt.gate != BtGate.READY && !wifiChosen && link == null && !demo) {
-        BtGateScreen(bt.gate, openSettings, gateAction, onWifi = { Net.chooseWifi(); addHost = true; deviceSheet = true })
+    val loaded by Net.loaded.collectAsState()
+    val saved by Net.saved.collectAsState()
+    val selection by Net.selection.collectAsState()
+    val btChosen by Net.btChosen.collectAsState()
+    val wifiChosen by Net.wifiChosen.collectAsState()
+    val start = startScreen(
+        hasHelperHost = saved.isNotEmpty(), btSelected = selection is Selection.Bt || (selection == null && s.selected != null),
+        macChosen = wifiChosen, btChosen = btChosen, btPermitted = bt.permitted, btReady = bt.gate == BtGate.READY, skip = demo || link != null,
+    )
+    if (!loaded && !demo) { Box(Modifier.fillMaxSize().chassis()); return }
+    // Setup stays on screen until its last step (the optional Bluetooth one), even once the Mac is saved.
+    var setup by rememberSaveable { mutableStateOf(false) }
+    if (start == StartScreen.FIND_MAC) setup = true
+    if (setup && (start == StartScreen.FIND_MAC || start == StartScreen.REMOTE)) {
+        FindMacScreen(onBluetooth = { setup = false; Net.chooseBluetooth() }, onDone = { setup = false })
+        return
+    }
+    if (start == StartScreen.BT_GATE) {
+        BtGateScreen(bt.gate, openSettings, gateAction, onWifi = { Net.chooseWifi() })
         return
     }
 
@@ -297,7 +326,6 @@ private fun Root(theme: ThemeChoice) {
         }
         TailscalePrompt()
         dev.mote.remote.labs.open.OpenTvSheet(openTv)
-        dev.mote.remote.labs.pairing.InstantPairingHost() // Labs: "Connect to <Mac>?" sheet (flag off: nothing)
     }
 }
 

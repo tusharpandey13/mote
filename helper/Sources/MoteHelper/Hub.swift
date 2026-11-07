@@ -13,7 +13,8 @@ final class Hub {
     let spaces: Spaces
     let liveScreen: LiveScreen   // Labs (docs/labs/live-screen.md)
     let tv: TvMode   // Labs (preview): Open… + TV mode, docs/labs/open-tv.md
-    private(set) var instantPairing: LabsPairing!   // Labs: instant pairing (Labs/Pairing.swift)
+    private(set) var instantPairing: InstantPairing!   // instant pairing (InstantPairing.swift)
+    private(set) var bt: BtPair!   // Bluetooth HID setup started by a trusted phone (BtPair.swift)
     private(set) var sessions: [Session] = []
     /// Labs (preview) modules, registered in main.swift; each owns `labs.*` message prefixes and a Labs menu section.
     var labs: [LabsModule] = []
@@ -53,7 +54,8 @@ final class Hub {
             let now = AXIsProcessTrusted()
             if now != self.axTrusted { self.axTrusted = now; self.broadcastState(); self.onChange?() }
         }
-        instantPairing = LabsPairing(hub: self)
+        instantPairing = InstantPairing(hub: self)
+        bt = BtPair(hub: self)
     }
 
     /// Accessibility doesn't matter in dry-run (nothing is posted).
@@ -63,6 +65,7 @@ final class Hub {
     func remove(_ s: Session) {
         sessions.removeAll { $0 === s }
         instantPairing.ended(s)
+        bt.ended(s)
         liveScreen.sessionGone(s)
         if !sessions.contains(where: { $0.authed }) { injector.releaseAll() }
         onChange?()
@@ -160,6 +163,7 @@ final class Session {
     let nonce = randomHex(16)
     private(set) var authed = false
     private(set) var deviceName = ""
+    private(set) var deviceId = ""       // paired device id, or `k:<fp>` for instant pairing
     private(set) var spacesSub = false   // subscribed to `spaces` state (protocol 1.3)
     private var unauthStrikes = 0
     private var closed = false
@@ -240,6 +244,7 @@ final class Session {
                 return
             }
             if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
+            if t == "bt.pair" || t == "bt.info" { hub.bt.handle(t, m, from: self); return }   // Bluetooth HID setup, not input
             if t.hasPrefix("labs.screen.") { labsScreen(t, m); return }
             if t == "labs.tv.get" { send(hub.tv.state()); return }   // Labs: a read, like spaces.sub
             if t.hasPrefix("labs.video."), let b = labsBridge {   // Labs: video bridge (docs/labs/video-bridge.md)
@@ -314,13 +319,14 @@ final class Session {
         markAuthed(id: d.id, name: d.name)
     }
 
-    /// Labs: the instant-pairing handshake (Labs/Pairing.swift) authenticated this session.
+    /// The instant-pairing handshake (InstantPairing.swift) authenticated this session.
     func labsAuthed(id: String, name: String) { guard !authed else { return }; markAuthed(id: id, name: name) }
 
     private func markAuthed(id: String, name: String) {
         authed = true
         authDeadline?.invalidate()
         deviceName = name
+        deviceId = id
         log("authed \(name) via \(transport) from \(peer)")
         send(["t": "authed", "id": id, "name": name, "paused": hub.paused, "ax": hub.inputReady])
         hub.onChange?()

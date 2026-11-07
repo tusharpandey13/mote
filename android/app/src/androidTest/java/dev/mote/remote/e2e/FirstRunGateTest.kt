@@ -43,6 +43,7 @@ class FirstRunGateTest {
 
     @Test
     fun deniedKeepsGateThenGrantResolvesIt() {
+        c.desc("Use Bluetooth instead (no helper)").performClick() // first run opens into finding the Mac
         c.onNodeWithText("How do you want to connect?").assertExists()
         assertFalse(remoteShown())
 

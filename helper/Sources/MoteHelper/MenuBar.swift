@@ -75,14 +75,12 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         }
         menu.addItem(.separator())
 
-        if let code = hub.pairing.code {
+        if let code = hub.pairing.code {   // the 6-digit code (Advanced › Pair with code), only while it is open
             _ = add("Pairing code: \(code.prefix(3)) \(code.suffix(3))")
             _ = add("Show pairing code and QR…", #selector(showPairing))
             _ = add("Stop pairing", #selector(stopPairing))
-        } else {
-            _ = add("Pair new device…", #selector(startPairing), key: "n")
+            menu.addItem(.separator())
         }
-        menu.addItem(.separator())
 
         _ = add("Wi-Fi remote: \(mdnsURL)", #selector(copyURL(_:))).representedObject = mdnsURL
         if let ip = ipURL { _ = add("     or \(ip)", #selector(copyURL(_:))).representedObject = ip }
@@ -113,13 +111,39 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         _ = add(clients.isEmpty ? "No connected devices" : "Connected devices:")
         for s in clients { _ = add("   \(s.deviceName) · \(s.transport)") }
         _ = add("Paired devices: \(hub.store.devices.count)")
+        let ip = hub.instantPairing!
+        if ip.enabled {
+            let devices = NSMenu()   // trusted phones (Block each) and blocked phones (Unblock each)
+            func sub(_ title: String, _ action: Selector? = nil, fp: String? = nil) {
+                let i = NSMenuItem(title: title, action: action, keyEquivalent: "")
+                i.target = self; i.representedObject = fp; i.isEnabled = action != nil
+                devices.addItem(i)
+            }
+            sub(ip.trusted.isEmpty ? "No trusted phones" : "Trusted phones")
+            for k in ip.trusted {
+                let via = k.via == "nearby" ? "Bluetooth proximity" : k.via == "tailscale" ? "Tailscale" : "approved"
+                sub("   \(k.name) · \(via)")
+                sub("      Block", #selector(blockDevice(_:)), fp: k.fp)
+            }
+            if !ip.blocked.isEmpty {
+                devices.addItem(.separator())
+                sub("Blocked")
+                for b in ip.blocked {
+                    sub("   \(b.name) · \(b.fp.prefix(4)) \(b.fp.dropFirst(4).prefix(4))")
+                    sub("      Unblock", #selector(unblockDevice(_:)), fp: b.fp)
+                }
+            }
+            let d = add("Trusted phones: \(ip.trustedCount)\(ip.blocked.isEmpty ? "" : " (\(ip.blocked.count) blocked)")")
+            d.isEnabled = true; d.submenu = devices
+            _ = add("This Mac's key: \(groupedFingerprint(ip.fp))")
+            _ = add("Require approval for new devices", #selector(toggleRequireApproval), state: ip.requireApproval)
+        }
         menu.addItem(.separator())
 
         let labs = NSMenu()   // Labs (previews, off by default)
         let tvItem = NSMenuItem(title: "TV mode (preview)", action: #selector(toggleTvLab), keyEquivalent: "")
         tvItem.target = self; tvItem.state = hub.tv.enabled ? .on : .off; labs.addItem(tvItem)
         if hub.tv.on { let x = NSMenuItem(title: "Exit TV mode", action: #selector(exitTv), keyEquivalent: ""); x.target = self; labs.addItem(x) }
-        hub.instantPairing.addMenuItems(to: labs)   // Labs: instant pairing
         hub.labs.flatMap { $0.menuItems() }.forEach(labs.addItem)   // Labs modules (Context & now playing)
         if let b = labsBridge { labs.addItem(.separator()); addBridgeItems(to: labs, bridge: b) }
         // Labs › Live screen (docs/labs/live-screen.md)
@@ -128,6 +152,10 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             let i = NSMenuItem(title: title, action: action, keyEquivalent: ""); i.target = self; i.state = state ? .on : .off; labs.addItem(i)
         }
         let labsItem = NSMenuItem(title: "Labs", action: nil, keyEquivalent: ""); labsItem.submenu = labs; menu.addItem(labsItem)
+        let adv = NSMenu()   // off the default path: phones set up by instant pairing
+        let codeItem = NSMenuItem(title: "Pair with code (web remote)…", action: #selector(startPairing), keyEquivalent: "")
+        codeItem.target = self; adv.addItem(codeItem)
+        let advItem = NSMenuItem(title: "Advanced", action: nil, keyEquivalent: ""); advItem.submenu = adv; menu.addItem(advItem)
         _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
         _ = add("Revoke all devices…", #selector(revokeAll))
         _ = add("Launch at login", #selector(toggleLogin), state: SMAppService.mainApp.status == .enabled)
@@ -151,6 +179,9 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     @objc func startPairing() { hub.pairing.open(); showPairing() }
     @objc func stopPairing() { hub.pairing.close() }
     @objc func togglePause() { hub.paused.toggle() }
+    @objc func blockDevice(_ sender: NSMenuItem) { if let fp = sender.representedObject as? String { hub.instantPairing.block(fp) } }
+    @objc func unblockDevice(_ sender: NSMenuItem) { if let fp = sender.representedObject as? String { hub.instantPairing.unblock(fp) } }
+    @objc func toggleRequireApproval() { hub.instantPairing.requireApproval.toggle() }
     @objc func toggleTvLab() { hub.tv.enabled.toggle() }
     @objc func exitTv() { hub.tv.exit() }
     @objc func toggleShareThumbs() { hub.settings.shareSpaceThumbnails.toggle() }
@@ -178,7 +209,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let a = NSAlert()
         a.messageText = "Revoke all devices?"
-        a.informativeText = "Every paired phone and browser is disconnected and has to pair again with a new code."
+        a.informativeText = "Every paired phone and browser is disconnected and has to pair again. Blocked phones are unblocked."
         a.addButton(withTitle: "Revoke All")
         a.addButton(withTitle: "Cancel")
         a.alertStyle = .warning
@@ -193,6 +224,64 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             let a = NSAlert(error: error)
             a.runModal()
         }
+    }
+
+    // MARK: new-device notice
+
+    private var notice: NSPanel?
+    private var noticeFp: String?
+    private var noticeGen = 0
+
+    /// Non-modal, non-activating notice for a newly trusted phone, top right, gone after 15 s. One Block button.
+    func showNewDevice(name: String, via: String, fp: String) {
+        notice?.close()
+        let how = via == "nearby" ? "via Bluetooth proximity" : via == "tailscale" ? "via Tailscale" : "approved on this Mac"
+        let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 320, height: 76),
+                        styleMask: [.titled, .closable, .nonactivatingPanel, .utilityWindow, .hudWindow], backing: .buffered, defer: false)
+        p.title = "Mote"
+        p.isFloatingPanel = true
+        p.level = .floating
+        p.hidesOnDeactivate = false
+        p.becomesKeyOnlyIfNeeded = true
+        p.isReleasedWhenClosed = false
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        let title = NSTextField(labelWithString: "\(name) connected to Mote.")
+        title.font = .systemFont(ofSize: 13, weight: .semibold)
+        title.lineBreakMode = .byTruncatingTail
+        let sub = NSTextField(labelWithString: how)
+        sub.font = .systemFont(ofSize: 11)
+        sub.textColor = .secondaryLabelColor
+        let text = NSStackView(views: [title, sub])
+        text.orientation = .vertical
+        text.alignment = .leading
+        text.spacing = 2
+        let block = NSButton(title: "Block", target: self, action: #selector(blockNotice))
+        block.bezelStyle = .rounded
+        let row = NSStackView(views: [text, block])
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 12
+        row.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
+        text.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        block.setContentHuggingPriority(.required, for: .horizontal)
+        p.contentView = row
+        if let vf = NSScreen.main?.visibleFrame {
+            p.setFrameTopLeftPoint(NSPoint(x: vf.maxX - p.frame.width - 12, y: vf.maxY - 12))
+        }
+        p.orderFrontRegardless()
+        notice = p
+        noticeFp = fp
+        noticeGen += 1
+        let gen = noticeGen
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            guard let self, self.noticeGen == gen else { return }
+            self.notice?.close(); self.notice = nil; self.noticeFp = nil
+        }
+    }
+
+    @objc func blockNotice() {
+        if let fp = noticeFp { hub.instantPairing.block(fp) }
+        notice?.close(); notice = nil; noticeFp = nil
     }
 
     // MARK: pairing window
