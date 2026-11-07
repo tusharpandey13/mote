@@ -6,6 +6,7 @@ let app = NSApplication.shared
 app.setActivationPolicy(.accessory)   // menu-bar only (also LSUIElement in Info.plist)
 
 let hub = Hub(config: config)
+hub.labs.append(LabsContext(hub: hub))
 log("Mote Helper starting\(config.dryRun ? " (dry run)" : "") on \(Host.localName).local:\(config.port)")
 
 // Web root: --web-root, else the bundled copy of site/remote (+ design assets) in Resources/web.

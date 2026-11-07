@@ -108,6 +108,15 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         _ = add("Paired devices: \(hub.store.devices.count)")
         menu.addItem(.separator())
 
+        let labItems = hub.labs.flatMap { $0.menuItems() }
+        if !labItems.isEmpty {
+            let sub = NSMenu()
+            labItems.forEach(sub.addItem)
+            let l = NSMenuItem(title: "Labs", action: nil, keyEquivalent: "")
+            l.submenu = sub
+            menu.addItem(l)
+            menu.addItem(.separator())
+        }
         _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
         _ = add("Revoke all devices…", #selector(revokeAll))
         _ = add("Launch at login", #selector(toggleLogin), state: SMAppService.mainApp.status == .enabled)

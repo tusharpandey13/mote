@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import Foundation
 
@@ -11,6 +12,8 @@ final class Hub {
     let injector: Injector
     let spaces: Spaces
     private(set) var sessions: [Session] = []
+    /// Labs (preview) modules, registered in main.swift; each owns `labs.*` message prefixes and a Labs menu section.
+    var labs: [LabsModule] = []
     private var macroGen = 0
     private(set) var macroRunning = false
     var onChange: (() -> Void)?
@@ -125,6 +128,14 @@ final class Hub {
     }
 }
 
+/// A Labs (preview) feature: handles messages starting with one of [prefixes] (authenticated sessions
+/// only; the module applies pause / Accessibility itself) and adds items to the menu's Labs submenu.
+protocol LabsModule: AnyObject {
+    var prefixes: [String] { get }
+    func handle(_ t: String, _ m: [String: Any], from s: Session)
+    func menuItems() -> [NSMenuItem]
+}
+
 /// One client connection on either transport. Speaks the protocol; never injects before `authed`.
 final class Session {
     let transport: String          // "Wi-Fi" | "BLE"
@@ -211,6 +222,7 @@ final class Session {
                 return
             }
             if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
+            if t.hasPrefix("labs."), let mod = hub.labs.first(where: { $0.prefixes.contains(where: t.hasPrefix) }) { mod.handle(t, m, from: self); return }
             do { try hub.input(m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
         }
     }
