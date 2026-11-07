@@ -413,3 +413,42 @@ All values below are also in `docs/design/tokens.json` → `components`. Every l
 - **Grain:** this revision keeps the halved grain and brushed alphas (plate .11/.15, plastic .08/.11, rubber .12/.15, metal .06/.08, glass .04/.06; brushed .32/.42) merged from the parallel tuning pass.
 
 - **Grain halved (0.3.1, on-device feedback "too much grain").** Grain alpha is half the table above in both themes (plate .11/.15, plastic .08/.11, rubber and wells .12/.15, metal .06/.08, glass .04/.06), and brushed alpha is about 30% lower (plate .32/.42, metal .42/.42). `tokens.json` holds the live values.
+
+## Revision 7 decisions (2026-11)
+
+Exact recipes are in `docs/design/tokens.json` (`components.dpad.joystick`, `materials.metalCap` / `metalCapPlay`, `components.wordmark.lit` / `flicker`, `components.spacesCarousel.displayIndicator`). Layouts were checked for overlap at 412x915dp.
+
+- **D-pad with a mouse joystick (#68).**
+  - **Size and arrows:** the D-pad grows to 236dp; the cluster still fits between the 56dp levers with 14dp gaps. The arrow ring is thinner (radius 72-110) and still sends arrow keys.
+  - **Stick structure:** the centre is a 360° spring-back thumbstick, 45dp radius with 18dp travel. It has a concave rubber dish with a dot-grip texture and an engraved pointer legend, and sits in a brushed-metal gate ring (63-68) around a recessed well.
+  - **Direction glow:** an LED arc on the gate follows the deflection: sweep 30° + 60°·d, alpha d.
+  - **Pressed (click):** the stick sinks 1.5dp, scales to 0.96 and inverts its bevel; the gate ring lights fully; the legend follows the cap.
+  - **Interaction:**
+    - Speed: 12% deadzone, curve v = vMax·((d−dz)/(1−dz))^1.8, with vMax = 1800 host px/s, sent at 120 Hz.
+    - Tap (under 200ms and under 4dp of movement) = left click.
+    - Long-press 450ms = right click (suggested).
+    - An `EDGE` haptic fires at d ≥ 0.98 and re-arms below 0.90.
+    - Spring back: stiffness 800, damping 0.7.
+  - The `dpad-press` artboard now shows rest, deflected and pressed.
+  - Return/Enter is no longer on the D-pad; see the open question.
+- **Spaces follow the active display (#69).**
+  - With the helper, the carousel header shows a display chip (icon + name + ▾, which opens a list of displays). When the Mac has two or more displays it also shows one dot per display, with the active one lit.
+  - When the active display changes, the old cards fade out (120ms), the new ones fade in (200ms), and the row jumps to the current card.
+  - Over Bluetooth the indicator is hidden, because there is only one generic list.
+- **Lightbulb wordmark (#70).**
+  - **Layers when connected:**
+    - Light spill (an elliptical radial glow on the brushed plate behind the letters).
+    - Outer glow with falloff (three to four blur layers).
+    - Warm inner bloom.
+    - A warm-filament-to-LED-blue gradient core.
+    - A diagonal glass specular band.
+  - **Flicker:** a seeded mulberry32 schedule ("MOTE" seed). Events come every 4-15 s and dip brightness by 5-20%, with a 30ms fall and an 80ms recovery. 30% of events are double flickers, the second at 60% depth.
+    - Glow and spill scale with brightness; the core dims only 40% as much.
+    - It is off under reduced motion.
+  - `design/mote-v1/flicker.js` is the reference implementation, and the app must port it exactly.
+- **Transport in brushed metal (#71).**
+  - **Prev/next:** brushed-metal caps from the slider-thumb family, with embossed (raised) glyphs: a highlight on the top edge and a shade on the bottom edge.
+  - **Play/pause:** the same family with a spun finish (concentric 2dp rings plus a turned sweep sheen), a deeper 2dp bevel and a lathe groove ring.
+  - **Dark theme:** uses a darker titanium gradient.
+  - All three keep the shared 96dp height and baseline (#67).
+  - The glass material is retired from the transport.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates design/mote-v1/*.html (rev 5: light default; media.html is the dark variant). Static HTML is the artifact; this only removes chrome duplication."""
+"""Generates design/mote-v1/*.html (rev 7: light default; media.html is the dark variant). Static HTML is the artifact; this only removes chrome duplication."""
 import sys, pathlib
 OUT = pathlib.Path(sys.argv[1])
 
@@ -18,6 +18,7 @@ def page(title, body, css="", dark=False):
 <body>
 {body}
 <script src="icons.js"></script>
+<script src="flicker.js"></script>
 </body>
 </html>
 """
@@ -25,10 +26,16 @@ def page(title, body, css="", dark=False):
 STATUS = '<div class="statusbar" data-dc-id="statusbar"><span>9:41</span><span class="sys"><i data-i="wifiBars" class="i16"></i><i data-i="battery" class="i20"></i></span></div>'
 
 # Wordmark (debossed Unbounded Black) sits right; the menu is a small engraved glyph beside it.
+def wordmark(mark):
+    if mark == "lit":
+        return ('<span class="wordmark lit bulb" data-dc-id="wordmark"><span class="wm-spill" data-dc-id="wordmark-spill"></span>'
+                '<span class="wm-glow" aria-hidden="true">MOTE</span><span class="wm-core">MOTE</span><span class="wm-spec" aria-hidden="true">MOTE</span></span>')
+    return f'<span class="wordmark {mark}" data-dc-id="wordmark">MOTE</span>'
+
 def brand(state="connected"):
     mark = {"connected": "lit", "searching": "pulse", "pairing": "", "off": ""}[state]
     return f"""<div class="brand" data-dc-id="brand">
-      <span class="wordmark {mark}" data-dc-id="wordmark">MOTE</span>
+      {wordmark(mark)}
       <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
     </div>"""
 BRAND = brand("connected")
@@ -69,26 +76,77 @@ def screen(inner, on, state="connected", overlay=""):
 </div>"""
 
 # ---------------------------------------------------------------- media
-DPAD_ARM = 'M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z'
-TRI = 'M104 27l7 9.5h-14z'
-def dpad(pressed=False):
+import math
+C = 118                       # centre of the 236dp D-pad
+def _pt(r, deg):
+    a = math.radians(deg - 90)
+    return C + r * math.cos(a), C + r * math.sin(a)
+def _arc(r, a0, a1):
+    x0, y0 = _pt(r, a0); x1, y1 = _pt(r, a1)
+    return f"M{x0:.2f} {y0:.2f}A{r} {r} 0 {1 if (a1 - a0) > 180 else 0} 1 {x1:.2f} {y1:.2f}"
+def _sector(r0, r1, a0, a1):
+    p0 = _pt(r1, a0); p1 = _pt(r1, a1); p2 = _pt(r0, a1); p3 = _pt(r0, a0)
+    return (f"M{p0[0]:.2f} {p0[1]:.2f}A{r1} {r1} 0 0 1 {p1[0]:.2f} {p1[1]:.2f}"
+            f"L{p2[0]:.2f} {p2[1]:.2f}A{r0} {r0} 0 0 0 {p3[0]:.2f} {p3[1]:.2f}Z")
+ARM_R0, ARM_R1 = 72, 110      # thinner arrow ring (38dp)
+GATE_R, WELL_R, STICK_R = 68, 63, 45
+TRAVEL = WELL_R - STICK_R     # 18dp max deflection
+POINTER = 'M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z'
+
+def dpad(state="rest", angle=45, d=0.7):
+    """state: rest | deflect | pressed. angle: deflection bearing (deg, 0 = up), d: 0..1 of TRAVEL."""
+    arm = _sector(ARM_R0, ARM_R1, -45, 45)
+    tri = f"M{C} {C - 91 - 5}l7 9.5h-14z"
     arms = "".join(
         '<g data-dc-id="dpad-%s"%s><path class="arm" d="%s"/><path class="tri" d="%s"/></g>'
-        % (n, (' transform="rotate(%d 104 104)"' % r) if r else "", DPAD_ARM, TRI)
+        % (n, (f' transform="rotate({r} {C} {C})"') if r else "", arm, tri)
         for n, r in [("up", 0), ("right", 90), ("down", 180), ("left", 270)])
-    grain = ('<filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/>'
-             '<feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter>'
-             '<clipPath id="cdisc"><circle cx="104" cy="104" r="96"/></clipPath><clipPath id="ccap"><circle cx="104" cy="104" r="35"/></clipPath>')
-    return f"""<div class="dpad-wrap" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
-        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient><linearGradient id="bevp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.30"/><stop offset=".4" style="stop-color:#000;stop-opacity:0"/><stop offset=".75" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.55"/></linearGradient>{grain}</defs>
-        <circle class="housing" cx="104" cy="104" r="99"/>
-        <circle class="contact" cx="104" cy="110" r="92"/>
-        <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
-        <rect class="grain" x="8" y="8" width="192" height="192" filter="url(#gr)" clip-path="url(#cdisc)" opacity=".5"/>
-        <circle class="bevel" cx="104" cy="104" r="95.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
+    divs = "".join('<line class="div" x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f"/>' % (*_pt(ARM_R0 + 3, a), *_pt(ARM_R1 - 5, a)) for a in (45, 135, 225, 315))
+    dx = dy = 0.0; glow = ""
+    if state == "deflect":
+        dx = TRAVEL * d * math.sin(math.radians(angle)); dy = -TRAVEL * d * math.cos(math.radians(angle))
+        sweep = 30 + 60 * d
+        path = _arc(GATE_R - 2.5, angle - sweep / 2, angle + sweep / 2)
+        glow = f'<g data-dc-id="dpad-stick-glow" opacity="{d:.2f}"><path class="glow-arc soft" d="{path}" filter="url(#glowblur)"/><path class="glow-arc" d="{path}"/></g>'
+    elif state == "pressed":
+        glow = f'<g data-dc-id="dpad-stick-glow" opacity=".7"><circle class="glow-arc soft" cx="{C}" cy="{C}" r="{GATE_R - 2.5}" filter="url(#glowblur)"/><circle class="glow-arc" cx="{C}" cy="{C}" r="{GATE_R - 2.5}"/></g>'
+    press = f' transform="translate({C} {C + 1.5}) scale(.96) translate({-C} {-C})"' if state == "pressed" else ""
+    sx, sy = C + dx, C + dy
+    return f"""<div class="dpad-wrap js" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 236 236" data-dc-id="dpad">
+        <defs>
+          <linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient>
+          <linearGradient id="conc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-bot)"/><stop offset="1" style="stop-color:var(--rub-top)"/></linearGradient>
+          <radialGradient id="concshade" cx=".5" cy=".38" r=".62"><stop offset=".55" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></radialGradient>
+          <linearGradient id="gate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gate-0)"/><stop offset=".48" style="stop-color:var(--gate-1)"/><stop offset=".52" style="stop-color:var(--gate-2)"/><stop offset="1" style="stop-color:var(--gate-3)"/></linearGradient>
+          <linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient>
+          <linearGradient id="bevin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.45"/><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset=".8" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.5"/></linearGradient>
+          <pattern id="grip" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r=".85" style="fill:var(--lo)"/></pattern>
+          <filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter>
+          <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+          <filter id="glowblur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+          <clipPath id="cdisc"><circle cx="{C}" cy="{C}" r="110"/></clipPath>
+          <clipPath id="cstick"><circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - 7}"/></clipPath>
+        </defs>
+        <circle class="housing" cx="{C}" cy="{C}" r="113"/>
+        <circle class="contact" cx="{C}" cy="{C + 6}" r="106"/>
+        <circle class="disc" cx="{C}" cy="{C}" r="110" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
+        <rect class="grain" x="8" y="8" width="220" height="220" filter="url(#gr)" clip-path="url(#cdisc)" opacity=".5"/>
+        <circle class="bevel" cx="{C}" cy="{C}" r="109.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
         {arms}
-        <g><line class="div" x1="73" y1="73" x2="47" y2="47"/><line class="div" x1="135" y1="73" x2="161" y2="47"/><line class="div" x1="73" y1="135" x2="47" y2="161"/><line class="div" x1="135" y1="135" x2="161" y2="161"/></g>
-        <circle class="ring" cx="104" cy="104" r="42"/><g data-dc-id="dpad-center" class="okcap{' is-pressed' if pressed else ''}"><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><rect class="grain" x="69" y="69" width="70" height="70" filter="url(#gr)" clip-path="url(#ccap)" opacity=".5"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#{'bevp' if pressed else 'bev'})"/><text class="ok" x="104" y="109.5" text-anchor="middle" data-dc-id="dpad-center-legend">OK</text></g>
+        <g>{divs}</g>
+        <g data-dc-id="dpad-stick-gate"><circle cx="{C}" cy="{C}" r="{GATE_R}" fill="url(#gate)"/><circle class="gate-hi" cx="{C}" cy="{C}" r="{GATE_R - .5}"/>
+          <circle cx="{C}" cy="{C}" r="{WELL_R}" style="fill:var(--well)"/><circle cx="{C}" cy="{C}" r="{WELL_R - 1}" fill="none" stroke="url(#bevin)" stroke-width="2"/></g>
+        {glow}
+        <g data-dc-id="dpad-center"{press}>
+          <circle class="stick-shadow" cx="{sx:.2f}" cy="{sy + 4:.2f}" r="{STICK_R}" filter="url(#soft)"/>
+          <circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R}" fill="url(#dpk)"/>
+          <circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - 6}" fill="url(#conc)"/>
+          <circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - 6}" fill="url(#concshade)"/>
+          <rect x="{sx - STICK_R:.2f}" y="{sy - STICK_R:.2f}" width="{2 * STICK_R}" height="{2 * STICK_R}" fill="url(#grip)" clip-path="url(#cstick)" opacity=".9"/>
+          <circle class="bevel" cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - .75}" stroke="url(#{'bevin' if state == 'pressed' else 'bev'})"/>
+          <circle cx="{sx:.2f}" cy="{sy:.2f}" r="{STICK_R - 6}" fill="none" stroke="url(#bevin)" stroke-width="1.2"/>
+          <g data-dc-id="dpad-center-legend" transform="translate({sx - 9.5:.2f} {sy - 11:.2f}) scale(.85)"><path class="legend-engr" d="{POINTER}" style="stroke:var(--hi)" transform="translate(0 1)"/><path class="legend-engr" d="{POINTER}" style="stroke:var(--on-surface-muted)"/></g>
+        </g>
       </svg></div>"""
 
 MEDIA_CSS = """
@@ -103,9 +161,9 @@ MEDIA_CSS = """
   .sec-row { margin-top: auto; padding-top: 12px; }
   .sec-row .pair.small .cap { height: 64px; border-radius: 17px; color: var(--on-surface) !important; }
   .sec-row .pair.small { border-radius: 22px; }
-  .cluster { position: relative; height: 252px; margin-top: 14px; align-items: start; display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; }
+  .cluster { position: relative; height: 252px; margin-top: 14px; align-items: start; display: grid; grid-template-columns: 56px 236px 56px; justify-content: space-between; }
   .cluster .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .cluster .dpad-wrap { margin-top: 12px; }
+  .cluster .dpad-wrap { margin-top: 0; }
   .transport { margin-top: 14px; grid-template-columns: 76px 1fr 76px !important; }
   .transport .glass.sm, .transport .glass.play { height: 96px; border-radius: 24px; }
   .cluster .slider { height: 232px; }
@@ -180,9 +238,9 @@ def media_inner(offline=False):
     </div>
 
     <div class="channel well transport{live}" data-dc-id="transport">
-      <div class="glass sm" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
-      <div class="glass play" data-dc-id="play-pause"><i data-i="playPause" class="i32"></i></div>
-      <div class="glass sm" data-dc-id="next"><i data-i="next" class="i28"></i></div>
+      <div class="mcap sm" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
+      <div class="mcap play" data-dc-id="play-pause"><span class="ring" data-dc-id="play-ring"></span><i data-i="playPause" class="i32"></i></div>
+      <div class="mcap sm" data-dc-id="next"><i data-i="next" class="i28"></i></div>
     </div>
   </main>"""
 
@@ -650,19 +708,24 @@ def spaces_sheet():
       <div><b>Jump straight to a desktop.</b> On the Mac, turn on Switch to Desktop 1-9 in System Settings, Keyboard Shortcuts, Mission Control. Until then Mote steps with ⌃← and ⌃→.
         <div class="acts"><span class="raised">Done</span><span>Remind me later</span></div></div></div>
 
-    <div class="lvl"><span class="t-caps">With the Mote helper</span><span class="t-caps">thumbnails</span></div>
+    <div class="lvl"><span class="t-caps">With the Mote helper</span><span class="disp" data-dc-id="spaces-display"><span class="disp-dots" data-dc-id="spaces-display-dots"><span class="on"></span><span></span></span><span class="disp-chip raised" data-dc-id="spaces-display-chip"><i data-i="laptop" class="i16"></i>Built-in<i data-i="chevDown" class="i16"></i></span></span></div>
     {carousel("spaces-helper", "helper")}
-    <p class="t-body-s subtle" style="margin-top:8px" data-dc-id="spaces-helper-note">The helper saves a picture of each desktop when you visit it. It needs Screen Recording permission on the Mac.</p>
+    <p class="t-body-s subtle" style="margin-top:8px" data-dc-id="spaces-helper-note">Each display has its own desktops. The row follows the display you're using; tap the chip to pick another. The helper saves a picture of each desktop when you visit it (needs Screen Recording permission).</p>
   </section>"""
 
 def dpad_press_page():
-    body = f"""<div class="screen" style="height:300px;grid-template-rows:1fr;padding:20px 0" data-dc-id="screen">
-  <div style="display:flex;justify-content:space-around;align-items:center" data-dc-id="dpad-press-compare">
-    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;transform:scale(.88)"><div data-dc-id="dpad-rest">{dpad()}</div><span class="t-caps subtle">Rest</span></div>
-    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;transform:scale(.88)"><div data-dc-id="dpad-pressed">{dpad(pressed=True)}</div><span class="t-caps subtle">OK pressed: legend moves with cap</span></div>
+    def cell(dc, label, html):
+        return (f'<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:200px">'
+                f'<div style="width:236px;height:236px;transform:scale(.8);margin:-24px" data-dc-id="{dc}">{html}</div>'
+                f'<span class="t-caps subtle" style="text-align:center">{label}</span></div>')
+    body = f"""<div class="screen" style="height:560px;grid-template-rows:1fr;padding:16px 0" data-dc-id="screen">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-around;align-content:space-around;row-gap:18px" data-dc-id="dpad-press-compare">
+    {cell("dpad-rest", "Rest", dpad())}
+    {cell("dpad-deflected", "Stick deflected 70% up-right: glow arc follows", dpad("deflect", 45, .7))}
+    {cell("dpad-pressed", "Stick pressed (click): legend moves with cap", dpad("pressed"))}
   </div>
 </div>"""
-    return page("D-pad press", body)
+    return page("D-pad joystick", body)
 
 # ---------------------------------------------------------------- write
 files = {

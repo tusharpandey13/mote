@@ -16,9 +16,9 @@
   .sec-row { margin-top: auto; padding-top: 12px; }
   .sec-row .pair.small .cap { height: 64px; border-radius: 17px; color: var(--on-surface) !important; }
   .sec-row .pair.small { border-radius: 22px; }
-  .cluster { position: relative; height: 252px; margin-top: 14px; align-items: start; display: grid; grid-template-columns: 56px 208px 56px; justify-content: space-between; }
+  .cluster { position: relative; height: 252px; margin-top: 14px; align-items: start; display: grid; grid-template-columns: 56px 236px 56px; justify-content: space-between; }
   .cluster .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .cluster .dpad-wrap { margin-top: 12px; }
+  .cluster .dpad-wrap { margin-top: 0; }
   .transport { margin-top: 14px; grid-template-columns: 76px 1fr 76px !important; }
   .transport .glass.sm, .transport .glass.play { height: 96px; border-radius: 24px; }
   .cluster .slider { height: 232px; }
@@ -40,7 +40,7 @@
       <i data-i="chevDown" class="i20 chev" data-dc-id="pill-chevron"></i>
     </div>
     <div class="brand" data-dc-id="brand">
-      <span class="wordmark lit" data-dc-id="wordmark">MOTE</span>
+      <span class="wordmark lit bulb" data-dc-id="wordmark"><span class="wm-spill" data-dc-id="wordmark-spill"></span><span class="wm-glow" aria-hidden="true">MOTE</span><span class="wm-core">MOTE</span><span class="wm-spec" aria-hidden="true">MOTE</span></span>
       <div class="icon-btn" data-dc-id="menu"><i data-i="more" class="i20"></i></div>
     </div>
   </header>
@@ -72,16 +72,41 @@
         </div>
         <span class="engrave" data-dc-id="scroll-lever-label">Scroll</span>
       </div>
-      <div class="dpad-wrap" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 208 208" data-dc-id="dpad">
-        <defs><linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient><linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient><linearGradient id="bevp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.30"/><stop offset=".4" style="stop-color:#000;stop-opacity:0"/><stop offset=".75" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.55"/></linearGradient><filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter><clipPath id="cdisc"><circle cx="104" cy="104" r="96"/></clipPath><clipPath id="ccap"><circle cx="104" cy="104" r="35"/></clipPath></defs>
-        <circle class="housing" cx="104" cy="104" r="99"/>
-        <circle class="contact" cx="104" cy="110" r="92"/>
-        <circle class="disc" cx="104" cy="104" r="96" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
-        <rect class="grain" x="8" y="8" width="192" height="192" filter="url(#gr)" clip-path="url(#cdisc)" opacity=".5"/>
-        <circle class="bevel" cx="104" cy="104" r="95.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
-        <g data-dc-id="dpad-up"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g><g data-dc-id="dpad-right" transform="rotate(90 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g><g data-dc-id="dpad-down" transform="rotate(180 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g><g data-dc-id="dpad-left" transform="rotate(270 104 104)"><path class="arm" d="M30.46 30.46A104 104 0 0 1 177.54 30.46L132.28 75.72A40 40 0 0 0 75.72 75.72Z"/><path class="tri" d="M104 27l7 9.5h-14z"/></g>
-        <g><line class="div" x1="73" y1="73" x2="47" y2="47"/><line class="div" x1="135" y1="73" x2="161" y2="47"/><line class="div" x1="73" y1="135" x2="47" y2="161"/><line class="div" x1="135" y1="135" x2="161" y2="161"/></g>
-        <circle class="ring" cx="104" cy="104" r="42"/><g data-dc-id="dpad-center" class="okcap"><circle class="cap" cx="104" cy="104" r="35" fill="url(#dpk)"/><rect class="grain" x="69" y="69" width="70" height="70" filter="url(#gr)" clip-path="url(#ccap)" opacity=".5"/><circle class="bevel" cx="104" cy="104" r="34.25" stroke="url(#bev)"/><text class="ok" x="104" y="109.5" text-anchor="middle" data-dc-id="dpad-center-legend">OK</text></g>
+      <div class="dpad-wrap js" data-dc-id="dpad-bezel"><svg class="dpad" viewBox="0 0 236 236" data-dc-id="dpad">
+        <defs>
+          <linearGradient id="dpk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-top)"/><stop offset="1" style="stop-color:var(--rub-bot)"/></linearGradient>
+          <linearGradient id="conc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rub-bot)"/><stop offset="1" style="stop-color:var(--rub-top)"/></linearGradient>
+          <radialGradient id="concshade" cx=".5" cy=".38" r=".62"><stop offset=".55" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></radialGradient>
+          <linearGradient id="gate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gate-0)"/><stop offset=".48" style="stop-color:var(--gate-1)"/><stop offset=".52" style="stop-color:var(--gate-2)"/><stop offset="1" style="stop-color:var(--gate-3)"/></linearGradient>
+          <linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#fff;stop-opacity:.9"/><stop offset=".35" style="stop-color:#fff;stop-opacity:0"/><stop offset=".7" style="stop-color:#000;stop-opacity:0"/><stop offset="1" style="stop-color:#000;stop-opacity:.22"/></linearGradient>
+          <linearGradient id="bevin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:#000;stop-opacity:.45"/><stop offset=".45" style="stop-color:#000;stop-opacity:0"/><stop offset=".8" style="stop-color:#fff;stop-opacity:0"/><stop offset="1" style="stop-color:#fff;stop-opacity:.5"/></linearGradient>
+          <pattern id="grip" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r=".85" style="fill:var(--lo)"/></pattern>
+          <filter id="gr" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values=".8 .8 .8 0 -.7 .8 .8 .8 0 -.7 .8 .8 .8 0 -.7 0 0 0 0 .9"/></filter>
+          <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+          <filter id="glowblur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+          <clipPath id="cdisc"><circle cx="118" cy="118" r="110"/></clipPath>
+          <clipPath id="cstick"><circle cx="118.00" cy="118.00" r="38"/></clipPath>
+        </defs>
+        <circle class="housing" cx="118" cy="118" r="113"/>
+        <circle class="contact" cx="118" cy="124" r="106"/>
+        <circle class="disc" cx="118" cy="118" r="110" fill="url(#dpk)" data-dc-id="dpad-rubber"/>
+        <rect class="grain" x="8" y="8" width="220" height="220" filter="url(#gr)" clip-path="url(#cdisc)" opacity=".5"/>
+        <circle class="bevel" cx="118" cy="118" r="109.25" stroke="url(#bev)" data-dc-id="dpad-bevel"/>
+        <g data-dc-id="dpad-up"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L168.91 67.09A72 72 0 0 0 67.09 67.09Z"/><path class="tri" d="M118 22l7 9.5h-14z"/></g><g data-dc-id="dpad-right" transform="rotate(90 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L168.91 67.09A72 72 0 0 0 67.09 67.09Z"/><path class="tri" d="M118 22l7 9.5h-14z"/></g><g data-dc-id="dpad-down" transform="rotate(180 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L168.91 67.09A72 72 0 0 0 67.09 67.09Z"/><path class="tri" d="M118 22l7 9.5h-14z"/></g><g data-dc-id="dpad-left" transform="rotate(270 118 118)"><path class="arm" d="M40.22 40.22A110 110 0 0 1 195.78 40.22L168.91 67.09A72 72 0 0 0 67.09 67.09Z"/><path class="tri" d="M118 22l7 9.5h-14z"/></g>
+        <g><line class="div" x1="171.0" y1="65.0" x2="192.2" y2="43.8"/><line class="div" x1="171.0" y1="171.0" x2="192.2" y2="192.2"/><line class="div" x1="65.0" y1="171.0" x2="43.8" y2="192.2"/><line class="div" x1="65.0" y1="65.0" x2="43.8" y2="43.8"/></g>
+        <g data-dc-id="dpad-stick-gate"><circle cx="118" cy="118" r="68" fill="url(#gate)"/><circle class="gate-hi" cx="118" cy="118" r="67.5"/>
+          <circle cx="118" cy="118" r="63" style="fill:var(--well)"/><circle cx="118" cy="118" r="62" fill="none" stroke="url(#bevin)" stroke-width="2"/></g>
+        
+        <g data-dc-id="dpad-center">
+          <circle class="stick-shadow" cx="118.00" cy="122.00" r="45" filter="url(#soft)"/>
+          <circle cx="118.00" cy="118.00" r="45" fill="url(#dpk)"/>
+          <circle cx="118.00" cy="118.00" r="39" fill="url(#conc)"/>
+          <circle cx="118.00" cy="118.00" r="39" fill="url(#concshade)"/>
+          <rect x="73.00" y="73.00" width="90" height="90" fill="url(#grip)" clip-path="url(#cstick)" opacity=".9"/>
+          <circle class="bevel" cx="118.00" cy="118.00" r="44.25" stroke="url(#bev)"/>
+          <circle cx="118.00" cy="118.00" r="39" fill="none" stroke="url(#bevin)" stroke-width="1.2"/>
+          <g data-dc-id="dpad-center-legend" transform="translate(108.50 107.00) scale(.85)"><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--hi)" transform="translate(0 1)"/><path class="legend-engr" d="M6 3.8l12.4 6.9c.6.33.5 1.22-.15 1.42l-5.1 1.55a1 1 0 0 0-.62.53l-2.3 4.85c-.3.62-1.2.55-1.4-.1z" style="stroke:var(--on-surface-muted)"/></g>
+        </g>
       </svg></div>
       <div class="col">
         <div class="slider well vol" data-dc-id="volume-group">
@@ -95,9 +120,9 @@
     </div>
 
     <div class="channel well transport" data-dc-id="transport">
-      <div class="glass sm" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
-      <div class="glass play" data-dc-id="play-pause"><i data-i="playPause" class="i32"></i></div>
-      <div class="glass sm" data-dc-id="next"><i data-i="next" class="i28"></i></div>
+      <div class="mcap sm" data-dc-id="prev"><i data-i="prev" class="i28"></i></div>
+      <div class="mcap play" data-dc-id="play-pause"><span class="ring" data-dc-id="play-ring"></span><i data-i="playPause" class="i32"></i></div>
+      <div class="mcap sm" data-dc-id="next"><i data-i="next" class="i28"></i></div>
     </div>
   </main>
   <nav class="rail" data-dc-id="mode-rail">
@@ -124,5 +149,6 @@
   </section>
 </div>
 <script src="icons.js"></script>
+<script src="flicker.js"></script>
 </body>
 </html>

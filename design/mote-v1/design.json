@@ -54,10 +54,10 @@
     },
     {
       "id": "dpad-press",
-      "title": "1 D-pad OK press (legend follows cap)",
+      "title": "1 D-pad joystick states (rest, deflected, pressed)",
       "file": "dpad-press.html",
       "width": 412,
-      "height": 300,
+      "height": 560,
       "group": "media"
     },
     {

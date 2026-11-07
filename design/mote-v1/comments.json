@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextNumber": 68,
+  "nextNumber": 72,
   "comments": [
     {
       "id": "c-512cf5e39358",
@@ -1609,6 +1609,102 @@
       "sentAt": 1793982810156,
       "resolvedAt": 1793982985857,
       "resolution": "Prev, play/pause and next are all 96dp tall on one baseline; prev/next 76dp wide, play fills the rest."
+    },
+    {
+      "id": "c-8b4ab38000ee",
+      "number": 68,
+      "body": "possible to replace this ok button with a bigger mouse joystick control? kind of like the snapback scroll bars, but this works 360 degrees and controls mouse, and tapping it does a click?\nthe surrounding buttons can be made narrower and the overall middle component size can be increased if possible.",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "dpad-center",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > svg:nth-of-type(1) > g:nth-of-type(6)",
+        "tag": "g",
+        "text": "OK",
+        "html": "<g data-dc-id=\"dpad-center\" class=\"okcap\"><circle class=\"cap\" cx=\"104\" cy=\"104\" r=\"35\" fill=\"url(#dpk)\"></circle><rect class=\"grain\" x=\"69\" y=\"69\" width=\"70\" height=\"70\" filter=\"url(#gr)\" clip-path=\"url(#ccap)\" opacity=\".5\"></rect><circle class=\"bevel\" cx=\"104\" cy=\"104\" r=\"34.25\" stroke=\"url(#bev)\"></circle><text class=\"ok\" x=\"104\" y=\"109.5\" text-anchor=\"middle\" data-dc-id=\"dpad-center-legend\">OK</text></g>",
+        "rect": {
+          "x": 170.99874877929688,
+          "y": 498.0204772949219,
+          "width": 69.99967193603516,
+          "height": 69.9996566772461
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1794048437414,
+      "sentAt": 1794048596478,
+      "resolvedAt": 1794048928545,
+      "resolution": "OK centre replaced by a 360° spring-back mouse joystick: rubber top in a metal gate, an LED arc following deflection, tap = click, long-press = right click. Thinner arrow ring, D-pad enlarged to 236dp; tokens in components.dpad.joystick."
+    },
+    {
+      "id": "c-5c2a532168ed",
+      "number": 69,
+      "body": "this does not update when active monitor of the mac changes (monitors have differnt number of active desktops)",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "fav-next-space",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(3)",
+        "tag": "div",
+        "text": "1 Desktop 1 2 Desktop 2 3 Desktop 3 4 Desktop 4 5 Desktop 5 6 Desktop 6",
+        "html": "<div class=\"carousel well\" data-dc-id=\"fav-next-space\">\n        <div class=\"rowc\"><div class=\"scard raised\" data-dc-id=\"fav-next-space-card-1\"><span class=\"num\">1</span><span class=\"nm\">Desktop 1</span></div><div class=\"scard current raised\" data-dc-id=\"fav-next-space-card-2\"><span class=\"cur-dot\"></span><span class=\"num\">2</span><span class=\"nm\">Desktop 2</span></div><div class=\"scard raised\" data-dc-id=\"fav-next-space-card-3\"><span class=\"num\">3</span><span class=\"nm\">Desktop 3</span></div><div class=\"scard raised\" data-dc-id=\"fav-next-space-card-4\"><span class=\"num\">4</span><span class=\"nm\">Desktop 4</span></div><div class=\"scard raised\" data-dc-id=\"fav-next-space-card-5\"><span class=\"num\">5</span><span class=\"nm\">Desktop 5</span></div><div class=\"scard raised\" data-dc-id=\"fav-next-space-card-6\"><span class=\"num\">6</span><span class=\"nm\">Desktop 6</span></div></div>\n        <span class=\"fade-r\"></span>\n      </div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 151.9644775390625,
+          "width": 380.00390625,
+          "height": 83.99838256835938
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1794048470113,
+      "sentAt": 1794048596478,
+      "resolvedAt": 1794048928545,
+      "resolution": "Design: the carousel header gets an active-display chip (name + ▾ switcher) and per-display dots; cards crossfade when the active display changes; hidden over Bluetooth. The helper data fix is in progress."
+    },
+    {
+      "id": "c-4ab486df9ff3",
+      "number": 70,
+      "body": "can we have a simple effect similar to a periodically randomly flickering lightbulb, when conn. is active ? also, can it be made to look more like the light is realistic?",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "wordmark",
+        "path": "body > div:nth-of-type(1) > header:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(1)",
+        "tag": "span",
+        "text": "MOTE",
+        "html": "<span class=\"wordmark lit\" data-dc-id=\"wordmark\">MOTE</span>",
+        "rect": {
+          "x": 276.33599853515625,
+          "y": 49.49471664428711,
+          "width": 83.67031860351562,
+          "height": 20.996030807495117
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1794048541846,
+      "sentAt": 1794048596478,
+      "resolvedAt": 1794048928545,
+      "resolution": "Lightbulb wordmark: filament core, bloom, falloff glow, glass streak and light spill; seeded random micro-flicker every 4–15s, off under reduced motion; reference flicker.js plus tokens."
+    },
+    {
+      "id": "c-f74c17fcf38c",
+      "number": 71,
+      "body": "can these be redesigned to match the overall look of the app : brushed metal, with embossed type",
+      "anchor": {
+        "artboardId": "media",
+        "dcId": "transport",
+        "path": "body > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(3)",
+        "tag": "div",
+        "text": "",
+        "html": "<div class=\"channel well transport\" data-dc-id=\"transport\">\n      <div class=\"glass sm\" data-dc-id=\"prev\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"currentColor\" d=\"M19 7v10c0 .8-.9 1.27-1.56.82L10.3 12.8a1 1 0 0 1 0-1.64l7.14-5c.66-.45 1.56.03 1.56.83z\"></path><rect fill=\"currentColor\" x=\"5.2\" y=\"6\" width=\"2.4\" height=\"12\" rx=\"1.2\"></rect></svg></div>\n      <div class=\"glass play\" data-dc-id=\"play-pause\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i32\"><path fill=\"currentColor\" d=\"M3.5 6.2v11.6c0 .7.76 1.13 1.36.77l8.9-5.8a.92.92 0 0 0 0-1.54l-8.9-5.8c-.6-.36-1.36.07-1.36.77z\"></path><rect fill=\"currentColor\" x=\"15\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect><rect fill=\"currentColor\" x=\"19\" y=\"5.5\" width=\"2.4\" height=\"13\" rx=\"1.2\"></rect></svg></div>\n      <div class=\"glass sm\" data-dc-id=\"next\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i28\"><path fill=\"currentColor\" d=\"M5 7v10c0 .8.9 1.27 1.56.82l7.14-5.02a1 1 0 0 0 0-1.64l-7.14-5C5.9 5.71 5 6.19 5 7z\"></path><rect fill=\"currentColor\" x=\"16.4\" y=\"6\" width=\"2.4\" height=\"12\" rx=\"1.2\"></rect></svg></div>\n    </div>",
+        "rect": {
+          "x": 15.996635437011719,
+          "y": 683.0199584960938,
+          "width": 380.00390625,
+          "height": 111.98358154296875
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1794048587516,
+      "sentAt": 1794048596478,
+      "resolvedAt": 1794048928545,
+      "resolution": "Transport redesigned as brushed-metal caps with embossed glyphs; play/pause in spun metal with concentric rings; same 96dp height and baseline; glass retired."
     }
   ]
 }

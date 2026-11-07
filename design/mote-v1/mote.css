@@ -560,3 +560,67 @@ svg.i.i16 { width: 16px; height: 16px; }
 .okcap.is-pressed .ok { fill: var(--on-surface-muted); }
 .screen:not(.land) { grid-template-columns: minmax(0, 1fr); }
 .content, .carousel { min-width: 0; }
+
+/* =====================================================================
+   Revision 7: joystick D-pad, brushed-metal transport with embossed glyphs,
+   lightbulb wordmark, display indicator. Mirrors tokens.json rev7 entries.
+   ===================================================================== */
+:root { --gate-0: #FDFDFE; --gate-1: #D4D7DC; --gate-2: #BFC3C9; --gate-3: #E6E8EB;
+        --emboss-fill: #6E737B; --emboss-hi: rgba(255,255,255,.95); --emboss-lo: rgba(20,28,40,.45); }
+.dark { --gate-0: #C9CDD3; --gate-1: #8C9198; --gate-2: #6F747C; --gate-3: #A3A8AF;
+        --emboss-fill: #2E3137; --emboss-hi: rgba(255,255,255,.45); --emboss-lo: rgba(0,0,0,.70); }
+
+/* D-pad with joystick: 236dp */
+.dpad-wrap.js { width: 236px; height: 236px; }
+.dpad-wrap.js .dpad { width: 236px; height: 236px; }
+.dpad .stick-shadow { fill: var(--dshadow); }
+.dpad .gate-hi { fill: none; stroke: var(--hi); stroke-width: 1; }
+.dpad .glow-arc { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+.dpad .glow-arc.soft { stroke-width: 8; opacity: .45; }
+.dpad .legend-engr { fill: none; stroke-width: 1.6; stroke-linejoin: round; }
+
+/* brushed-metal transport caps, embossed glyphs */
+.mcap { position: relative; display: grid; place-items: center; height: 96px; border-radius: 24px; color: var(--emboss-fill);
+  background: var(--g-metal), var(--sheen-metal), var(--b-metal), var(--metal);
+  background-blend-mode: overlay, normal, overlay, normal;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(0,0,0,.25), 0 0 0 1px var(--metal-edge), 0 3px 4px var(--dshadow), 0 10px 16px -8px var(--dshadow); }
+/* raised emboss = highlight on the top edge, shade on the bottom edge (opposite of engrave) */
+.mcap svg { filter: drop-shadow(0 1px 0 var(--emboss-lo)) drop-shadow(0 -1px 0 var(--emboss-hi)); }
+.mcap.play { box-shadow: inset 0 2px 0 rgba(255,255,255,.9), inset 0 -2px 1px rgba(0,0,0,.28), 0 0 0 1px var(--metal-edge), 0 4px 5px var(--dshadow), 0 12px 18px -8px var(--dshadow);
+  background: repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.05) 1px 2px), var(--g-metal),
+    conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,.30), rgba(255,255,255,0) 12%, rgba(255,255,255,.25) 25%, rgba(255,255,255,0) 37%, rgba(255,255,255,.30) 50%, rgba(255,255,255,0) 62%, rgba(255,255,255,.25) 75%, rgba(255,255,255,0) 87%, rgba(255,255,255,.30)),
+    var(--metal);
+  background-blend-mode: overlay, overlay, normal, normal; }
+.mcap.play .ring { position: absolute; inset: 7px; border-radius: 18px; box-shadow: inset 0 1px 1px rgba(0,0,0,.22), inset 0 -1px 0 rgba(255,255,255,.7); pointer-events: none; }
+.dark .mcap.play .ring { box-shadow: inset 0 1px 1px rgba(0,0,0,.55), inset 0 -1px 0 rgba(255,255,255,.18); }
+
+/* lightbulb wordmark */
+.wordmark.bulb { position: relative; display: inline-block; color: transparent; text-shadow: none; }
+.wordmark.bulb .wm-spill { position: absolute; left: -34px; right: -34px; top: -22px; bottom: -22px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(64,160,255,.22), rgba(64,160,255,.08) 55%, rgba(64,160,255,0)); pointer-events: none; }
+.dark .wordmark.bulb .wm-spill { background: radial-gradient(closest-side, rgba(108,196,255,.26), rgba(108,196,255,.09) 55%, rgba(108,196,255,0)); }
+.wordmark.bulb .wm-glow { position: absolute; inset: 0; color: transparent;
+  text-shadow: 0 0 2px rgba(255,236,210,.95), 0 0 6px rgba(120,190,255,.85), 0 0 14px rgba(64,160,255,.55), 0 0 30px rgba(64,160,255,.30); }
+.dark .wordmark.bulb .wm-glow { text-shadow: 0 0 2px rgba(255,240,220,1), 0 0 6px rgba(140,205,255,.95), 0 0 16px rgba(108,196,255,.65), 0 0 34px rgba(108,196,255,.38); }
+.wordmark.bulb .wm-core { position: relative; background: linear-gradient(180deg, #CBE8FF 0%, #FFF3E2 45%, #FFE9CF 55%, #7CC6FF 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.wordmark.bulb .wm-spec { position: absolute; inset: 0; background: linear-gradient(165deg, rgba(255,255,255,0) 32%, rgba(255,255,255,.7) 44%, rgba(255,255,255,0) 54%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* display indicator (helper only) */
+.disp { display: inline-flex; align-items: center; gap: 8px; }
+.disp-chip { height: 26px; padding: 0 8px 0 7px; border-radius: 9px; display: inline-flex; align-items: center; gap: 5px; font: 600 12px/1 var(--font-ui); color: var(--on-surface); text-transform: none; letter-spacing: 0; }
+.disp-dots { display: inline-flex; gap: 5px; }
+.disp-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--on-surface-subtle); opacity: .5; }
+.disp-dots span.on { background: var(--accent); opacity: 1; box-shadow: 0 0 5px var(--accent-glow); }
+/* rev 7 tuning: readable bulb on silver; darker titanium transport in dark */
+:root { --metal-t: var(--metal); }
+.dark { --metal-t: linear-gradient(180deg, #8A8F97 0%, #5E636A 48%, #4C5056 52%, #70757C 100%); }
+.mcap { background: var(--g-metal), var(--sheen-metal), var(--b-metal), var(--metal-t); }
+.dark .mcap.play { background: repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.08) 0 1px, rgba(0,0,0,.08) 1px 2px), var(--g-metal),
+    conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,.22), rgba(255,255,255,0) 12%, rgba(255,255,255,.18) 25%, rgba(255,255,255,0) 37%, rgba(255,255,255,.22) 50%, rgba(255,255,255,0) 62%, rgba(255,255,255,.18) 75%, rgba(255,255,255,0) 87%, rgba(255,255,255,.22)), var(--metal-t);
+  background-blend-mode: overlay, overlay, normal, normal; }
+.dark { --emboss-fill: #2A2D32; }
+.wordmark.bulb .wm-core { background: linear-gradient(180deg, #3D9BF0 0%, #BFE3FF 40%, #FFF1DC 50%, #BFE3FF 60%, #2F8BE0 100%); -webkit-background-clip: text; background-clip: text; }
+.dark .wordmark.bulb .wm-core { background: linear-gradient(180deg, #9ED6FF 0%, #E6F5FF 40%, #FFF3E2 50%, #E6F5FF 60%, #7CC6FF 100%); -webkit-background-clip: text; background-clip: text; }
+.wordmark.bulb .wm-glow { text-shadow: 0 0 1px rgba(20,60,110,.55), 0 0 3px rgba(255,236,210,.9), 0 0 7px rgba(64,160,255,.8), 0 0 16px rgba(64,160,255,.5), 0 0 32px rgba(64,160,255,.28); }
