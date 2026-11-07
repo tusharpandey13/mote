@@ -24,7 +24,9 @@ final class WebServer {
         params.prohibitedInterfaceTypes = [.cellular]
         let l = try NWListener(using: params, on: NWEndpoint.Port(rawValue: hub.config.port)!)
         // TXT: id = stable hostId (match saved hosts without connecting), v = protocol major.
-        if hub.config.bonjour {
+        if hub.config.noBonjour && hub.config.dryRun {
+            log("wifi: bonjour off (--no-bonjour)")   // chaos: stands in for a network that blocks multicast
+        } else {
             l.service = NWListener.Service(name: Host.computerName, type: "_mote._tcp", domain: nil,
                                            txtRecord: NWTXTRecord(["id": hub.settings.hostId, "v": "1"]))
         }

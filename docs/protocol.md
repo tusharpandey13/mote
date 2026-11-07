@@ -237,4 +237,6 @@ Test-only flags: `--port 0` binds any free port (the log line `wifi: listening o
 
 `--fake-spaces N[,M...]` (honoured only with `--dry-run`) simulates one display per number (ids `fake-1`, `fake-2`, ..., names `Fake Display 1`, ...) with that many desktops (current 1, active display `fake-1`), generated solid-colour thumbnails and no Screen Recording permission, so tests never capture the real screen; `spaces.goto` then also switches the fake current desktop (and, on another display, makes it active, as the cursor warp would). With `--stdin-control`, `display N` makes fake display N active and pushes `spaces`.
 
+Chaos-only seams (dry-run): `--no-bonjour` (no `_mote._tcp` advertisement, stands in for a network that blocks multicast), stdin `tailscale on|off` (the menu toggle) and `displays N,M,...` (a simulated display hot-plug for `--fake-spaces`). See `chaos/RUBRIC.md`.
+
 `--dry-run` logs every input (`DRY key usage=80 mods=1 ...`) instead of posting events, so tests never type into the session. `--memory-store` keeps paired devices out of the Keychain; `--keychain-service NAME` uses a separate Keychain item.

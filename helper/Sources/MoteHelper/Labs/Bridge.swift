@@ -49,7 +49,7 @@ final class Bridge {
         self.hub = hub
         self.options = options
         defaults = hub.config.memoryStore ? nil : UserDefaults.standard
-        store = DeviceStore(service: hub.config.keychainService + ".bridge", memoryOnly: hub.config.memoryStore)
+        store = DeviceStore(vault: hub.vault, path: \.bridge)
         pairing.onChange = { [weak self] in self?.changed() }
         if enabled { start() }
     }

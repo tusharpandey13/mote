@@ -5,6 +5,7 @@ import Foundation
 /// Owns the security state (devices, pairing, rate limits, pause) and every session. Main-queue only.
 final class Hub {
     let config: Config
+    let vault: Vault   // every secret, one Keychain item (Vault.swift)
     let store: DeviceStore
     let settings: Settings
     let pairing = Pairing()
@@ -36,7 +37,8 @@ final class Hub {
 
     init(config: Config) {
         self.config = config
-        self.store = DeviceStore(service: config.keychainService, memoryOnly: config.memoryStore)
+        self.vault = Vault(service: config.keychainService, memoryOnly: config.memoryStore)
+        self.store = DeviceStore(vault: vault, path: \.devices)
         self.settings = Settings(config: config)
         self.injector = Injector(dryRun: config.dryRun)
         self.spaces = Spaces(config: config, settings: settings, injector: injector)

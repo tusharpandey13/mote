@@ -2,11 +2,13 @@ import AppKit
 import CoreImage
 import ServiceManagement
 
-/// Menu-bar UI: status, pairing (code + QR window), URLs, clients, pause, revoke, launch at login, quit.
+/// Menu-bar UI. Default menu: status, devices, Pause input, Setup…, Quit. Everything else is under
+/// Advanced (network, Space thumbnails, code pairing, approval, login item) or Labs (previews).
 final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     private let hub: Hub
     private let web: WebServer?
-    private let ble: BLEServer?
+    var ble: BLEServer? { didSet { refresh() } }
+    var openSetup: (() -> Void)?
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var pairWindow: NSWindow?
 
@@ -65,10 +67,19 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             menu.addItem(i)
             return i
         }
-        let status = hub.paused ? "Paused: input is ignored" : !hub.inputReady ? "Needs Accessibility permission"
+        func sub(_ m: NSMenu, _ title: String, _ action: Selector? = nil, state: Bool? = nil, obj: Any? = nil) {
+            let i = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            i.target = self; i.representedObject = obj; i.isEnabled = action != nil
+            if let state { i.state = state ? .on : .off }
+            m.addItem(i)
+        }
+        func submenu(_ title: String, _ m: NSMenu) {
+            let i = NSMenuItem(title: title, action: nil, keyEquivalent: ""); i.submenu = m; menu.addItem(i)
+        }
+        let status = hub.paused ? "Paused: input is ignored" : !hub.inputReady ? "Needs Accessibility"
             : hub.config.dryRun ? "Ready (dry run: logging only)" : "Ready"
         _ = add("Mote Helper: \(status)")
-        if !hub.inputReady { _ = add("Grant Accessibility…", #selector(openAX)) }
+        if !hub.inputReady { _ = add("Finish setup…", #selector(showSetup)) }
         if hub.liveScreen.streaming {
             _ = add("● Sharing screen with \(hub.liveScreen.viewerName)")
             _ = add("Stop sharing screen", #selector(stopScreen))
@@ -82,93 +93,83 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             menu.addItem(.separator())
         }
 
-        _ = add("Wi-Fi remote: \(mdnsURL)", #selector(copyURL(_:))).representedObject = mdnsURL
-        if let ip = ipURL { _ = add("     or \(ip)", #selector(copyURL(_:))).representedObject = ip }
-        _ = add("Allow Tailscale connections", #selector(toggleTailscale), state: hub.settings.allowTailscale)
-        if let ts = tailnetHost {
-            let u = "http://\(ts):\(port)"
-            _ = add("Tailscale: \(u)", #selector(copyURL(_:))).representedObject = u
-        } else if hub.settings.allowTailscale {
-            _ = add("Tailscale: not detected (is it running?)")
-        }
-        let cap = hub.spaces.captureStatus
-        if hub.config.dryRun && hub.config.fakeSpaces == nil {
-            _ = add("Space thumbnails: off (dry run)")
-        } else if cap == "unavailable" {
-            _ = add("Space thumbnails: need macOS 14")
-        } else if hub.spaces.permitted {
-            _ = add("Space thumbnails: allowed")
-        } else {
-            _ = add("Space thumbnails: grant…", #selector(grantScreenRecording))
-        }
-        _ = add("Share Space thumbnails", #selector(toggleShareThumbs), state: hub.settings.shareSpaceThumbnails)
-        _ = add("Clear Space thumbnails", #selector(clearThumbs))
-        _ = add("Wi-Fi: \(web?.status ?? "off")")
-        _ = add("Bluetooth: \(ble?.status ?? "off")")
-        menu.addItem(.separator())
-
         let clients = hub.authedSessions
-        _ = add(clients.isEmpty ? "No connected devices" : "Connected devices:")
+        _ = add(clients.isEmpty ? "No phone connected" : "Connected:")
         for s in clients { _ = add("   \(s.deviceName) · \(s.transport)") }
-        _ = add("Paired devices: \(hub.store.devices.count)")
+        // Devices: trusted phones (Block each), blocked phones (Unblock each), code-paired count, Revoke all.
         let ip = hub.instantPairing!
+        let devices = NSMenu()
         if ip.enabled {
-            let devices = NSMenu()   // trusted phones (Block each) and blocked phones (Unblock each)
-            func sub(_ title: String, _ action: Selector? = nil, fp: String? = nil) {
-                let i = NSMenuItem(title: title, action: action, keyEquivalent: "")
-                i.target = self; i.representedObject = fp; i.isEnabled = action != nil
-                devices.addItem(i)
-            }
-            sub(ip.trusted.isEmpty ? "No trusted phones" : "Trusted phones")
+            sub(devices, ip.trusted.isEmpty ? "No trusted phones" : "Trusted phones")
             for k in ip.trusted {
                 let via = k.via == "nearby" ? "Bluetooth proximity" : k.via == "tailscale" ? "Tailscale" : "approved"
-                sub("   \(k.name) · \(via)")
-                sub("      Block", #selector(blockDevice(_:)), fp: k.fp)
+                sub(devices, "   \(k.name) · \(via)")
+                sub(devices, "      Block", #selector(blockDevice(_:)), obj: k.fp)
             }
             if !ip.blocked.isEmpty {
                 devices.addItem(.separator())
-                sub("Blocked")
+                sub(devices, "Blocked")
                 for b in ip.blocked {
-                    sub("   \(b.name) · \(b.fp.prefix(4)) \(b.fp.dropFirst(4).prefix(4))")
-                    sub("      Unblock", #selector(unblockDevice(_:)), fp: b.fp)
+                    sub(devices, "   \(b.name) · \(b.fp.prefix(4)) \(b.fp.dropFirst(4).prefix(4))")
+                    sub(devices, "      Unblock", #selector(unblockDevice(_:)), obj: b.fp)
                 }
             }
-            let d = add("Trusted phones: \(ip.trustedCount)\(ip.blocked.isEmpty ? "" : " (\(ip.blocked.count) blocked)")")
-            d.isEnabled = true; d.submenu = devices
-            _ = add("This Mac's key: \(groupedFingerprint(ip.fp))")
-            _ = add("Require approval for new devices", #selector(toggleRequireApproval), state: ip.requireApproval)
+            devices.addItem(.separator())
         }
+        if !hub.store.devices.isEmpty { sub(devices, "Paired with a code: \(hub.store.devices.count)") }
+        sub(devices, "Revoke all devices…", #selector(revokeAll))
+        submenu("Devices (\(ip.enabled ? ip.trustedCount : hub.store.devices.count))\(ip.blocked.isEmpty ? "" : " · \(ip.blocked.count) blocked")", devices)
         menu.addItem(.separator())
 
+        _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
+        _ = add("Setup…", #selector(showSetup), key: ",")
+
+        let adv = NSMenu()   // off the default path
+        sub(adv, "Wi-Fi remote: \(mdnsURL)", #selector(copyURL(_:)), obj: mdnsURL)
+        if let ip = ipURL { sub(adv, "     or \(ip)", #selector(copyURL(_:)), obj: ip) }
+        sub(adv, "Wi-Fi: \(web?.status ?? "off")")
+        sub(adv, "Bluetooth: \(ble?.status ?? (PermProbe.bluetooth == .granted ? "off" : "not allowed yet (Setup…)"))")
+        sub(adv, "Allow Tailscale connections", #selector(toggleTailscale), state: hub.settings.allowTailscale)
+        if let ts = tailnetHost {
+            let u = "http://\(ts):\(port)"
+            sub(adv, "     Tailscale: \(u)", #selector(copyURL(_:)), obj: u)
+        } else if hub.settings.allowTailscale {
+            sub(adv, "     Tailscale: not detected (is it running?)")
+        }
+        adv.addItem(.separator())
+        let cap = hub.spaces.captureStatus
+        sub(adv, "Share Space thumbnails", #selector(toggleShareThumbs), state: hub.settings.shareSpaceThumbnails)
+        if hub.settings.shareSpaceThumbnails {
+            if hub.config.dryRun && hub.config.fakeSpaces == nil { sub(adv, "     off in a dry run") }
+            else if cap == "unavailable" { sub(adv, "     needs macOS 14") }
+            else if cap == "denied" { sub(adv, "     Allow Screen Recording…", #selector(grantScreenRecording)) }
+            sub(adv, "     Clear Space thumbnails", #selector(clearThumbs))
+        }
+        adv.addItem(.separator())
+        if ip.enabled {
+            sub(adv, "Require approval for new devices", #selector(toggleRequireApproval), state: ip.requireApproval)
+            sub(adv, "This Mac's key: \(groupedFingerprint(ip.fp))")
+        }
+        sub(adv, "Pair with code (web remote)…", #selector(startPairing))
+        sub(adv, "Open at login", #selector(toggleLogin), state: SMAppService.mainApp.status == .enabled)
+        submenu("Advanced", adv)
+
         let labs = NSMenu()   // Labs (previews, off by default)
-        let tvItem = NSMenuItem(title: "TV mode (preview)", action: #selector(toggleTvLab), keyEquivalent: "")
-        tvItem.target = self; tvItem.state = hub.tv.enabled ? .on : .off; labs.addItem(tvItem)
-        if hub.tv.on { let x = NSMenuItem(title: "Exit TV mode", action: #selector(exitTv), keyEquivalent: ""); x.target = self; labs.addItem(x) }
+        sub(labs, "TV mode (preview)", #selector(toggleTvLab), state: hub.tv.enabled)
+        if hub.tv.on { sub(labs, "Exit TV mode", #selector(exitTv)) }
         hub.labs.flatMap { $0.menuItems() }.forEach(labs.addItem)   // Labs modules (Context & now playing)
         if let b = labsBridge { labs.addItem(.separator()); addBridgeItems(to: labs, bridge: b) }
         // Labs › Live screen (docs/labs/live-screen.md)
-        for (title, action, state) in [("Live screen (preview)", #selector(toggleLiveScreen), hub.settings.labsLiveScreen),
-                                       ("Pause screen sharing", #selector(toggleScreenPause), hub.liveScreen.paused)] {
-            let i = NSMenuItem(title: title, action: action, keyEquivalent: ""); i.target = self; i.state = state ? .on : .off; labs.addItem(i)
-        }
-        let labsItem = NSMenuItem(title: "Labs", action: nil, keyEquivalent: ""); labsItem.submenu = labs; menu.addItem(labsItem)
-        let adv = NSMenu()   // off the default path: phones set up by instant pairing
-        let codeItem = NSMenuItem(title: "Pair with code (web remote)…", action: #selector(startPairing), keyEquivalent: "")
-        codeItem.target = self; adv.addItem(codeItem)
-        let advItem = NSMenuItem(title: "Advanced", action: nil, keyEquivalent: ""); advItem.submenu = adv; menu.addItem(advItem)
-        _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
-        _ = add("Revoke all devices…", #selector(revokeAll))
-        _ = add("Launch at login", #selector(toggleLogin), state: SMAppService.mainApp.status == .enabled)
+        sub(labs, "Live screen (preview)", #selector(toggleLiveScreen), state: hub.settings.labsLiveScreen)
+        if hub.settings.labsLiveScreen { sub(labs, "    Pause screen sharing", #selector(toggleScreenPause), state: hub.liveScreen.paused) }
+        submenu("Labs", labs)
         menu.addItem(.separator())
         _ = add("Quit Mote Helper", #selector(quit), key: "q")
     }
 
     // MARK: actions
 
-    @objc func openAX() {
-        _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-    }
+    @objc func showSetup() { openSetup?() }
 
     @objc func copyURL(_ sender: NSMenuItem) {
         guard let s = sender.representedObject as? String else { return }
@@ -184,7 +185,13 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     @objc func toggleRequireApproval() { hub.instantPairing.requireApproval.toggle() }
     @objc func toggleTvLab() { hub.tv.enabled.toggle() }
     @objc func exitTv() { hub.tv.exit() }
-    @objc func toggleShareThumbs() { hub.settings.shareSpaceThumbnails.toggle() }
+    @objc func toggleShareThumbs() { setShareThumbnails(!hub.settings.shareSpaceThumbnails) }
+
+    /// A click (menu or Setup window): turning thumbnails on is where Screen Recording is asked for.
+    func setShareThumbnails(_ on: Bool) {
+        hub.settings.shareSpaceThumbnails = on
+        if on { hub.spaces.requestPermission() }
+    }
     @objc func clearThumbs() { hub.spaces.clear() }
     @objc func toggleLiveScreen() {
         hub.settings.labsLiveScreen.toggle()
@@ -192,10 +199,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     }
     @objc func toggleScreenPause() { hub.liveScreen.paused.toggle() }
     @objc func stopScreen() { hub.liveScreen.stop("stop") }
-    @objc func grantScreenRecording() {
-        hub.spaces.requestPermission()
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
-    }
+    @objc func grantScreenRecording() { NSWorkspace.shared.open(Perm.screenRecording.settingsURL) }
     @objc func toggleTailscale() { hub.settings.allowTailscale.toggle(); refreshTailnet() }
 
     /// Re-reads the MagicDNS name in the background (Tailscale may start after the helper).

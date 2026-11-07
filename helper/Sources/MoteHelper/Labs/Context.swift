@@ -136,7 +136,6 @@ final class LabsContext: NSObject, LabsModule {
     private(set) var last: AppContext?
     private var tabCache: [String: (url: String?, title: String?)] = [:]
     private var automation: [String: String] = [:]
-    private var asked: Set<String> = []
     private var scriptBusy = false
     private var lastScript = Date.distantPast
     private var webAX: Set<pid_t> = []
@@ -156,7 +155,7 @@ final class LabsContext: NSObject, LabsModule {
         let fakeCtx = hub.config.dryRun && hub.config.fakeContext != nil
         let fakeNp = hub.config.dryRun && hub.config.fakeNowPlaying
         fake = fakeCtx
-        nowPlaying = NowPlaying(fake: fakeNp, dryRun: hub.config.dryRun)
+        nowPlaying = NowPlaying(fake: fakeNp, dryRun: hub.config.dryRun, reader: hub.config.dryRun ? hub.config.fakeNowPlayingReader : nil)
         super.init()
         if (hub.config.fakeContext != nil || hub.config.fakeNowPlaying) && !hub.config.dryRun { log("labs: --fake-context / --fake-nowplaying need --dry-run; ignoring them") }
         if fakeCtx || fakeNp { settings.enabled = true; log("labs: context & now playing on (fake\(fakeCtx ? " context" : "")\(fakeNp ? " now-playing" : ""))") }
@@ -265,16 +264,13 @@ final class LabsContext: NSObject, LabsModule {
         propose(c)
     }
 
-    /// Reads the active tab off the main queue, at most once a second. Asks for Automation lazily:
-    /// the first time a scriptable browser is in front while a phone listens.
+    /// Reads the active tab off the main queue, at most once a second. Never asks for Automation:
+    /// that only happens on a click (turning the lab on, "Allow … tabs", or the Setup window).
     private func readTab(_ bundle: String) {
         guard !scriptBusy, Date().timeIntervalSince(lastScript) > 1 else { return }
         scriptBusy = true
-        let ask = !asked.contains(bundle)
-        asked.insert(bundle)
         scriptQ.async { [weak self] in
-            var state = Browsers.automation(bundle, ask: false)
-            if state == "ask" && ask { state = Browsers.automation(bundle, ask: true) }
+            let state = Browsers.automation(bundle, ask: false)
             var url: String?, title: String?
             if state == "granted", let src = Browsers.tabScript(bundle), let script = NSAppleScript(source: src) {
                 var err: NSDictionary?
@@ -429,16 +425,23 @@ final class LabsContext: NSObject, LabsModule {
             switch b.state {
             case "granted": out.append(item("    \(b.name) tabs: allowed", nil))
             case "denied": out.append(item("    \(b.name) tabs: denied, open Settings…", #selector(openAutomation)))
-            default: out.append(item("    \(b.name) tabs: asks on first use", nil))
+            default: out.append(item("    Allow \(b.name) tabs…", #selector(askAutomation)))
             }
         } else {
-            out.append(item("    Browser tabs: asks when a browser is in front", nil))
+            out.append(item("    Browser tabs: bring a browser to the front, then allow it here", nil))
         }
         return out
     }
 
-    @objc private func toggleEnabled() {
-        settings.enabled.toggle()
+    @objc private func toggleEnabled() { setEnabled(!settings.enabled) }
+
+    var enabled: Bool { settings.enabled }
+
+    /// A click (menu or Setup window): turning it on asks the running browsers for Automation, in context.
+    func setEnabled(_ on: Bool) {
+        guard on != settings.enabled else { return }
+        settings.enabled = on
+        if on && !hub.config.dryRun { askAutomation() }
         log("labs: context & now playing \(settings.enabled ? "on" : "off")")
         if !settings.enabled { last = nil; pending = nil }
         updateRunning()
@@ -448,7 +451,22 @@ final class LabsContext: NSObject, LabsModule {
 
     @objc private func toggleFull() { settings.fullDetails.toggle(); broadcastCtx(); hub.onChange?() }
 
-    @objc private func openAutomation() {
+    /// Shows the macOS Automation prompt for every running scriptable browser not yet decided (user action only).
+    @objc func askAutomation() {
+        let bundles = NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier).filter(Browsers.scriptable)
+        if bundles.isEmpty || bundles.allSatisfy({ Browsers.automation($0, ask: false) == "denied" }) { openAutomation(); return }
+        scriptQ.async { [weak self] in
+            var got: [String: String] = [:]
+            for b in bundles { got[b] = Browsers.automation(b, ask: true) }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                for (b, st) in got { self.automation[b] = st }
+                self.hub.onChange?()
+            }
+        }
+    }
+
+    @objc func openAutomation() {
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
     }
 }
@@ -471,8 +489,11 @@ final class NowPlaying {
     private var failures: [Date] = []
     private var wanted = false
     private var fakeTimer: Timer?
+    private let reader: String?   // chaos (--fake-nowplaying-reader, dry-run only): stands in for perl + the dylib
+    /// A reader line longer than this is dropped (a reader that never sends a newline can't grow memory).
+    static let maxLine = 256 * 1024
 
-    init(fake: Bool, dryRun: Bool) { self.fake = fake; self.dryRun = dryRun }
+    init(fake: Bool, dryRun: Bool, reader: String? = nil) { self.fake = fake; self.dryRun = dryRun; self.reader = reader }
 
     var duration: Double? { (info?["duration"] as? NSNumber)?.doubleValue }
 
@@ -528,14 +549,19 @@ final class NowPlaying {
     private func launch() {
         guard wanted, proc == nil else { return }
         // Dry run never touches the real media session (MediaRemote seek would be real input); use --fake-nowplaying.
-        if dryRun { status = "unavailable"; log("labs: now-playing reader off in dry run"); onUpdate?(); return }
-        guard let r = resources(), FileManager.default.isExecutableFile(atPath: "/usr/bin/perl") else {
-            status = "unavailable"; log("labs: now-playing reader not bundled"); onUpdate?(); return
+        let p = Process()
+        if let reader {
+            p.executableURL = URL(fileURLWithPath: reader)
+        } else {
+            if dryRun { status = "unavailable"; log("labs: now-playing reader off in dry run"); onUpdate?(); return }
+            guard let r = resources(), FileManager.default.isExecutableFile(atPath: "/usr/bin/perl") else {
+                status = "unavailable"; log("labs: now-playing reader not bundled"); onUpdate?(); return
+            }
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+            p.arguments = [r.script, r.dylib]
         }
         status = "starting"
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
-        p.arguments = [r.script, r.dylib]
+        buf = Data()
         let out = Pipe(), inp = Pipe()
         p.standardOutput = out; p.standardInput = inp; p.standardError = FileHandle.nullDevice
         out.fileHandleForReading.readabilityHandler = { [weak self] h in
@@ -552,6 +578,7 @@ final class NowPlaying {
         while let nl = buf.firstIndex(of: 0x0A) {
             let line = buf.subdata(in: buf.startIndex..<nl)
             buf.removeSubrange(buf.startIndex...nl)
+            guard line.count <= Self.maxLine else { log("labs: now-playing line too long (\(line.count) B), dropped"); continue }
             guard let j = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any] else { continue }
             if let ok = j["ok"] as? Bool {
                 status = ok ? "mediaremote" : "unavailable"
@@ -563,6 +590,8 @@ final class NowPlaying {
                 onUpdate?()
             }
         }
+        // No newline yet and already over the cap: discard until the next newline.
+        if buf.count > Self.maxLine { log("labs: now-playing reader sent \(buf.count) B without a newline, dropped"); buf = Data() }
     }
 
     /// Booleans arrive as 0/1 from the adapter; keep the message small and typed.

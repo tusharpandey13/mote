@@ -152,6 +152,18 @@ async function multiDisplay(ok, opts) {
     ok((await a.req({ t: 'spaces.goto', i: 4, display: 'fake-2' }))?.code === 'bad', 'spaces multi: goto past fake-2\'s 3 desktops -> bad');
     ok((await a.req({ t: 'spaces.goto', i: 1, display: 'gone' }))?.code === 'notfound', 'spaces multi: goto on unknown display -> notfound');
     ok((await a.req({ t: 'spaces.goto', i: 1, display: [] }))?.code === 'bad', 'spaces multi: goto with non-string display -> bad');
+
+    // Regression (chaos `displays`): gotos sent while the previous one is still stepping. Every state
+    // change must be pushed (a silent refresh in goto swallowed it), and the arrow keys that are
+    // actually sent must add up to the last target (no overshoot from two key runs).
+    await new Promise((r) => setTimeout(r, 700));
+    const keys0 = log.length;
+    for (const i of [2, 6, 6]) { a.send(JSON.stringify({ t: 'spaces.goto', i, display: 'fake-1' })); await new Promise((r) => setTimeout(r, 15)); }
+    const g6 = await a.until((m) => m.t === 'spaces' && m.displays[0].current === 6, 2000);
+    ok(g6?.displays[0].current === 6, 'spaces multi: back-to-back gotos 2, 6, 6 push the final desktop 6');
+    await new Promise((r) => setTimeout(r, 900));
+    const net = log.slice(keys0).reduce((s, l) => s + (/DRY key usage=79 mods=1/.test(l) ? 1 : /DRY key usage=80 mods=1/.test(l) ? -1 : 0), 0);
+    ok(net === 1, `spaces multi: the arrow keys sent add up to 5 -> 6 (net ${net})`);
     a.close();
   } finally {
     proc.kill('SIGTERM');

@@ -5,9 +5,9 @@
 healthy() {
   local note=""
   launch; pause 2
-  alive || note="app not running after relaunch"
-  case "$(top_pkg)" in *"$PKG"*) ;; *) note="${note:+$note; }not resumed" ;; esac
-  local n; n=$(svc_count); [ "${n:-0}" -gt 1 ] && note="${note:+$note; }$n HidService records"
+  alive || note=$(tag S2 I10 "app not running after relaunch")
+  case "$(top_pkg)" in *"$PKG"*) ;; *) note=$(add "$note" "$(tag S2 I10 "not resumed")") ;; esac
+  local n; n=$(svc_count); [ "${n:-0}" -gt 1 ] && note=$(add "$note" "$(tag S2 I2 "$n HidService records")")
   echo "$note"
 }
 
@@ -90,24 +90,24 @@ lc_multiwindow() {
 lc_rtl() {
   mark
   sh_ cmd locale set-app-locales "$PKG" --locales ar >/dev/null 2>&1
-  launch; pause 2; shot rtl-ar-main
+  launch; ui_wait Mouse 20; shot rtl-ar-main # cold start under -gpu guest can show a black window for >2 s
   # open the menu sheet (top-right) and the mode rail tabs for layout screenshots
   local w h; read -r w h <<<"$(sh_ wm size | tr -d '\r' | awk -F'[ x]' '/Physical/{print $3, $4}')"
   for i in 1 2 3 4; do sh_ input tap $(( w * (2 * i - 1) / 8 )) $(( h - h / 20 )); pause 1; shot "rtl-ar-tab$i"; done
   # The remote mirrors physical controls: an RTL locale must not swap mouse L/R (or prev/next, vol -/+).
   local note="" l r
-  tap_rail Mouse; pause 1
+  local try; for try in 1 2 3; do tap_rail Mouse; ui_wait "Left button" 5 && break; done
   l=$(ui_x "Left button"); r=$(ui_x "Right button")
-  if [ -z "$l" ] || [ -z "$r" ]; then note="mouse buttons not found in RTL"
-  elif [ "$l" -gt "$r" ]; then note="RTL mirrors mouse buttons (Right left of Left)"; fi
+  if [ -z "$l" ] || [ -z "$r" ]; then note=$(tag S2 I8 "mouse buttons not found in RTL")
+  elif [ "$l" -gt "$r" ]; then note=$(tag S2 - "RTL mirrors mouse buttons (Right left of Left)"); fi
   sh_ cmd locale set-app-locales "$PKG" --locales "" >/dev/null 2>&1
-  local h; h=$(healthy); [ -n "$h" ] && note="${note:+$note; }$h"
+  note=$(add "$note" "$(healthy)")
   finish lifecycle-rtl "$note"
 }
 
 scenario_lifecycle() {
   for s in lc_bgfg lc_kill lc_forcestop_fgs lc_rotation lc_night lc_font_density lc_multiwindow lc_rtl; do
     over && { record "$s" SKIP 0 0 "budget exhausted"; continue; }
-    "$s"; restore_device
+    "$s"; settle "$s"
   done
 }

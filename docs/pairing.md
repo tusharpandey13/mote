@@ -8,7 +8,7 @@ Kill switch: helper `--no-instant-pairing` or `defaults write dev.mote.helper in
 
 ## 1. Keys and fingerprints
 
-- Both sides hold one long-lived **Ed25519** key pair. Helper: private key in the login Keychain (generic password, service `<keychain service>.labs`, account `identity`; `--memory-store`: a fresh key per run). Phone: Android Keystore Ed25519 key (API 33+, where the Keystore supports it), else a 32-byte seed AES-256-GCM-wrapped by a Keystore key in an app-private pref.
+- Both sides hold one long-lived **Ed25519** key pair. Helper: private key in the login Keychain, inside the helper's one secrets item (generic password, service `<keychain service>`, account `secrets`, a JSON blob with every helper secret; see helper/README.md; `--memory-store`: a fresh key per run). Phone: Android Keystore Ed25519 key (API 33+, where the Keystore supports it), else a 32-byte seed AES-256-GCM-wrapped by a Keystore key in an app-private pref.
 - `pub`: the 32-byte raw public key, lower-case hex (64 chars). `sig`: the 64-byte Ed25519 signature, hex (128 chars).
 - `fp` (fingerprint): first 16 bytes of SHA-256(raw public key), hex (32 chars).
 - Device id of a trusted phone on the helper: `k:` + its `fp`.
@@ -158,7 +158,7 @@ Proximity ≈ Bluetooth range (typically 10-30 m indoors, through walls). Instan
 | `--fake-proximity` | answer `{"t":"labs.pair.prox","dw":N}` (allowed before auth, `dw` -3...3) with `{"t":"labs.pair.prox","v":"<w>:<tk>","w":w}`, as if read over BLE |
 | `--require-approval` | Require approval on for this run |
 | `--fake-approve` / `--fake-approve-deny` | answer every approval prompt with Allow / Deny after 100 ms |
-| `--fake-tailscale-owner ID` | every peer (loopback included) is a tailnet node owned by `ID` (`self` = this Mac's owner) |
+| `--fake-tailscale-owner ID` | every peer (loopback included) is a tailnet node owned by `ID` (`self` = this Mac's owner; `timeout` = answers "not the same owner" after 3 s, like a hung CLI) |
 | `--no-instant-pairing` | turn instant pairing off |
 | `--stdin-control` + `block` / `unblock` | click Block for the most recent new device / Unblock the most recently blocked |
 | `--fake-bt-pair` / `--fake-bt-pair-fail REASON` | `bt.pair` goes searching → pairing → paired (`02:00:00:00:00:01`), or fails with REASON, without real Bluetooth |

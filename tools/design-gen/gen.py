@@ -1361,7 +1361,7 @@ def jD():
         branch("jD-b5", 3, "“Require approval for new devices” is on", [step("3b", "jD-b5s", "Mac setting", "", macs=[mac(desk(req), "jD-b5m0", items=mote_menubar_icon(True, True))]), step("3c", "jD-b5s2", "The Mac asks", "Phone: “Click Allow on MacBook Pro. It asks before trusting new devices.”", macs=[mac(approval, "jD-b5m", items=mote_menubar_icon(True))])]),
     ]
     return journey("journey-connect-next", "D. Connect: every branch (0.6.0)", "next",
-        "Proposed: one tap from the phone, nothing on the Mac. Discovery runs in parallel; the Mac only tells you it happened and lets you Block. From docs/labs/pairing.md and the in-flight connection branch.", steps, branches)
+        "Proposed: one tap from the phone, nothing on the Mac. Discovery runs in parallel; the Mac only tells you it happened and lets you Block. From docs/pairing.md and the in-flight connection branch.", steps, branches)
 
 def jE():
     rows2 = devrow("e-mbp", "laptop", "MacBook Pro", "Connected · Wi-Fi", badges("Wi-Fi", "BT", active="Wi-Fi"), sel=True) + devrow("e-mini", "desktop", "Mac mini", "Paired", badges("Wi-Fi"))
