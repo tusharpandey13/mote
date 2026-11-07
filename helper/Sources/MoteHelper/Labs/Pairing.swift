@@ -287,10 +287,9 @@ final class LabsPairing: NSObject {
 
     // MARK: menu
 
-    /// The menu's "Labs" submenu.
-    func menu() -> NSMenu {
-        let m = NSMenu()
-        let t = NSMenuItem(title: "Instant pairing", action: #selector(toggle), keyEquivalent: "")
+    /// Items for the menu's shared "Labs" submenu.
+    func addMenuItems(to m: NSMenu) {
+        let t = NSMenuItem(title: "Instant pairing (preview)", action: #selector(toggle), keyEquivalent: "")
         t.target = self
         t.state = enabled ? .on : .off
         m.addItem(t)
@@ -302,7 +301,6 @@ final class LabsPairing: NSObject {
             k.isEnabled = false
             m.addItem(k)
         }
-        return m
     }
 
     /// Turning it on also allows Tailscale peers and, once, turns on Launch at login (always discoverable).

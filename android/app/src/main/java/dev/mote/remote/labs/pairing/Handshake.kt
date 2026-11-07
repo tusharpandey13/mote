@@ -102,7 +102,7 @@ suspend fun labsHandshake(
         val wait = (machine.state as? PairState.Pending)?.let { (it.timeout + 10) * 1000L } ?: 8000L
         val m = withTimeoutOrNull(wait) { s.inbox.receive() } ?: throw HelperError("timeout", "No answer from the Mac")
         val st = when (m) {
-            is Msg.Other -> m.raw?.let(PairProto::parse)?.let(machine::onPair) ?: continue
+            is Msg.Other -> m.raw.takeIf { it.isNotEmpty() }?.let { org.json.JSONObject(it) }?.let(PairProto::parse)?.let(machine::onPair) ?: continue
             is Msg.Authed -> machine.onAuthed(m)
             is Msg.Err -> machine.onErr(m.code, m.msg)
             else -> continue

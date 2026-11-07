@@ -13,6 +13,7 @@ struct Config {
     var allowTailscale: Bool? = nil   // --allow-tailscale: force the toggle on for this run (tests)
     var webRoot: URL? = nil
     var stdinControl = false  // tests: read pair/revoke/pause/resume commands from stdin (needs --dry-run)
+    var labsTv = false        // --labs-tv: force Labs › TV mode on for this run (tests)
     var fakeSpaces: [Int]? = nil // tests: simulate displays with N,M,... Spaces and generated thumbnails (needs --dry-run)
     var labsPairing: Bool? = nil       // Labs: --labs-pairing forces "Instant pairing" on for this run (docs/labs/pairing.md)
     var fakeApprove: Bool? = nil       // tests: --fake-approve (Allow) / --fake-approve-deny (Deny) every prompt (needs --dry-run)
@@ -30,6 +31,7 @@ struct Config {
             case "--memory-store": c.memoryStore = true
             case "--allow-tailscale": c.allowTailscale = true
             case "--stdin-control": c.stdinControl = true
+            case "--labs-tv": c.labsTv = true
             case "--labs-pairing": c.labsPairing = true
             case "--fake-approve": c.fakeApprove = true
             case "--fake-approve-deny": c.fakeApprove = false
@@ -46,7 +48,7 @@ struct Config {
                 print("""
                 MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
-                           [--stdin-control] [--fake-spaces N[,M...]]   (tests, need --dry-run; port 0 = any free port)
+                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv]   (tests, need --dry-run; port 0 = any free port)
                            [--labs-pairing] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID]   (Labs; fakes need --dry-run)
                 """)
                 exit(0)

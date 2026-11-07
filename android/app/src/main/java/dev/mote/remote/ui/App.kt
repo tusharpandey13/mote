@@ -149,6 +149,7 @@ private fun Root(theme: ThemeChoice) {
     LaunchedEffect(bt) { Hid.envChanged() } // bond/ACL/adapter change or resume: fresh reconnect budget
     val settings = LocalSettings.current
     var page by rememberSaveable { mutableStateOf<MenuPage?>(null) }
+    val openTv = dev.mote.remote.labs.open.rememberOpenTv() // Labs: Open & TV mode (preview)
     val updateSettings: ((UiSettings) -> UiSettings) -> Unit = { f -> scope.launch { UiPrefs.update(ctx, f) } }
 
     val enableLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
@@ -228,6 +229,7 @@ private fun Root(theme: ThemeChoice) {
                 HostPill { deviceSheet = true }
                 Spacer(Modifier.weight(1f))
                 WordmarkText()
+                dev.mote.remote.labs.open.OpenEntry(openTv)
                 Box(
                     Modifier.size(44.dp).clickable(onClickLabel = "Menu") { menuSheet = true },
                     contentAlignment = Alignment.Center,
@@ -244,7 +246,7 @@ private fun Root(theme: ThemeChoice) {
                     },
                     label = "mode",
                 ) { m -> modeState.SaveableStateProvider(m.name) { when (m) {
-                    Mode.MEDIA -> MediaScreen(macros.filter { it.star }, runMacro, onEditFavourites = { mode = Mode.MACROS })
+                    Mode.MEDIA -> if (openTv.tvOn) dev.mote.remote.labs.open.TvRemotePanel(openTv) else MediaScreen(macros.filter { it.star }, runMacro, onEditFavourites = { mode = Mode.MACROS })
                     Mode.MOUSE -> MouseScreen(
                         banner = pointerBanner,
                         onBannerDone = { pointerBanner = false; mode = Mode.MACROS },
@@ -277,6 +279,7 @@ private fun Root(theme: ThemeChoice) {
             )
         }
         TailscalePrompt()
+        dev.mote.remote.labs.open.OpenTvSheet(openTv)
         dev.mote.remote.labs.pairing.InstantPairingHost() // Labs: "Connect to <Mac>?" sheet (flag off: nothing)
     }
 }

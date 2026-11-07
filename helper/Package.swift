@@ -17,6 +17,7 @@ let package = Package(
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("ServiceManagement"),
                 .linkedFramework("SystemConfiguration"),
+                .linkedFramework("WebKit"),
             ]
         )
     ]

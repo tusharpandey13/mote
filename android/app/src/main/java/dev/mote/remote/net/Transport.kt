@@ -61,6 +61,9 @@ interface Transport {
      * ⌃N / ⌃←⌃→ itself (`ui/BtSpaces`), since HID gets no Spaces feedback.
      */
     fun spacesGoto(index: Int, display: String? = null) {}
+
+    /** Labs (preview): send a raw `labs.*` JSON message to the helper. False when there is none (Bluetooth, not linked). */
+    fun sendLabs(json: String): Boolean = false
 }
 
 private val NO_SPACES: StateFlow<SpacesState?> = MutableStateFlow(null)

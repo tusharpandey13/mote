@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import { spacesChecks } from './spaces.mjs';
+import { labsChecks } from './labs.mjs';
 
 const [port, code, credFile = '/tmp/mote-cred.json'] = process.argv.slice(2);
 const url = `ws://127.0.0.1:${port}/ws`;
@@ -107,6 +108,9 @@ b.close();
 
 // --- Spaces (1.3): own helper with --dry-run --fake-spaces 4 (no permission, no real screen)
 await spacesChecks(ok, { tailnet });
+
+// --- Labs: Open… + TV mode (docs/labs/open-tv.md), own helpers in --dry-run
+await labsChecks(ok);
 
 // --- rate limit (last: it blocks this peer for 60 s)
 const d = await open(); await d.next();
