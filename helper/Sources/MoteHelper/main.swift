@@ -15,6 +15,7 @@ if let webRoot {
     web = WebServer(hub: hub, root: webRoot)
     do { try web?.start() } catch { log("wifi: failed to start: \(error)"); web = nil }
 }
+labsBridge = Bridge(hub: hub)
 let ble: BLEServer? = config.ble ? BLEServer(hub: hub) : nil
 
 var menu: MenuBar?
@@ -58,6 +59,7 @@ if config.stdinControl {
                     case "revoke": hub.revokeAll()
                     case "pause": hub.paused = true
                     case "resume": hub.paused = false
+                    case let c where c.hasPrefix("bridge "): labsBridge?.stdin(c)
                     case let c where c.hasPrefix("display "): hub.spaces.fakeActivate(Int(c.dropFirst(8)) ?? 0)
                     case let c: log("stdin-control: unknown command '\(c)'")
                     }

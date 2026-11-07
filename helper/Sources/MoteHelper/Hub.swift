@@ -69,6 +69,7 @@ final class Hub {
     func revokeAll() {
         store.revokeAll()
         spaces.clear()
+        labsBridge?.forget()
         for s in sessions where s.authed { s.revoke() }
         log("all devices revoked")
         onChange?()
@@ -211,6 +212,10 @@ final class Session {
                 return
             }
             if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
+            if t.hasPrefix("labs.video."), let b = labsBridge {   // Labs: video bridge (docs/labs/video-bridge.md)
+                do { try b.phone(t, m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
+                return
+            }
             do { try hub.input(m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
         }
     }
