@@ -61,7 +61,7 @@ private const val SITE = "tusharpandey13.github.io/mote"
  * secondary "no helper" path ([FIRST_RUN_ACTIONS]).
  */
 @Composable
-fun FindMacScreen(onBluetooth: () -> Unit) {
+fun FindMacScreen(onBluetooth: () -> Unit, onDone: () -> Unit = {}) {
     val c = LocalMote.current
     var address by remember { mutableStateOf(false) }
     Column(
@@ -74,8 +74,8 @@ fun FindMacScreen(onBluetooth: () -> Unit) {
         Text("New phone, or reinstalled Mote? Let's reconnect: tap Connect, nothing changes on the Mac.", style = T.small, color = c.subtle)
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(Modifier.fillMaxWidth().well(RoundedCornerShape(24.dp)).padding(vertical = 8.dp)) {
-                if (address) AddressConnect(onBack = { address = false }, onDone = {})
-                else FindMacPanel(onEnterAddress = { address = true }, onDone = {})
+                if (address) AddressConnect(onBack = { address = false }, onDone = onDone)
+                else FindMacPanel(onEnterAddress = { address = true }, onDone = onDone)
             }
         }
         for (a in FIRST_RUN_ACTIONS) if (a == FirstRunAction.USE_BLUETOOTH) SecondaryButton("Use Bluetooth instead (no helper)", onClick = onBluetooth)
@@ -95,13 +95,14 @@ fun FindMacPanel(onEnterAddress: () -> Unit, onDone: () -> Unit) {
     val found by finder.found.collectAsState()
     val running by finder.running.collectAsState()
     val onWifi by Net.onWifiFlow.collectAsState()
-    val saved by Net.saved.collectAsState()
+    // Macs saved before this card opened; the one being connected now stays (its Bluetooth step follows)
+    val savedBefore = remember { Net.saved.value.map { it.hostId }.toSet() }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var picked by remember { mutableStateOf<String?>(null) }
     DisposableEffect(Unit) { finder.start(); onDispose { finder.stop() } }
     LaunchedEffect(onWifi) { if (onWifi && !finder.running.value) finder.start() } // Wi-Fi came on: look again
     LaunchedEffect(Unit) { while (true) { delay(250); now = System.currentTimeMillis() } }
-    val fresh = found.filter { f -> saved.none { it.hostId == f.hostId } }
+    val fresh = found.filter { it.hostId !in savedBefore }
     val ui = findUi(if (finder.startedAt == 0L) 0 else now - finder.startedAt, onWifi, running, fresh)
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -213,7 +214,12 @@ fun pairFailure(e: Throwable, mac: String): String = when ((e as? HelperError)?.
     "helper-key" -> "That isn't the Mac it claims to be (its key doesn't match)."
     "timeout" -> "$mac didn't answer in time."
     "noroute" -> e.message ?: "No way to reach $mac."
-    null -> "Couldn't reach $mac. Is Mote Helper running, and the phone on the same Wi-Fi or Tailscale?"
+    null -> when (e) {
+        is java.net.ConnectException -> "$mac answered, but Mote Helper isn't running there. Open it from Applications on the Mac."
+        is java.net.SocketTimeoutException, is java.net.NoRouteToHostException -> "Couldn't reach $mac: no answer. Is it awake and on the same Wi-Fi (or Tailscale on)?"
+        is java.net.UnknownHostException -> "Couldn't find $mac's address. Same Wi-Fi, or Tailscale on?"
+        else -> "Couldn't connect to $mac (${e.javaClass.simpleName}: ${e.message}). Is Mote Helper running?"
+    }
     else -> e.message ?: "Couldn't connect to $mac."
 }
 
@@ -238,6 +244,7 @@ fun ConnectCard(m: FoundMac, onDone: () -> Unit) {
                 val linked = Net.saved.value.firstOrNull { it.hostId == m.hostId }?.btAddress != null
                 if (btOffer && !linked) Step.OfferBt(done.via) else Step.Done(done.via)
             } catch (e: Exception) {
+                android.util.Log.w("MotePair", "connect to ${m.name} failed", e)
                 if ((e as? HelperError)?.code == "far" && !InstantPairing.ble.ready() && Build.VERSION.SDK_INT >= 31) Step.NeedBluetooth
                 else Step.Error(pairFailure(e, m.name))
             }

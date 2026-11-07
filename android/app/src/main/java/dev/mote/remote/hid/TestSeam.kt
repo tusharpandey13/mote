@@ -23,4 +23,6 @@ object TestSeam {
     @Volatile var noBonjour: Boolean = false
     /** Discovery tests: the port the LAN sweep probes (a dry-run helper on the dev Mac), instead of 8790. */
     @Volatile var sweepPort: Int? = null
+    /** Discovery tests without real BLE: read the proximity token from a `--fake-proximity` dry-run helper over the WebSocket. */
+    @Volatile var fakeProximity: Boolean = false
 }

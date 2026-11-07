@@ -63,6 +63,15 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
         }
+        // A separate app instance for testing next to the installed one: own id, name, icon tint,
+        // data and Ed25519 key (the helper sees it as another phone). Debug-signed, debuggable.
+        create("dev") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "debug"
+        }
     }
 
     compileOptions {

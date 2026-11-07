@@ -81,9 +81,14 @@ fun sweepHosts(ip: String, prefix: Int): List<String> {
 }
 
 /** TCP connect with a timeout: true if something listens at [host]:[port]. */
-fun tcpOpen(host: String, port: Int, timeoutMs: Int, factory: SocketFactory = SocketFactory.getDefault()): Boolean = runCatching {
-    (factory.createSocket() as Socket).use { it.connect(InetSocketAddress(host, port), timeoutMs); true }
-}.getOrDefault(false)
+fun tcpOpen(host: String, port: Int, timeoutMs: Int, factory: SocketFactory = SocketFactory.getDefault()): Boolean = try {
+    factory.createSocket().use { it.connect(InetSocketAddress(host, port), timeoutMs); true }
+} catch (e: java.net.SocketTimeoutException) { false } catch (e: java.net.ConnectException) { false } catch (e: Exception) {
+    lastSweepError = e; false
+}
+
+/** The last unexpected sweep failure (not a timeout / refusal), for diagnostics: a systematic one means the sweep is broken. */
+@Volatile var lastSweepError: Exception? = null
 
 /**
  * Connects to TCP [port] on every host, [parallel] at a time, [timeoutMs] each, and emits the ones

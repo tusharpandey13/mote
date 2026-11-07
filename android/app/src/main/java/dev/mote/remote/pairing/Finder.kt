@@ -47,14 +47,15 @@ class Finder(context: Context, private val scope: CoroutineScope) {
     fun start() {
         if (job?.isActive == true) return
         startedAt = System.currentTimeMillis()
-        _running.value = true
-        scan.value = emptyList()
+        _running.value = true // earlier hits stay listed: a re-run (e.g. Wi-Fi came back) must not hide a Mac already shown
         InstantPairing.ble.start()
         if (!TestSeam.noBonjour) Net.discovery.start()
         job = scope.launch {
-            val a = launch { sweep() }
-            val b = launch { probeKnown() }
+            val a = launch { runCatching { sweep() }.onFailure { Log.w(TAG, "sweep failed", it) } }
+            val b = launch { runCatching { probeKnown() }.onFailure { Log.w(TAG, "known failed", it) } }
             withTimeoutOrNull(RUN_MS) { a.join(); b.join() } ?: run { a.cancel(); b.cancel() }
+            lastSweepError?.let { Log.w(TAG, "sweep error", it) }
+            Log.w(TAG, "run done in ${System.currentTimeMillis() - startedAt} ms: ${found.value.map { it.name to it.sources }}")
             _running.value = false
         }
     }
@@ -67,14 +68,19 @@ class Finder(context: Context, private val scope: CoroutineScope) {
     }
 
     private suspend fun sweep() {
-        val w = wifiAddr(app) ?: run { Log.i(TAG, "sweep: not on Wi-Fi"); return }
+        val w = wifiAddr(app) ?: run { Log.w(TAG, "sweep: not on Wi-Fi"); return }
+        Log.w(TAG, "sweep: ${w.ip}/${w.prefix}")
         val port = TestSeam.sweepPort ?: Proto.DEFAULT_PORT
-        val http = Net.http.newBuilder().socketFactory(w.network.socketFactory).build()
+        val sockets = WifiSocketFactory(w.network)
+        val http = Net.http.newBuilder().socketFactory(sockets).build()
         val t0 = System.currentTimeMillis()
-        lanSweep(sweepHosts(w.ip, w.prefix), port) { h, p, t -> tcpOpen(h, p, t, w.network.socketFactory) }.collect { addr ->
+        var opened = 0
+        lanSweep(sweepHosts(w.ip, w.prefix), port) { h, p, t -> tcpOpen(h, p, t, sockets) }.collect { addr ->
+            opened++
+            Log.w(TAG, "sweep: $addr:$port open after ${System.currentTimeMillis() - t0} ms")
             scope.launch {
-                val p = probeHelper(http, addr, port) ?: return@launch
-                Log.i(TAG, "sweep: ${p.name} at $addr in ${System.currentTimeMillis() - t0} ms")
+                val p = probeHelper(http, addr, port) ?: run { Log.w(TAG, "sweep: $addr is not a Mote Helper"); return@launch }
+                Log.w(TAG, "sweep: ${p.name} at $addr in ${System.currentTimeMillis() - t0} ms")
                 scan.value = scan.value.filterNot { it.address == addr } + p
             }
         }
@@ -114,3 +120,21 @@ fun wifiAddr(c: Context): WifiAddr? = runCatching {
         WifiAddr(la.address.hostAddress ?: return@firstNotNullOfOrNull null, la.prefixLength, n)
     }
 }.getOrNull()
+
+/**
+ * Sockets bound to [network] (the Wi-Fi) when Android allows it, else unbound. 0.6.0 used
+ * `Network.socketFactory`: with the Tailscale VPN on, every bind fails with EPERM, so every sweep
+ * connect failed at once and a Mac on the same Wi-Fi was "not found" (Nothing Phone 2, Android 16).
+ */
+class WifiSocketFactory(private val network: Network) : javax.net.SocketFactory() {
+    // Under a VPN that doesn't allow bypass (Tailscale), binding to the Wi-Fi fails with EPERM; the
+    // default route then still reaches the LAN (Tailscale doesn't route it), so fall back to it.
+    private fun bound(): java.net.Socket = java.net.Socket().also { s -> runCatching { network.bindSocket(s) } }
+    override fun createSocket(): java.net.Socket = bound()
+    override fun createSocket(host: String, port: Int): java.net.Socket = bound().apply { connect(java.net.InetSocketAddress(host, port)) }
+    override fun createSocket(host: String, port: Int, localHost: java.net.InetAddress, localPort: Int): java.net.Socket =
+        bound().apply { bind(java.net.InetSocketAddress(localHost, localPort)); connect(java.net.InetSocketAddress(host, port)) }
+    override fun createSocket(host: java.net.InetAddress, port: Int): java.net.Socket = bound().apply { connect(java.net.InetSocketAddress(host, port)) }
+    override fun createSocket(address: java.net.InetAddress, port: Int, localAddress: java.net.InetAddress, localPort: Int): java.net.Socket =
+        bound().apply { bind(java.net.InetSocketAddress(localAddress, localPort)); connect(java.net.InetSocketAddress(address, port)) }
+}
