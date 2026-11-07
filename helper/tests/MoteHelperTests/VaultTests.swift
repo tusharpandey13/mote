@@ -50,12 +50,15 @@ struct VaultTests {
         #expect(v2.secrets == v.secrets)
     }
 
-    @Test func freshInstallWritesNothingUntilAChange() {
+    @Test func freshInstallWritesBlobOnceSoLaterLaunchesNeverRetryMigration() {
         let b = FakeBackend()
         let v = Vault(service: svc, memoryOnly: false, backend: b)
-        #expect(b.items.isEmpty && b.writes == 0)
-        v.update { $0.identity = Data([1, 2, 3]) }
         #expect(b.items.count == 1 && b.writes == 1)
+        let readsAfterFirst = b.reads
+        _ = Vault(service: svc, memoryOnly: false, backend: b)
+        #expect(b.reads == readsAfterFirst + 1)   // only the blob is read; no legacy reads, so no prompts
+        v.update { $0.identity = Data([1, 2, 3]) }
+        #expect(b.items.count == 1 && b.writes == 2)
         #expect(Vault(service: svc, memoryOnly: false, backend: b).secrets.identity == Data([1, 2, 3]))
     }
 

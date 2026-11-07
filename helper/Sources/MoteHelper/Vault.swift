@@ -43,6 +43,8 @@ struct KeychainBackend: SecretBackend {
 
     func read(service: String, account: String) throws -> Data? {
         var q = query(service, account)
+        // Never show Keychain UI: items whose ACL doesn't match this signature fail instead of prompting.
+        q[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
@@ -53,7 +55,8 @@ struct KeychainBackend: SecretBackend {
     }
 
     func write(service: String, account: String, data: Data, label: String) -> Bool {
-        var st = SecItemUpdate(query(service, account) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        var uq = query(service, account); uq[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+        var st = SecItemUpdate(uq as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if st == errSecItemNotFound {
             var add = query(service, account)
             add[kSecValueData as String] = data
@@ -69,7 +72,7 @@ struct KeychainBackend: SecretBackend {
 
 /// Owner of `Secrets`. `memoryOnly` (--memory-store, tests) never touches the Keychain.
 final class Vault {
-    static let account = "secrets"
+    static let account = "secrets.v2"   // v1 "secrets" may carry an ad-hoc-build ACL; never prompt for it
     private(set) var secrets = Secrets()
     private let service: String
     private let backend: SecretBackend?
@@ -77,7 +80,7 @@ final class Vault {
     /// Pre-0.6 layout: five items over three services. Migrated into the blob once, then deleted.
     static func legacyItems(_ service: String) -> [(service: String, account: String)] {
         [(service, "devices"), (service + ".bridge", "devices"),
-         (service + ".labs", "trusted"), (service + ".labs", "blocked"), (service + ".labs", "identity")]
+         (service + ".labs", "trusted"), (service + ".labs", "blocked"), (service + ".labs", "identity"), (service, "secrets")]
     }
 
     init(service: String, memoryOnly: Bool, backend: SecretBackend = KeychainBackend()) {
@@ -118,10 +121,12 @@ final class Vault {
                 s.blocked = (try? JSONDecoder().decode([LabsBlockedKey].self, from: data))
                     ?? ((try? JSONDecoder().decode([String].self, from: data)) ?? []).map { LabsBlockedKey(fp: $0, name: "Phone") }
             case (_, true, "identity"): s.identity = data
+            case (false, false, "secrets"): if let v1 = try? Vault.decoder.decode(Secrets.self, from: data) { s = v1 }
             default: break
             }
         }
-        guard !moved.isEmpty else { return }   // fresh install: nothing to write until something changes
+        // Always write the blob, even when nothing could be migrated: otherwise the next launch finds no blob,
+        // retries the legacy reads, and macOS prompts again on every launch.
         secrets = s
         if save() {
             for (svc, acc) in moved { b.delete(service: svc, account: acc) }
