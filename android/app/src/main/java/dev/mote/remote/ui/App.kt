@@ -232,6 +232,7 @@ private fun Root(theme: ThemeChoice) {
                 MenuPage.SETTINGS -> SettingsPage(onBack = { page = null }, update = updateSettings)
                 MenuPage.HAPTICS -> HapticsPage(onBack = { page = null }, update = updateSettings)
                 MenuPage.ABOUT -> AboutPage(onBack = { page = null })
+                MenuPage.SCREEN -> dev.mote.remote.labs.screen.LiveScreenPage(onBack = { page = null })
             }
           } else {
             CappedFontScale { Row(

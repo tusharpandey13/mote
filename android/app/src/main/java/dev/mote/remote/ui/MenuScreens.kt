@@ -37,7 +37,7 @@ import dev.mote.remote.ui.theme.MIcon
 import dev.mote.remote.ui.theme.well
 
 /** Full-screen pages opened from the menu sheet. */
-enum class MenuPage { SETTINGS, HAPTICS, ABOUT }
+enum class MenuPage { SETTINGS, HAPTICS, ABOUT, SCREEN }
 
 @Composable
 fun appVersion(): String {
@@ -78,6 +78,9 @@ fun MenuSheet(
         MenuRow("devices", "Manage devices", devicesSummary, onDevices)
         MenuRow("haptic", "Haptics", s.hapticStrength.label) { onPage(MenuPage.HAPTICS) }
         MenuRow("gear", "Settings", "Pointer speed, scrolling, keyboard") { onPage(MenuPage.SETTINGS) }
+        if (dev.mote.remote.labs.screen.liveScreenOn()) {
+            MenuRow("laptop", "Screen (preview)", "See the Mac's screen, tap to click") { onPage(MenuPage.SCREEN) }
+        }
         MenuRow("info", "About Mote", "Version ${appVersion()}") { onPage(MenuPage.ABOUT) }
     }
 }

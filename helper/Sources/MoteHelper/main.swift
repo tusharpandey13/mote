@@ -35,6 +35,7 @@ hub.instantPairing.onToggle = { ble?.publish(); hub.instantPairing.printInfoIfRe
 var shareThumbs = hub.settings.shareSpaceThumbnails
 hub.settings.onChange = {
     if !hub.settings.allowTailscale { web?.dropTailnetPeers() }
+    hub.liveScreen.labToggled()
     if hub.settings.shareSpaceThumbnails != shareThumbs { shareThumbs = hub.settings.shareSpaceThumbnails; hub.spaces.shareToggled() }
     refresh()
 }
@@ -63,6 +64,10 @@ if config.stdinControl {
                     case "pause": hub.paused = true
                     case "resume": hub.paused = false
                     case let c where c.hasPrefix("bridge "): labsBridge?.stdin(c)
+                    case "screen-pause": hub.liveScreen.paused = true
+                    case "screen-resume": hub.liveScreen.paused = false
+                    case "screen-lab-off": hub.settings.labsLiveScreen = false
+                    case "screen-lab-on": hub.settings.labsLiveScreen = true
                     case let c where c.hasPrefix("display "): hub.spaces.fakeActivate(Int(c.dropFirst(8)) ?? 0)
                     case let c: log("stdin-control: unknown command '\(c)'")
                     }

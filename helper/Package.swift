@@ -19,6 +19,8 @@ let package = Package(
                 .linkedFramework("SystemConfiguration"),
                 .linkedFramework("WebKit"),
             ]
-        )
+        ),
+        // helper/tests/unit.sh: pure helper math (Swift Testing, ships with the Command Line Tools).
+        .testTarget(name: "MoteHelperTests", dependencies: ["MoteHelper"], path: "tests/MoteHelperTests"),
     ]
 )

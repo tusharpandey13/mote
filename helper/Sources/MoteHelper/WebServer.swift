@@ -207,6 +207,7 @@ private final class HTTPConnection {
         let s = Session(hub: server.hubRef, transport: tailnet ? "Tailscale" : "Wi-Fi", peer: peer,
                         send: { [weak self] d in self?.sendFrame(opcode: 1, payload: d) },
                         close: { [weak self] in self?.sendFrame(opcode: 8, payload: Data([0x03, 0xE8])); self?.conn.cancel() })
+        s.backlog = { [weak self] in self?.unsent ?? 0 }
         session = s
         s.start()
         if !buf.isEmpty { parseFrames() }

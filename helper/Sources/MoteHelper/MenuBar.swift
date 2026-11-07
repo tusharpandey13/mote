@@ -47,7 +47,10 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             ?? NSImage(systemSymbolName: "dot.radiowaves.left.and.right", accessibilityDescription: "Mote Helper")
         img?.isTemplate = true
         item.button?.image = img
-        item.button?.toolTip = "Mote Helper"
+        // Labs › Live screen: a visible indicator for as long as the screen is being streamed.
+        item.button?.title = hub.liveScreen.streaming ? " ● Sharing screen" : ""
+        item.button?.imagePosition = .imageLeading
+        item.button?.toolTip = hub.liveScreen.streaming ? "Mote Helper: sharing the screen with \(hub.liveScreen.viewerName)" : "Mote Helper"
         if !hub.pairing.isOpen, let w = pairWindow { pairWindow = nil; w.close() }
         if let menu = item.menu { menuNeedsUpdate(menu) }
     }
@@ -66,6 +69,10 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             : hub.config.dryRun ? "Ready (dry run: logging only)" : "Ready"
         _ = add("Mote Helper: \(status)")
         if !hub.inputReady { _ = add("Grant Accessibility…", #selector(openAX)) }
+        if hub.liveScreen.streaming {
+            _ = add("● Sharing screen with \(hub.liveScreen.viewerName)")
+            _ = add("Stop sharing screen", #selector(stopScreen))
+        }
         menu.addItem(.separator())
 
         if let code = hub.pairing.code {
@@ -115,6 +122,11 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         hub.instantPairing.addMenuItems(to: labs)   // Labs: instant pairing
         hub.labs.flatMap { $0.menuItems() }.forEach(labs.addItem)   // Labs modules (Context & now playing)
         if let b = labsBridge { labs.addItem(.separator()); addBridgeItems(to: labs, bridge: b) }
+        // Labs › Live screen (docs/labs/live-screen.md)
+        for (title, action, state) in [("Live screen (preview)", #selector(toggleLiveScreen), hub.settings.labsLiveScreen),
+                                       ("Pause screen sharing", #selector(toggleScreenPause), hub.liveScreen.paused)] {
+            let i = NSMenuItem(title: title, action: action, keyEquivalent: ""); i.target = self; i.state = state ? .on : .off; labs.addItem(i)
+        }
         let labsItem = NSMenuItem(title: "Labs", action: nil, keyEquivalent: ""); labsItem.submenu = labs; menu.addItem(labsItem)
         _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
         _ = add("Revoke all devices…", #selector(revokeAll))
@@ -143,6 +155,12 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     @objc func exitTv() { hub.tv.exit() }
     @objc func toggleShareThumbs() { hub.settings.shareSpaceThumbnails.toggle() }
     @objc func clearThumbs() { hub.spaces.clear() }
+    @objc func toggleLiveScreen() {
+        hub.settings.labsLiveScreen.toggle()
+        if hub.settings.labsLiveScreen, !hub.config.dryRun, !CGPreflightScreenCaptureAccess() { _ = CGRequestScreenCaptureAccess() }
+    }
+    @objc func toggleScreenPause() { hub.liveScreen.paused.toggle() }
+    @objc func stopScreen() { hub.liveScreen.stop("stop") }
     @objc func grantScreenRecording() {
         hub.spaces.requestPermission()
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
