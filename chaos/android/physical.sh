@@ -6,10 +6,13 @@
 #   chaos/android/physical.sh --serial <adb-serial> --seed 1 --budget 30m
 #
 # Differences from the emulator run:
-#   * --allow-physical lifts run.sh's emulator-only guard.
+#   * --allow-physical lifts run.sh's emulator guard (serial emulator-* and qemu/ranchu/goldfish props)
+#     and prints a warning banner.
 #   * monkey is excluded by default: with a connected host it would type and click on the Mac.
 #     Add it explicitly with ONLY=storage,lifecycle,resource,bluetooth,monkey and the Mac unpaired.
-#   * restore_device turns Bluetooth back on at the end; Wi-Fi/data/airplane are restored too.
+#   * device settings are snapshotted at start and restored to that snapshot after every scenario and
+#     on exit/Ctrl-C; any leftover difference fails the run (I9). The network scenario seeds a fake
+#     helper host at 10.0.2.2, which a phone can't reach: it only checks the visible state.
 #   * Bluetooth toggles drop and re-establish the HID link with the Mac; watch the Mac's
 #     Bluetooth menu for stuck "Connected" states and the phone notification for stale text.
 set -euo pipefail

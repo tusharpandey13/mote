@@ -66,16 +66,16 @@ rs_revoke() {
     sh_ pm revoke "$PKG" "android.permission.$p"; pause 1
     launch; pause 2
     if bt_present; then
-      ui_has "$GATE_TEXT" || note="${note:+$note; }no gate after revoking $p"
+      ui_has "$GATE_TEXT" || note=$(add "$note" "$(tag S2 I8 "no gate after revoking $p")")
     fi
     shot "revoked-$p"
     sh_ pm grant "$PKG" "android.permission.$p"
     sh_ am force-stop "$PKG"; launch; pause 2   # re-grant from Settings also restarts the app
     if bt_present && bt_on; then
-      ui_has "$GATE_TEXT" && note="${note:+$note; }gate stuck after re-granting $p"
+      ui_has "$GATE_TEXT" && note=$(add "$note" "$(tag S2 I8 "gate stuck after re-granting $p")")
     fi
   done
-  local h; h=$(healthy); [ -n "$h" ] && note="${note:+$note; }$h"
+  note=$(add "$note" "$(healthy)")
   finish resource-revoke-permission "$note"
 }
 
@@ -85,6 +85,6 @@ bt_on() { [ "$(sh_ settings get global bluetooth_on | tr -d '\r')" = 1 ]; }
 scenario_resource() {
   for s in rs_doze rs_standby rs_battery_saver rs_airplane rs_network rs_trim rs_revoke; do
     over && { record "$s" SKIP 0 0 "budget exhausted"; continue; }
-    "$s"; restore_device
+    "$s"; settle "$s"
   done
 }

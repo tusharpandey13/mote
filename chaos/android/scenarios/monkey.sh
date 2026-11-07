@@ -36,8 +36,11 @@ monkey_run() { # seed events throttle
   done
   wait "$mpid" 2>/dev/null
   local note=""
-  [ -z "$info" ] && ! grep -q 'Monkey finished' "$log_f" && note="monkey aborted early"
-  launch; alive || note="${note:+$note; }app not alive after run"
+  [ -z "$info" ] && ! grep -q 'Monkey finished' "$log_f" && note=$(tag S3 I10 "monkey aborted early")
+  local inj; inj=$(sed -n 's/.*Events injected: *\([0-9]*\).*/\1/p' "$log_f" | tail -n 1)
+  [ -n "$inj" ] || inj=$(grep -c '^:Sending' "$log_f" || true)
+  MONKEY_EVENTS=$(( ${MONKEY_EVENTS:-0} + ${inj:-0} ))
+  launch; alive || note=$(add "$note" "$(tag S2 I10 "app not alive after run")")
   finish "$name" "$note" "$info"
 }
 
@@ -60,6 +63,7 @@ scenario_monkey() {
   # throttled run: slower, lets animations, sheets and the service settle between events
   monkey_run $((base + 3)) $(( ev / 4 )) 25
   kill "$sampler" 2>/dev/null; wait "$sampler" 2>/dev/null
+  anr_budget
   leak_check
 }
 
@@ -80,8 +84,20 @@ leak_check() {
   local acts recs
   acts=$(sh_ dumpsys meminfo "$PKG" | tr -d '\r' | awk '/Activities:/ {print $NF}')
   recs=$(sh_ dumpsys activity activities | tr -d '\r' | awk -v p="$PKG/" '/\* Hist/ && index($0, p) {n++} END {print n+0}')
-  [ "$growth" -gt 30 ] && [ $(( last - first )) -gt 20000 ] && note="PSS grew ${growth}% (${first}k->${last}k)"
-  [ "${acts:-0}" -gt "${recs:-1}" ] && note="${note:+$note; }$acts live Activities for $recs records"
-  local status=PASS; [ -n "$note" ] && status=FAIL
-  record leak-meminfo "$status" 0 0 "${note:-PSS ${first}k->${last}k (${growth}%), activities=${acts:-?}/${recs:-?} records, samples=$n}"
+  [ "$growth" -gt 30 ] && [ $(( last - first )) -gt 20000 ] && note=$(tag S3 I3 "PSS grew ${growth}% (${first}k->${last}k)")
+  [ "${acts:-0}" -gt "${recs:-1}" ] && note=$(add "$note" "$(tag S3 I3 "$acts live Activities for $recs records")")
+  local status=PASS sev="" viol=""; [ -n "$note" ] && { status=FAIL sev=S3 viol=I3; }
+  printf 'pss_first_kb=%s\npss_last_kb=%s\npss_growth_pct=%s\n' "$first" "$last" "$growth" > "$OUT/pss.env"
+  record leak-meminfo "$status" 0 0 "${note:-PSS ${first}k->${last}k (${growth}%), activities=${acts:-?}/${recs:-?} records, samples=$n}" "$sev" "$viol"
+}
+
+# Rubric budget: monkey ANRs <= 2 per 50k events, and only those attributed with a trace without app
+# frames on the main thread (unattributed ones already failed their monkey run).
+anr_budget() {
+  SCEN_T0=$(now)
+  local ev=${MONKEY_EVENTS:-0} n=${MONKEY_ANR_ATTR:-0} st=PASS sev="" viol="" note
+  note="$n attributed ANR(s) in $ev events (budget 2 per 50000)"
+  if [ $(( n * 50000 )) -gt $(( 2 * (ev > 0 ? ev : 1) )) ]; then st=FAIL sev=S3 viol=I10 note="[S3 I10] $note"; fi
+  printf 'monkey_events=%s\nmonkey_anr_attr=%s\n' "$ev" "$n" > "$OUT/monkey.env"
+  record monkey-anr-budget "$st" 0 0 "$note" "$sev" "$viol"
 }
