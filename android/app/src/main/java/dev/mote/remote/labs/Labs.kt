@@ -19,11 +19,14 @@ object Labs {
 
     val SMART_REMOTE = LabFlag("smart_remote", "Smart remote (preview)", "Adapts Media to what is on the Mac: now playing with a scrubber, app buttons, keyboard on text fields. Needs Mote Helper with Labs › Context & now playing on.")
 
+    val LIVE_SCREEN = LabFlag("live_screen", "Live screen (preview)", "See the Mac's screen and tap to click. Needs Mote Helper over Wi-Fi or Tailscale with Labs › Live screen on.")
+
     /** Shown in Settings › Labs, in this order. */
     val all: List<LabFlag> = listOf(
         OPEN_TV,
         SMART_REMOTE,
         VIDEO_BRIDGE,
+        LIVE_SCREEN,
     )
 
     private val Context.store by preferencesDataStore("labs", corruptionHandler = Prefs.corruptionHandler)

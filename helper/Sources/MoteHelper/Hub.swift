@@ -11,6 +11,7 @@ final class Hub {
     let limiter = RateLimiter()
     let injector: Injector
     let spaces: Spaces
+    let liveScreen: LiveScreen   // Labs (docs/labs/live-screen.md)
     let tv: TvMode   // Labs (preview): Open… + TV mode, docs/labs/open-tv.md
     private(set) var instantPairing: InstantPairing!   // instant pairing (InstantPairing.swift)
     private(set) var bt: BtPair!   // Bluetooth HID setup started by a trusted phone (BtPair.swift)
@@ -39,11 +40,13 @@ final class Hub {
         self.settings = Settings(config: config)
         self.injector = Injector(dryRun: config.dryRun)
         self.spaces = Spaces(config: config, settings: settings, injector: injector)
+        self.liveScreen = LiveScreen(config: config, settings: settings, injector: injector)
         self.tv = TvMode(config: config, injector: injector)
         tv.activeDisplay = { [weak self] in self?.spaces.active?.cgID }
         tv.onChange = { [weak self] in guard let self else { return }; let st = self.tv.state(); for s in self.authedSessions { s.send(st) }; self.onChange?() }
         spaces.onChange = { [weak self] in self?.broadcastSpaces(); self?.onChange?() }
         spaces.isSubscribed = { [weak self] in self?.sessions.contains(where: { $0.spacesSub }) ?? false }
+        liveScreen.onChange = { [weak self] in self?.onChange?() }
         pairing.onChange = { [weak self] in self?.onChange?() }
         // Accessibility can be granted at any time in System Settings; poll and tell clients.
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -63,6 +66,7 @@ final class Hub {
         sessions.removeAll { $0 === s }
         instantPairing.ended(s)
         bt.ended(s)
+        liveScreen.sessionGone(s)
         if !sessions.contains(where: { $0.authed }) { injector.releaseAll() }
         onChange?()
     }
@@ -165,6 +169,8 @@ final class Session {
     private var closed = false
     private var authDeadline: Timer?
     var isOpen: Bool { !closed }
+    /// Bytes the transport has queued but not yet handed to the kernel (Wi-Fi); 0 if unknown.
+    var backlog: () -> Int = { 0 }
 
     init(hub: Hub, transport: String, peer: String, send: @escaping (Data) -> Void, close: @escaping () -> Void) {
         self.hub = hub; self.transport = transport; self.peer = peer
@@ -239,6 +245,7 @@ final class Session {
             }
             if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
             if t == "bt.pair" || t == "bt.info" { hub.bt.handle(t, m, from: self); return }   // Bluetooth HID setup, not input
+            if t.hasPrefix("labs.screen.") { labsScreen(t, m); return }
             if t == "labs.tv.get" { send(hub.tv.state()); return }   // Labs: a read, like spaces.sub
             if t.hasPrefix("labs.video."), let b = labsBridge {   // Labs: video bridge (docs/labs/video-bridge.md)
                 do { try b.phone(t, m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
@@ -264,6 +271,18 @@ final class Session {
         do { display = try m.optStr("display") } catch { err("bad", "'display' must be a string", ref: t); return }
         guard let reply = hub.spaces.thumbMessage(i, display: display) else { err("notfound", "no thumbnail for desktop \(i)", ref: t); return }
         send(reply)
+    }
+
+    /// Labs › Live screen (docs/labs/live-screen.md). Clicks go through the same pause / Accessibility gate as input.
+    private func labsScreen(_ t: String, _ m: [String: Any]) {
+        do {
+            let hub = self.hub
+            let input: () throws -> Void = {
+                guard !hub.paused else { throw ProtoError("paused", "input is paused on the Mac") }
+                guard hub.inputReady else { throw ProtoError("ax", "Accessibility permission not granted to Mote Helper") }
+            }
+            if let reply = try hub.liveScreen.handle(t, m, from: self, input: input) { send(reply) }
+        } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
     }
 
     private func pair(_ m: [String: Any]) {

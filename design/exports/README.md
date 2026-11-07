@@ -120,18 +120,6 @@ Mote, an Android Bluetooth-HID remote for any BT host (Mac first). Revision 2: l
 
 `journeys-index` · [live board](https://tusharpandey.com/mote/design/journeys-index.html) · [in gallery](https://tusharpandey.com/mote/design/#journeys-index)
 
-### J1 First run over Bluetooth
-
-[![journey-first-run-bt](journeys-shipped/journey-first-run-bt.png)](https://tusharpandey.com/mote/design/journey-first-run-bt.html)
-
-`journey-first-run-bt` · [live board](https://tusharpandey.com/mote/design/journey-first-run-bt.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-first-run-bt)
-
-### J2 Wi-Fi with Mote Helper
-
-[![journey-wifi-helper](journeys-shipped/journey-wifi-helper.png)](https://tusharpandey.com/mote/design/journey-wifi-helper.html)
-
-`journey-wifi-helper` · [live board](https://tusharpandey.com/mote/design/journey-wifi-helper.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-wifi-helper)
-
 ### J3 Tailscale
 
 [![journey-tailscale](journeys-shipped/journey-tailscale.png)](https://tusharpandey.com/mote/design/journey-tailscale.html)
@@ -161,6 +149,68 @@ Mote, an Android Bluetooth-HID remote for any BT host (Mac first). Revision 2: l
 [![journey-media](journeys-shipped/journey-media.png)](https://tusharpandey.com/mote/design/journey-media.html)
 
 `journey-media` · [live board](https://tusharpandey.com/mote/design/journey-media.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-media)
+
+### A Mac setup
+
+[![journey-setup-mac](journeys-shipped/journey-setup-mac.png)](https://tusharpandey.com/mote/design/journey-setup-mac.html)
+
+`journey-setup-mac` · [live board](https://tusharpandey.com/mote/design/journey-setup-mac.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-setup-mac)
+
+### A2 Mac: login, Tailscale, update, uninstall
+
+[![journey-mac-update](journeys-shipped/journey-mac-update.png)](https://tusharpandey.com/mote/design/journey-mac-update.html)
+
+`journey-mac-update` · [live board](https://tusharpandey.com/mote/design/journey-mac-update.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-mac-update)
+
+### B Phone setup
+
+[![journey-setup-phone](journeys-shipped/journey-setup-phone.png)](https://tusharpandey.com/mote/design/journey-setup-phone.html)
+
+`journey-setup-phone` · [live board](https://tusharpandey.com/mote/design/journey-setup-phone.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-setup-phone)
+
+### C2 Bluetooth quirks and stale pairing
+
+[![journey-bt-quirks](journeys-shipped/journey-bt-quirks.png)](https://tusharpandey.com/mote/design/journey-bt-quirks.html)
+
+`journey-bt-quirks` · [live board](https://tusharpandey.com/mote/design/journey-bt-quirks.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-bt-quirks)
+
+### E Daily use and reconnect
+
+[![journey-daily](journeys-shipped/journey-daily.png)](https://tusharpandey.com/mote/design/journey-daily.html)
+
+`journey-daily` · [live board](https://tusharpandey.com/mote/design/journey-daily.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-daily)
+
+### F Recovery and management
+
+[![journey-recovery](journeys-shipped/journey-recovery.png)](https://tusharpandey.com/mote/design/journey-recovery.html)
+
+`journey-recovery` · [live board](https://tusharpandey.com/mote/design/journey-recovery.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-recovery)
+
+### G Settings and customisation
+
+[![journey-settings](journeys-shipped/journey-settings.png)](https://tusharpandey.com/mote/design/journey-settings.html)
+
+`journey-settings` · [live board](https://tusharpandey.com/mote/design/journey-settings.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-settings)
+
+## User journeys (Next, 0.6.0)
+
+### J1 First run (Wi-Fi + Bluetooth)
+
+[![journey-first-run-bt](journeys-next/journey-first-run-bt.png)](https://tusharpandey.com/mote/design/journey-first-run-bt.html)
+
+`journey-first-run-bt` · [live board](https://tusharpandey.com/mote/design/journey-first-run-bt.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-first-run-bt)
+
+### J2 Wi-Fi / Tailscale connect
+
+[![journey-wifi-helper](journeys-next/journey-wifi-helper.png)](https://tusharpandey.com/mote/design/journey-wifi-helper.html)
+
+`journey-wifi-helper` · [live board](https://tusharpandey.com/mote/design/journey-wifi-helper.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-wifi-helper)
+
+### D Connect: every branch (0.6.0)
+
+[![journey-connect-next](journeys-next/journey-connect-next.png)](https://tusharpandey.com/mote/design/journey-connect-next.html)
+
+`journey-connect-next` · [live board](https://tusharpandey.com/mote/design/journey-connect-next.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-connect-next)
 
 ## User journeys (Preview, Labs) (Preview)
 
@@ -193,3 +243,11 @@ Mote, an Android Bluetooth-HID remote for any BT host (Mac first). Revision 2: l
 [![journey-live-screen](journeys-labs/journey-live-screen.png)](https://tusharpandey.com/mote/design/journey-live-screen.html)
 
 `journey-live-screen` · [live board](https://tusharpandey.com/mote/design/journey-live-screen.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-live-screen)
+
+## User journeys (Legacy 0.4.0, being replaced)
+
+### C Code pairing (legacy 0.4.0, being replaced)
+
+[![journey-connect-now](journeys-legacy/journey-connect-now.png)](https://tusharpandey.com/mote/design/journey-connect-now.html)
+
+`journey-connect-now` · [live board](https://tusharpandey.com/mote/design/journey-connect-now.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-connect-now)

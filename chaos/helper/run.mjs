@@ -9,8 +9,9 @@ import * as load from './scenarios/load.mjs';
 import * as proc from './scenarios/process.mjs';
 import * as authsc from './scenarios/auth.mjs';
 import * as spaces from './scenarios/spaces.mjs';
+import * as screen from './scenarios/screen.mjs';
 
-const ALL = [authsc, spaces, load, net, proc, fuzz];
+const ALL = [authsc, spaces, screen, load, net, proc, fuzz];
 
 function args() {
   const a = process.argv.slice(2), o = { budget: '10m', seed: null, only: null, keychain: false };
