@@ -80,6 +80,7 @@ final class Hub {
         store.revokeAll()
         instantPairing.revokeAll()
         spaces.clear()
+        labsBridge?.forget()
         for s in sessions where s.authed { s.revoke() }
         log("all devices revoked")
         onChange?()
@@ -234,6 +235,10 @@ final class Session {
             }
             if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
             if t == "labs.tv.get" { send(hub.tv.state()); return }   // Labs: a read, like spaces.sub
+            if t.hasPrefix("labs.video."), let b = labsBridge {   // Labs: video bridge (docs/labs/video-bridge.md)
+                do { try b.phone(t, m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
+                return
+            }
             if t.hasPrefix("labs."), let mod = hub.labs.first(where: { $0.prefixes.contains(where: t.hasPrefix) }) { mod.handle(t, m, from: self); return }
             do { try hub.input(m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }
         }

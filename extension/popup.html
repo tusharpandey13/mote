@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mote Video Bridge</title>
+<style>
+  body { font: 13px/1.4 -apple-system, "Inter", system-ui, sans-serif; width: 280px; margin: 0; padding: 14px 16px; color: #1d1d1f; background: #f4f2ee; }
+  h1 { font-size: 15px; margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
+  .chip { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 6px; background: #e3ded5; color: #6b665e; }
+  .muted { color: #6b665e; }
+  #status { margin: 8px 0 12px; }
+  #now { margin: 0 0 12px; padding: 8px 10px; border-radius: 10px; background: #e9e5dd; display: none; }
+  label { display: block; margin: 8px 0 4px; }
+  input { box-sizing: border-box; width: 100%; padding: 7px 9px; border: 1px solid #cfc9bf; border-radius: 9px; font: inherit; background: #fff; }
+  #code { font-size: 18px; letter-spacing: .2em; text-align: center; }
+  button { margin-top: 10px; width: 100%; padding: 8px; border: 0; border-radius: 10px; font: inherit; font-weight: 600; background: #1d1d1f; color: #fff; cursor: pointer; }
+  button.secondary { background: transparent; color: #6b665e; font-weight: 400; }
+  details { margin-top: 8px; }
+</style>
+</head>
+<body>
+  <h1>Mote Video Bridge <span class="chip">Preview</span></h1>
+  <div id="status" class="muted">…</div>
+  <div id="now"></div>
+  <form id="pair">
+    <label for="code">Pairing code <span class="muted">(Mote Helper menu › Labs › Pair browser extension…)</span></label>
+    <input id="code" inputmode="numeric" autocomplete="off" maxlength="7" placeholder="123 456">
+    <details><summary class="muted">Advanced</summary>
+      <label for="port">Bridge port</label>
+      <input id="port" inputmode="numeric" placeholder="8792">
+    </details>
+    <button type="submit">Pair</button>
+  </form>
+  <button id="forget" class="secondary" type="button">Forget pairing</button>
+  <script src="popup.js"></script>
+</body>
+</html>

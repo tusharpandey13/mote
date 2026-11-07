@@ -18,16 +18,19 @@ export class Helper {
   private proc!: ChildProcess;
   private waiters = new Set<() => void>();
   private exited: Promise<void> = Promise.resolve();
+  private extra: string[] = [];
 
   /** Starts a helper. port 0 = any free port (the helper logs the real one). */
-  static async start(opts: { port?: number } = {}): Promise<Helper> {
+  /** `args`: extra flags (e.g. Labs toggles); the safe flags above are always set. */
+  static async start(opts: { port?: number; args?: string[] } = {}): Promise<Helper> {
     const h = new Helper();
+    h.extra = opts.args ?? [];
     await h.spawn(opts.port ?? 0);
     return h;
   }
 
   private async spawn(port: number) {
-    const args = [...SAFE_ARGS, '--port', String(port)];
+    const args = [...SAFE_ARGS, ...this.extra, '--port', String(port)];
     if (process.env.MOTE_WEB_ROOT) args.push('--web-root', process.env.MOTE_WEB_ROOT);
     if (!args.includes('--dry-run')) throw new Error('refusing to start the helper without --dry-run');
     const p = spawn(HELPER_BIN, args, { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -80,7 +83,7 @@ export class Helper {
   }
 
   /** Test-only stand-ins for the menu-bar actions (--stdin-control). */
-  cmd(c: 'pair' | 'revoke' | 'pause' | 'resume') { this.proc.stdin!.write(c + '\n'); }
+  cmd(c: 'pair' | 'revoke' | 'pause' | 'resume' | `bridge ${'pair' | 'on' | 'off' | 'forget'}`) { this.proc.stdin!.write(c + '\n'); }
 
   /** Opens a pairing window ("Pair new device") and returns the 6-digit code the helper prints. */
   async openPairing(): Promise<string> {

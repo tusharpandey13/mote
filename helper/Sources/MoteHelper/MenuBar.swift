@@ -114,6 +114,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         if hub.tv.on { let x = NSMenuItem(title: "Exit TV mode", action: #selector(exitTv), keyEquivalent: ""); x.target = self; labs.addItem(x) }
         hub.instantPairing.addMenuItems(to: labs)   // Labs: instant pairing
         hub.labs.flatMap { $0.menuItems() }.forEach(labs.addItem)   // Labs modules (Context & now playing)
+        if let b = labsBridge { labs.addItem(.separator()); addBridgeItems(to: labs, bridge: b) }
         let labsItem = NSMenuItem(title: "Labs", action: nil, keyEquivalent: ""); labsItem.submenu = labs; menu.addItem(labsItem)
         _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
         _ = add("Revoke all devices…", #selector(revokeAll))

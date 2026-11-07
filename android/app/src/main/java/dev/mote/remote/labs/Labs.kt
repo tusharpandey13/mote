@@ -16,6 +16,7 @@ data class LabFlag(val key: String, val title: String, val summary: String)
 object Labs {
     val INSTANT_PAIRING = LabFlag("instant_pairing", "Instant pairing (preview)", "Find Macs over Bluetooth and connect without a code. Needs Mote Helper with Labs › Instant pairing on.")
     val OPEN_TV = LabFlag("open_tv", "Open & TV mode (preview)", "An Open… sheet that drives the Mac, and a TV remote for YouTube. Needs Mote Helper with Labs › TV mode on.")
+    val VIDEO_BRIDGE = LabFlag("labs_video_bridge", "Browser video control (preview)", "Control the video in the Mac's browser tab with the Mote Video Bridge extension. Needs Mote Helper with Labs › Browser extension bridge on.")
 
     val SMART_REMOTE = LabFlag("smart_remote", "Smart remote (preview)", "Adapts Media to what is on the Mac: now playing with a scrubber, app buttons, keyboard on text fields. Needs Mote Helper with Labs › Context & now playing on.")
 
@@ -24,6 +25,7 @@ object Labs {
         OPEN_TV,
         INSTANT_PAIRING,
         SMART_REMOTE,
+        VIDEO_BRIDGE,
     )
 
     private val Context.store by preferencesDataStore("labs", corruptionHandler = Prefs.corruptionHandler)

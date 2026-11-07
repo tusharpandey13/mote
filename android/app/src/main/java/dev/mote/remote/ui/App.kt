@@ -78,6 +78,8 @@ import dev.mote.remote.hid.Phase
 import dev.mote.remote.labs.context.AutoKeyboardChip
 import dev.mote.remote.labs.context.SmartPanel
 import dev.mote.remote.labs.context.SmartRemoteEffects
+import dev.mote.remote.labs.Labs
+import dev.mote.remote.labs.video.VideoBridge
 import dev.mote.remote.net.Net
 import dev.mote.remote.net.Remote
 import dev.mote.remote.service.HidService
@@ -142,6 +144,8 @@ private fun Root(theme: ThemeChoice) {
     val link by Net.pendingLink.collectAsState()
     LaunchedEffect(link) { if (link != null) deviceSheet = true }
     val linked by Remote.linked.collectAsState()
+    val videoLab by remember { Labs.flow(ctx, Labs.VIDEO_BRIDGE) }.collectAsState(initial = false)
+    LaunchedEffect(videoLab) { VideoBridge.setEnabled(videoLab) } // Labs: subscribes to labs.video.state while on
     var menuSheet by remember { mutableStateOf(false) }
     var pointerBanner by remember { mutableStateOf(false) }
     // Single source of truth for adapter / permissions / bonded hosts: feeds the gate, the pill and the device sheet.
@@ -255,7 +259,8 @@ private fun Root(theme: ThemeChoice) {
                     label = "mode",
                 ) { m -> modeState.SaveableStateProvider(m.name) { when (m) {
                     Mode.MEDIA -> if (openTv.tvOn) dev.mote.remote.labs.open.TvRemotePanel(openTv) else Column(Modifier.fillMaxSize()) {
-                        SmartPanel() // Labs › Smart remote (preview); renders nothing when off
+                        // Labs: one panel at a time; TV mode > web video (inside MediaScreen) > smart remote
+                        if (!dev.mote.remote.labs.video.webVideoVisible()) SmartPanel() // renders nothing when off
                         Box(Modifier.weight(1f)) { MediaScreen(macros.filter { it.star }, runMacro, onEditFavourites = { mode = Mode.MACROS }) }
                     }
                     Mode.MOUSE -> MouseScreen(

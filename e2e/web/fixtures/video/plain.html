@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Plain video test page</title></head>
+<body style="margin:0;background:#111">
+  <!-- clip.webm: 60 s, 64x36 solid colour, VP8, no audio (generated with ffmpeg lavfi). -->
+  <video id="v" src="clip.webm" preload="auto" style="width:640px;height:360px" muted>
+    <track kind="captions" srclang="en" label="English" src="captions.vtt">
+  </video>
+  <video id="tiny" src="clip.webm" style="width:80px;height:45px" muted></video>
+</body>
+</html>
