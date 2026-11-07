@@ -89,6 +89,7 @@ object Net {
         loaded = true
         app = context.applicationContext
         scope.launch {
+            dev.mote.remote.labs.pairing.InstantPairing.load(app) // Labs: trusted-key hosts need their records before reconnecting
             val p = app.store.data.first()
             _saved.value = SavedHost.decode(p.typed(HOSTS))
             _wifiChosen.value = p.typed(WIFI_CHOSEN) ?: false
@@ -184,8 +185,9 @@ object Net {
 
     private fun targetFor(hostId: String): WsTarget? {
         val h = _saved.value.firstOrNull { it.hostId == hostId } ?: return null
-        val sign = Vault.signer(h) ?: return null
         val fresh = discovery.found.value.firstOrNull { it.hostId == hostId }
+        dev.mote.remote.labs.pairing.InstantPairing.target(h, fresh?.address)?.let { return it } // Labs: key handshake, no token
+        val sign = Vault.signer(h) ?: return null
         return WsTarget(h.candidates(fresh?.address), fresh?.port ?: h.port, h.deviceId, sign)
     }
 
@@ -236,6 +238,14 @@ object Net {
         chooseWifi()
         select(Selection.Helper(h.hostId))
         return h
+    }
+
+    /** Labs instant pairing: stores a key-trusted host (no Vault token) and selects it. */
+    fun adoptTrusted(h: SavedHost) {
+        scope.launch { persist(_saved.value.filterNot { it.hostId == h.hostId } + h) }
+        _saved.value = _saved.value.filterNot { it.hostId == h.hostId } + h
+        chooseWifi()
+        select(Selection.Helper(h.hostId))
     }
 
     /** Adds a typed address (e.g. a tailnet name) to an already paired host and selects it. */

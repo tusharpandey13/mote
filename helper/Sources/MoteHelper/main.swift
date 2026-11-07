@@ -27,7 +27,9 @@ if !config.headless {
 }
 let refresh: () -> Void = { menu?.refresh() }
 hub.onChange = refresh
-web?.onChange = refresh
+web?.onChange = { refresh(); hub.labs.printInfoIfReady() }
+hub.labs.port = { web?.port ?? 0 }
+hub.labs.onToggle = { ble?.publish(); hub.labs.printInfoIfReady(); refresh() }
 var shareThumbs = hub.settings.shareSpaceThumbnails
 hub.settings.onChange = {
     if !hub.settings.allowTailscale { web?.dropTailnetPeers() }
@@ -45,7 +47,7 @@ func openPairing() {
     if let code = hub.pairing.code { print("PAIRING CODE: \(code)"); fflush(stdout) }
     menu?.showPairing()
 }
-if config.openPairing || (!config.headless && hub.store.devices.isEmpty) { openPairing() }
+if config.openPairing || (!config.headless && hub.store.devices.isEmpty && !hub.labs.enabled) { openPairing() }
 
 // Test-only: stand in for the menu-bar actions in headless e2e tests. Dry-run only, so it can never drive real input.
 if config.stdinControl {

@@ -283,6 +283,7 @@ private fun Root(theme: ThemeChoice) {
         }
         TailscalePrompt()
         dev.mote.remote.labs.open.OpenTvSheet(openTv)
+        dev.mote.remote.labs.pairing.InstantPairingHost() // Labs: "Connect to <Mac>?" sheet (flag off: nothing)
     }
 }
 

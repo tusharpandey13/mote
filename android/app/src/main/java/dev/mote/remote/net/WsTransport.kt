@@ -24,7 +24,10 @@ import kotlin.math.abs
 import kotlin.random.Random
 
 /** Where and how to connect, re-read before every attempt (addresses change as NSD reports them). */
-class WsTarget(val candidates: List<String>, val port: Int, val deviceId: String, val sign: (String) -> String)
+open class WsTarget(val candidates: List<String>, val port: Int, val deviceId: String, val sign: (String) -> String) {
+    /** Replaces the HMAC `auth` when non-null (Labs instant pairing: key handshake). */
+    open val authenticate: (suspend (WsSession) -> Msg.Authed)? get() = null
+}
 
 sealed interface WsStatus {
     data object Idle : WsStatus
@@ -103,7 +106,7 @@ class WsTransport(
             }
             if (s != null) {
                 try {
-                    val a = s.auth(t.deviceId, t.sign)
+                    val a = t.authenticate?.invoke(s) ?: s.auth(t.deviceId, t.sign)
                     session = s
                     backoff = MIN_BACKOFF
                     _status.value = WsStatus.Ready(s.address, a.paused, a.ax)

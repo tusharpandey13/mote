@@ -256,6 +256,7 @@ fun HostSheet(
                     else -> "Mote reconnects to the selected device while the app is open."
                 }
                 Text(note, style = T.body, color = c.muted)
+                dev.mote.remote.labs.pairing.InstantPairingRows(close) // Labs: nearby Macs, no code
                 // A saved host that was unpaired is no longer in the bonded list; keep it visible so its "Not paired" state shows.
                 val btHosts = s.selected?.takeIf { sel -> s.unpaired && bt.hosts.none { it.address == sel.address } }?.let { bt.hosts + it } ?: bt.hosts
                 val rows = hostRows(btHosts, saved, found)

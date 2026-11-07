@@ -14,11 +14,13 @@ data class LabFlag(val key: String, val title: String, val summary: String)
 
 /** Labs: preview features, each off until turned on in Settings › Labs. Register a preview with one line in [all]. */
 object Labs {
+    val INSTANT_PAIRING = LabFlag("instant_pairing", "Instant pairing (preview)", "Find Macs over Bluetooth and connect without a code. Needs Mote Helper with Labs › Instant pairing on.")
     val OPEN_TV = LabFlag("open_tv", "Open & TV mode (preview)", "An Open… sheet that drives the Mac, and a TV remote for YouTube. Needs Mote Helper with Labs › TV mode on.")
 
     /** Shown in Settings › Labs, in this order. */
     val all: List<LabFlag> = listOf(
         OPEN_TV,
+        INSTANT_PAIRING,
     )
 
     private val Context.store by preferencesDataStore("labs", corruptionHandler = Prefs.corruptionHandler)

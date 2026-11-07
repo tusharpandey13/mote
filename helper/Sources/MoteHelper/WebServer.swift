@@ -13,6 +13,7 @@ final class WebServer {
     private var listener: NWListener?
     private var conns: [ObjectIdentifier: HTTPConnection] = [:]
     private(set) var status = "starting"
+    private(set) var port: UInt16?   // bound port, once listening (differs from config with --port 0)
     var onChange: (() -> Void)?
 
     init(hub: Hub, root: URL) { self.hub = hub; self.root = root.standardizedFileURL }
@@ -28,7 +29,7 @@ final class WebServer {
         l.stateUpdateHandler = { [weak self, weak l] st in
             guard let self else { return }
             switch st {
-            case .ready: self.status = "listening on :\(l?.port?.rawValue ?? self.hub.config.port)"   // real port with --port 0
+            case .ready: self.port = l?.port?.rawValue; self.status = "listening on :\(l?.port?.rawValue ?? self.hub.config.port)"   // real port with --port 0
             case .failed(let e): self.status = "failed: \(e)"
             default: break
             }
