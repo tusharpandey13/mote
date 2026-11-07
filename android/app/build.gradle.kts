@@ -43,7 +43,11 @@ android {
     sourceSets {
         // Physical-device HID suite lives apart from the emulator suite.
         getByName("androidTest").java.directories.add("src/androidTest/hid")
+        // User-journey acceptance tests (e2e/journeys/run.sh): need the host-side controller, so opt-in.
+        if (project.hasProperty("moteJourneys")) getByName("androidTest").kotlin.directories.add("src/androidTest/journeys")
     }
+    // Journeys run against the separate dev.mote.remote.dev instance, never dev.mote.remote.
+    if (project.hasProperty("moteJourneys")) testBuildType = "dev"
 
     signingConfigs {
         if (keystoreProps.isNotEmpty()) {
@@ -112,4 +116,5 @@ dependencies {
     androidTestUtil(libs.androidx.test.orchestrator)
     androidTestUtil(libs.androidx.test.services)
     debugImplementation(libs.compose.ui.test.manifest)
+    "devImplementation"(libs.compose.ui.test.manifest)
 }
