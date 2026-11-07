@@ -23,6 +23,9 @@ async function fixture(): Promise<Fixture> {
   stub('pgrep', `echo "pgrep $*" >> "${log}"; exit 1`);
   stub('pkill', `echo "pkill $*" >> "${log}"; exit 0`);
   stub('open', `echo "open $*" >> "${log}"; exit 0`);
+  stub('tccutil', `echo "tccutil $*" >> "${log}"; exit 0`);   // never reset the real Mac's permissions
+  // codesign -d -r- <app>: the unpacked new app lives under .../x/, the installed one doesn't.
+  stub('codesign', `case "$3" in */x/*) echo "# designated => \${FAKE_REQ_NEW:-}";; *) echo "# designated => \${FAKE_REQ_OLD:-}";; esac >&2`);
 
   const files = new Map<string, Buffer>();
   const requests: string[] = [];
@@ -103,6 +106,23 @@ test.describe('install.sh', () => {
     expect(r.code, r.out).toBe(0);
     expect(fs.readFileSync(path.join(installed(), 'Contents/marker'), 'utf8')).toBe('v2');
     expect(fs.existsSync(path.join(installed(), 'Contents/stale'))).toBe(false);
+    expect(stubLog(fx)).not.toContain('tccutil');   // signature unknown: nothing reset
+  });
+
+  test('upgrade from a differently signed (ad-hoc) build resets its stale grants once', async () => {
+    const zip = fakeZip(fx.dir, 'v3');
+    fx.files.set('/releases/latest/download/MoteHelper-macos-arm64.zip', zip);
+    fx.files.set('/releases/latest/download/MoteHelper-macos-arm64.zip.sha256', Buffer.from(`${sha(zip)}  MoteHelper-macos-arm64.zip\n`));
+    fs.mkdirSync(path.join(installed(), 'Contents'), { recursive: true });
+    const signed = 'identifier "dev.mote.helper" and certificate leaf = H"bb"';
+    let r = await run(fx, { FAKE_REQ_OLD: 'cdhash H"aa"', FAKE_REQ_NEW: signed });
+    expect(r.code, r.out).toBe(0);
+    expect(stubLog(fx)).toContain('tccutil reset Accessibility dev.mote.helper');
+    expect(stubLog(fx)).toContain(`open ${installed()} --args --setup`);
+    fs.rmSync(fx.log, { force: true });
+    r = await run(fx, { FAKE_REQ_OLD: signed, FAKE_REQ_NEW: signed });   // same stable signature: keep grants
+    expect(r.code, r.out).toBe(0);
+    expect(stubLog(fx)).not.toContain('tccutil');
   });
 
   test('checksum mismatch -> aborts, nothing installed, nothing opened', async () => {

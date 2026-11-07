@@ -106,6 +106,6 @@ async function keychainKill(chk, r, seed, deadline) {
     chk.cases += rounds;
     await h.stop();
   } finally {
-    await security(['delete-generic-password', '-s', service, '-a', 'devices']);
+    await security(['delete-generic-password', '-s', service, '-a', 'secrets']);   // the one Vault item (helper Vault.swift)
   }
 }

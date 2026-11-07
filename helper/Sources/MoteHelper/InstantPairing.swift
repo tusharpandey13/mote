@@ -65,7 +65,7 @@ final class InstantPairing: NSObject {
         self.hub = hub
         let c = hub.config
         defaults = c.memoryStore ? nil : UserDefaults.standard
-        store = LabsKeyStore(service: c.keychainService + ".labs", memoryOnly: c.memoryStore)
+        store = LabsKeyStore(vault: hub.vault)
         identity = store.identity()
         fp = labsFingerprint(identity.publicKey.rawRepresentation)
         enabled = c.instantPairing ?? !(defaults?.bool(forKey: "instantPairingDisabled") ?? false)
@@ -410,7 +410,7 @@ private func labsTailscaleJSON(_ args: [String]) -> [String: Any]? {
 
 // MARK: - trust store (login Keychain)
 
-struct LabsTrustedKey: Codable {
+struct LabsTrustedKey: Codable, Equatable {
     var fp: String
     var pub: String
     var name: String
@@ -418,98 +418,41 @@ struct LabsTrustedKey: Codable {
     var created: Date
 }
 
-struct LabsBlockedKey: Codable {
+struct LabsBlockedKey: Codable, Equatable {
     var fp: String
     var name: String
 }
 
-/// The helper's Ed25519 identity, the trusted phone keys and the blocked fingerprints, three generic-password items.
+/// The helper's Ed25519 identity, the trusted phone keys and the blocked fingerprints, in the Vault (Vault.swift).
 final class LabsKeyStore {
-    private(set) var keys: [LabsTrustedKey] = []
-    private(set) var blocked: [LabsBlockedKey] = []
-    private let service: String
-    private let memoryOnly: Bool
+    private let vault: Vault
+    var keys: [LabsTrustedKey] { vault.secrets.trusted }
+    var blocked: [LabsBlockedKey] { vault.secrets.blocked }
 
-    init(service: String, memoryOnly: Bool) {
-        self.service = service
-        self.memoryOnly = memoryOnly
-        if let d = read("trusted") {
-            let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
-            keys = (try? dec.decode([LabsTrustedKey].self, from: d)) ?? []
-        }
-        if let d = read("blocked") {   // [{fp, name}]; early builds stored [fp]
-            blocked = (try? JSONDecoder().decode([LabsBlockedKey].self, from: d))
-                ?? ((try? JSONDecoder().decode([String].self, from: d)) ?? []).map { LabsBlockedKey(fp: $0, name: "Phone") }
-        }
-    }
+    init(vault: Vault) { self.vault = vault }
 
     func isBlocked(_ fp: String) -> Bool { blocked.contains { $0.fp == fp } }
 
     func block(_ fp: String, name: String) {
         let name = keys.first { $0.fp == fp }?.name ?? name
-        keys.removeAll { $0.fp == fp }
-        save()
-        if !isBlocked(fp) { blocked.append(LabsBlockedKey(fp: fp, name: name)) }
-        saveBlocked()
+        vault.update { s in
+            s.trusted.removeAll { $0.fp == fp }
+            if !s.blocked.contains(where: { $0.fp == fp }) { s.blocked.append(LabsBlockedKey(fp: fp, name: name)) }
+        }
     }
 
-    func unblock(_ fp: String) {
-        blocked.removeAll { $0.fp == fp }
-        saveBlocked()
-    }
-
-    private func saveBlocked() {
-        if let d = try? JSONEncoder().encode(blocked) { write("blocked", d, label: "Mote Helper instant pairing blocked phones") }
-    }
+    func unblock(_ fp: String) { vault.update { $0.blocked.removeAll { $0.fp == fp } } }
 
     func identity() -> Curve25519.Signing.PrivateKey {
-        if let d = read("identity"), let k = try? Curve25519.Signing.PrivateKey(rawRepresentation: d) { return k }
+        if let d = vault.secrets.identity, let k = try? Curve25519.Signing.PrivateKey(rawRepresentation: d) { return k }
         let k = Curve25519.Signing.PrivateKey()
-        write("identity", k.rawRepresentation, label: "Mote Helper instant pairing key")
+        vault.update { $0.identity = k.rawRepresentation }
         return k
     }
 
     func add(_ k: LabsTrustedKey) {
-        keys.removeAll { $0.fp == k.fp }
-        keys.append(k)
-        save()
+        vault.update { s in s.trusted.removeAll { $0.fp == k.fp }; s.trusted.append(k) }
     }
 
-    func revokeAll() {
-        keys = []
-        blocked = []
-        if !memoryOnly { SecItemDelete(query("trusted") as CFDictionary); SecItemDelete(query("blocked") as CFDictionary) }
-    }
-
-    private func save() {
-        let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
-        if let d = try? enc.encode(keys) { write("trusted", d, label: "Mote Helper instant pairing trusted phones") }
-    }
-
-    private func query(_ account: String) -> [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
-    }
-
-    private func read(_ account: String) -> Data? {
-        guard !memoryOnly else { return nil }
-        var q = query(account)
-        q[kSecReturnData as String] = true
-        q[kSecMatchLimit as String] = kSecMatchLimitOne
-        var out: CFTypeRef?
-        let st = SecItemCopyMatching(q as CFDictionary, &out)
-        if st != errSecSuccess && st != errSecItemNotFound { log("labs: keychain read failed: \(st)") }
-        return st == errSecSuccess ? out as? Data : nil
-    }
-
-    private func write(_ account: String, _ data: Data, label: String) {
-        guard !memoryOnly else { return }
-        var st = SecItemUpdate(query(account) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if st == errSecItemNotFound {
-            var add = query(account)
-            add[kSecValueData as String] = data
-            add[kSecAttrLabel as String] = label
-            st = SecItemAdd(add as CFDictionary, nil)
-        }
-        if st != errSecSuccess { log("labs: keychain write failed: \(st)") }
-    }
+    func revokeAll() { vault.update { $0.trusted = []; $0.blocked = [] } }
 }

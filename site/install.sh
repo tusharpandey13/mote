@@ -7,7 +7,10 @@
 #   2. downloads the latest MoteHelper-macos-<arch>.zip and its .sha256 from GitHub Releases
 #   3. verifies the SHA-256
 #   4. installs to ~/Applications/MoteHelper.app (replacing an older copy)
-#   5. removes the quarantine flag from that app only, and opens it
+#   5. removes the quarantine flag from that app only
+#   6. if the old copy had a different code signature (e.g. an ad-hoc build), resets Mote Helper's
+#      stale Accessibility / Screen Recording entries once (tccutil, this app only), so they don't block
+#   7. opens it: the Setup window lists each permission with a button to the right Settings pane
 # Source: https://github.com/tusharpandey13/mote (site/install.sh)
 set -euo pipefail
 
@@ -40,7 +43,7 @@ say "This will:"
 echo "    download  $URL"
 echo "    verify    its SHA-256 against $ASSET.sha256 from the same release"
 echo "    install   $APP"
-echo "    clear the quarantine flag on that app only, then open it"
+echo "    clear the quarantine flag on that app only, then open its Setup window"
 echo
 
 TMP="$(mktemp -d)"
@@ -66,26 +69,32 @@ if pgrep -x MoteHelper >/dev/null 2>&1; then
   sleep 1
 fi
 
+# macOS keys permission grants to the code signature ("designated requirement"). Ad-hoc builds get
+# a new one every version, which leaves a stale Accessibility switch that looks on but does nothing.
+requirement() { codesign -d -r- "$1" 2>&1 | sed -n 's/^[# ]*designated => //p'; }
+OLD_REQ=""
+[ -d "$APP" ] && OLD_REQ="$(requirement "$APP" || true)"
+NEW_REQ="$(requirement "$TMP/x/MoteHelper.app" || true)"
+
 say "Installing to $APP"
 mkdir -p "$DEST_DIR"
 rm -rf "$APP"
 ditto "$TMP/x/MoteHelper.app" "$APP"
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
 
-say "Opening Mote Helper"
-open "$APP"
+if [ -n "$OLD_REQ" ] && [ -n "$NEW_REQ" ] && [ "$OLD_REQ" != "$NEW_REQ" ]; then
+  say "The new version is signed differently: clearing Mote Helper's old permission entries"
+  echo "    (only Mote Helper's; grant Accessibility again in the Setup window)"
+  tccutil reset Accessibility dev.mote.helper >/dev/null 2>&1 || true
+  tccutil reset ScreenCapture dev.mote.helper >/dev/null 2>&1 || true
+fi
+
+say "Opening Mote Helper Setup"
+open "$APP" --args --setup
 
 cat <<EOF
 
-Done. Next steps:
-  1. Allow Accessibility when macOS asks (System Settings > Privacy & Security > Accessibility).
-     Mote Helper needs it to type and click. After an update you may have to switch it off and on
-     again there (the app is ad-hoc signed, so each version has a new signature).
-  2. Allow Bluetooth if asked (only needed for the Bluetooth web remote).
-  3. A pairing window shows a 6-digit code and a QR code. On your phone, on the same Wi-Fi:
-       scan the QR, or open http://$(scutil --get LocalHostName 2>/dev/null || echo "<your-mac>").local:8790 and enter the code.
-     Or, without Wi-Fi, in Chrome on Android: https://tusharpandey13.github.io/mote/remote/ (Bluetooth).
-  4. The menu-bar icon has Pause input, Revoke all devices, Launch at login and Quit.
-
+Done. Follow the Setup window (allow Accessibility; Bluetooth is recommended), then open Mote on
+your phone. Reopen it any time from the menu-bar icon: Setup…
 Uninstall: quit it from the menu, then  rm -rf "$APP"
 EOF

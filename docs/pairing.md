@@ -8,7 +8,7 @@ Kill switch: helper `--no-instant-pairing` or `defaults write dev.mote.helper in
 
 ## 1. Keys and fingerprints
 
-- Both sides hold one long-lived **Ed25519** key pair. Helper: private key in the login Keychain (generic password, service `<keychain service>.labs`, account `identity`; `--memory-store`: a fresh key per run). Phone: Android Keystore Ed25519 key (API 33+, where the Keystore supports it), else a 32-byte seed AES-256-GCM-wrapped by a Keystore key in an app-private pref.
+- Both sides hold one long-lived **Ed25519** key pair. Helper: private key in the login Keychain, inside the helper's one secrets item (generic password, service `<keychain service>`, account `secrets`, a JSON blob with every helper secret; see helper/README.md; `--memory-store`: a fresh key per run). Phone: Android Keystore Ed25519 key (API 33+, where the Keystore supports it), else a 32-byte seed AES-256-GCM-wrapped by a Keystore key in an app-private pref.
 - `pub`: the 32-byte raw public key, lower-case hex (64 chars). `sig`: the 64-byte Ed25519 signature, hex (128 chars).
 - `fp` (fingerprint): first 16 bytes of SHA-256(raw public key), hex (32 chars).
 - Device id of a trusted phone on the helper: `k:` + its `fp`.

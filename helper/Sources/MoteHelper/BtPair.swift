@@ -42,12 +42,13 @@ final class BtPair: NSObject, IOBluetoothDeviceInquiryDelegate, IOBluetoothDevic
             guard self?.req?.gen == g else { return }
             self?.finish("failed", reason: "timeout")
         }
-        if let fake { runFake(fake, gen: g) } else if disabled { finish("failed", reason: "unavailable") } else { start(name) }
+        if let fake { runFake(fake, gen: g) } else if disabled || PermProbe.bluetooth != .granted { finish("failed", reason: "unavailable") } else { start(name) }
     }
 
     private func info() -> [String: Any] {
         if fake != nil { return ["t": "bt.info", "address": "02:00:00:00:00:00", "name": Host.computerName, "on": true] }
-        guard !disabled, let hc = IOBluetoothHostController.default() else { return ["t": "bt.info", "address": NSNull(), "name": Host.computerName, "on": false] }
+        // Not before Bluetooth is allowed: IOBluetooth would show the macOS prompt from a phone message.
+        guard !disabled, PermProbe.bluetooth == .granted, let hc = IOBluetoothHostController.default() else { return ["t": "bt.info", "address": NSNull(), "name": Host.computerName, "on": false] }
         let on = hc.powerState == kBluetoothHCIPowerStateON
         return ["t": "bt.info", "address": hc.addressAsString().map(normalized) ?? NSNull(), "name": hc.nameAsString() ?? Host.computerName, "on": on]
     }

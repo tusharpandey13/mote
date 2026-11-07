@@ -103,7 +103,8 @@ final class Spaces {
 
     var capturing: Bool { captureStatus == "on" }
 
-    /// Asks macOS for Screen Recording (shows the system prompt once). Lazy: first subscription or the menu.
+    /// Asks macOS for Screen Recording (shows the system prompt once). Only from a click: the Setup
+    /// window or the "Share Space thumbnails" toggle; never from a phone subscribing or a Space switch.
     func requestPermission() {
         guard fake == nil, !dryRun, !permitted else { return }
         log("spaces: requesting Screen Recording permission")
@@ -155,13 +156,10 @@ final class Spaces {
         return s
     }
 
-    /// A client sent `spaces.sub on:true`: arm capturing, ask for permission, grab each display's current Space.
+    /// A client sent `spaces.sub on:true`: arm capturing, grab each display's current Space (if permitted).
     func subscribed() {
         refresh()
-        if !armed {
-            armed = true
-            requestPermission()
-        }
+        armed = true
         let missing = displays.filter { $0.current != 0 && thumbs[$0.current] == nil }.map(\.id)
         if !missing.isEmpty { scheduleCapture(missing, after: 0.1) }
     }
@@ -233,7 +231,7 @@ final class Spaces {
 
     func shareToggled() {
         if !settings.shareSpaceThumbnails { thumbs.removeAll(); pending?.cancel(); pendingDisplays.removeAll() }
-        else if armed { requestPermission(); scheduleCapture(displays.map(\.id), after: 0.1) }
+        else if armed { scheduleCapture(displays.map(\.id), after: 0.1) }
         onChange?()
     }
 

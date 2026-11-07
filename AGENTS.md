@@ -18,7 +18,7 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
 ## Build and test
 - Android: JDK 17, `ANDROID_HOME`/`local.properties` (gitignored). In `android/`: `./gradlew :app:testDebugUnitTest :app:lintRelease`, `./gradlew :app:assembleRelease`. Build the helper first: `HelperIntegrationTest` drives the real `--dry-run` helper over WebSocket (skipped if `helper/build/MoteHelper.app` is missing; `MOTE_HELPER=` overrides).
 - Test app instance: `./gradlew :app:assembleDev` builds `dev.mote.remote.dev` ("Mote Dev", debug-signed, own data and key); use it on real phones, never the installed `dev.mote.remote`. Discovery e2e on the emulator: a `--dry-run --headless --memory-store --no-ble --fake-proximity --port 8795` helper, then `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.mote.remote.e2e.SweepDiscoveryTest -Pandroid.testInstrumentationRunnerArguments.moteSweepPort=8795 [-Pandroid.testInstrumentationRunnerArguments.moteFakeProximity=true]`.
-- Helper: `helper/build.sh` (`ARCHS=arm64 ./helper/build.sh` for one arch). Smoke test:
+- Helper: `helper/build.sh` (`ARCHS=arm64 ./helper/build.sh` for one arch). It signs with the stable local identity "Mote Helper Local" (`helper/signing.sh`, created once in the login keychain; see `helper/README.md`), so permission grants survive rebuilds. Agents / non-interactive runs: `MOTE_ADHOC=1` (ad-hoc, no keychain access, no dialogs; CI is ad-hoc automatically). Unit tests: `helper/tests/unit.sh`. Smoke test:
   ```sh
   B=helper/build/MoteHelper.app/Contents/MacOS/MoteHelper
   $B --dry-run --headless --no-ble --memory-store --open-pairing --port 8791   # prints PAIRING CODE
@@ -31,6 +31,7 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
 
 ## Release
 - Keystore and `keystore.properties` live in `~/.config/mote/`. Never commit them; losing the keystore breaks updates.
+- Build the helper release zips locally with `helper/build.sh` (signed with "Mote Helper Local"), never `MOTE_ADHOC=1` or CI: install.sh users get whatever signature the release has, and only a stable one keeps their Accessibility / Bluetooth grants and Keychain "Always Allow" across updates. Back up `~/.config/mote/mote-helper-local.p12` with the keystore; a new certificate makes every user re-grant once.
 - Tag `vX.Y.Z`, then `gh release create vX.Y.Z` with: `mote-vX.Y.Z.apk` (+ `.sha256`), `MoteHelper-macos-arm64.zip`, `MoteHelper-macos-x86_64.zip` (+ `.sha256` each). `site/install.sh` downloads `releases/latest/download/MoteHelper-macos-<arch>.zip(.sha256)`; keep those names exact.
 - Publishing a release (and any push to main touching `design/**`, `tools/readme-shots/**` or `README.md`) runs `.github/workflows/readme-shots.yml`: it re-renders the README images and `site/og.png` (only those; `design/exports` is local-only, see Source of truth), commits changes as `github-actions[bot]` (`[skip ci]`) and dispatches `pages.yml`. The live site embeds the artboards directly, so it is always current after deploy. Nothing to do by hand; `gh workflow run readme-shots.yml` forces it.
 
@@ -42,7 +43,7 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
 ## Constraints
 - HID can't be tested in an emulator; needs a real phone.
 - A browser can't be a Bluetooth peripheral; that's why the helper exists.
-- The helper is ad-hoc signed: each build needs Accessibility re-granted.
+- macOS keys permissions (TCC) and Keychain ACLs to the helper's signature: keep the "Mote Helper Local" identity; an ad-hoc build loses them. The helper never asks for a permission from a background event: only the Setup window (`SetupWindow.swift`, `Permissions.swift`) or a feature toggle may prompt.
 - Instrumented tests (`connectedAndroidTest`, `am instrument`) MUST be pinned to an emulator: `ANDROID_SERIAL=emulator-5554 ./gradlew ...` (or `adb -s emulator-…`). Gradle otherwise installs, runs, clears data and uninstalls on EVERY connected device, including the user's physical phone (serial b7e39c2f). Never run tests on the physical phone unless the user explicitly asks.
 
 ## README screenshots

@@ -5,7 +5,7 @@ import Security
 
 // MARK: - Paired devices (login Keychain)
 
-struct Device: Codable {
+struct Device: Codable, Equatable {
     var id: String
     var name: String
     var token: String          // 64 hex chars; HMAC key for challenge-response
@@ -13,58 +13,20 @@ struct Device: Codable {
     var lastSeen: Date?
 }
 
-/// Paired devices, stored as one JSON blob in a generic-password Keychain item.
+/// Paired devices: one list in the Vault (Vault.swift), `\.devices` (code pairing) or `\.bridge` (Labs bridge).
 final class DeviceStore {
-    private(set) var devices: [Device] = []
-    private let service: String
-    private let memoryOnly: Bool
-    private let account = "devices"
+    private let vault: Vault
+    private let path: WritableKeyPath<Secrets, [Device]>
+    var devices: [Device] { vault.secrets[keyPath: path] }
 
-    init(service: String, memoryOnly: Bool) {
-        self.service = service
-        self.memoryOnly = memoryOnly
-        load()
-    }
-
-    private var baseQuery: [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: service,
-         kSecAttrAccount as String: account]
-    }
-
-    private func load() {
-        guard !memoryOnly else { return }
-        var q = baseQuery
-        q[kSecReturnData as String] = true
-        q[kSecMatchLimit as String] = kSecMatchLimitOne
-        var out: CFTypeRef?
-        let st = SecItemCopyMatching(q as CFDictionary, &out)
-        if st == errSecSuccess, let data = out as? Data {
-            let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
-            devices = (try? dec.decode([Device].self, from: data)) ?? []
-        } else if st != errSecItemNotFound {
-            log("keychain read failed: \(st)")
-        }
-    }
-
-    private func save() {
-        guard !memoryOnly else { return }
-        let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
-        guard let data = try? enc.encode(devices) else { return }
-        var st = SecItemUpdate(baseQuery as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if st == errSecItemNotFound {
-            var add = baseQuery
-            add[kSecValueData as String] = data
-            add[kSecAttrLabel as String] = "Mote Helper paired devices"
-            st = SecItemAdd(add as CFDictionary, nil)
-        }
-        if st != errSecSuccess { log("keychain write failed: \(st)") }
+    init(vault: Vault, path: WritableKeyPath<Secrets, [Device]>) {
+        self.vault = vault
+        self.path = path
     }
 
     func add(name: String) -> Device {
         let d = Device(id: UUID().uuidString.lowercased(), name: name, token: randomHex(32), created: Date(), lastSeen: Date())
-        devices.append(d)
-        save()
+        vault.update { $0[keyPath: path].append(d) }
         return d
     }
 
@@ -78,13 +40,11 @@ final class DeviceStore {
 
     func touch(_ id: String) {
         guard let i = devices.firstIndex(where: { $0.id == id }) else { return }
-        devices[i].lastSeen = Date()
-        save()
+        vault.update { $0[keyPath: path][i].lastSeen = Date() }
     }
 
     func revokeAll() {
-        devices = []
-        if !memoryOnly { SecItemDelete(baseQuery as CFDictionary) }
+        vault.update { $0[keyPath: path] = [] }
     }
 }
 
