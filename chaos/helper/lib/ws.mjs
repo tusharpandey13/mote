@@ -23,9 +23,9 @@ export function frame(opcode, payload = Buffer.alloc(0), { fin = true, mask = tr
   return Buffer.concat([Buffer.from(head), ext, key, body]);
 }
 
-export function handshake(hostHeader, extra = '') {
+export function handshake(hostHeader, extra = "", path = "/ws") {
   const key = crypto.randomBytes(16).toString('base64');
-  return Buffer.from(`GET /ws HTTP/1.1\r\nHost: ${hostHeader}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n` +
+  return Buffer.from(`GET ${path} HTTP/1.1\r\nHost: ${hostHeader}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n` +
     `Sec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\n${extra}\r\n`);
 }
 
@@ -35,7 +35,7 @@ export function hostHeader(host, port) { return host.includes(':') ? `[${host}]:
  * Opens a WebSocket to the helper. Resolves after the 101 (or rejects on refusal / timeout).
  * c.next(ms) -> next JSON message or null on timeout/close; c.req(obj) sends and waits.
  */
-export function connect({ port, host = '127.0.0.1', connectVia, timeout = 5000, read = true } = {}) {
+export function connect({ port, host = '127.0.0.1', connectVia, timeout = 5000, read = true, origin, path = '/ws', hostHdr } = {}) {
   return new Promise((resolve, reject) => {
     const sock = net.connect({ host: connectVia?.host ?? host, port: connectVia?.port ?? port });
     sock.setNoDelay(true);
@@ -84,7 +84,7 @@ export function connect({ port, host = '127.0.0.1', connectVia, timeout = 5000, 
         deliver(m);
       }
     });
-    sock.write(handshake(hostHeader(host, port)));
+    sock.write(handshake(hostHdr ?? hostHeader(host, port), origin ? `Origin: ${origin}\r\n` : "", path));
     c.send = (m) => { if (!sock.destroyed) sock.write(frame(1, typeof m === 'string' ? m : JSON.stringify(m))); };
     c.raw = (b) => { if (!sock.destroyed) sock.write(b); };
     c.next = (ms = 3000) => new Promise((r) => {
