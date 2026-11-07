@@ -15,8 +15,11 @@ struct Config {
     var stdinControl = false  // tests: read pair/revoke/pause/resume commands from stdin (needs --dry-run)
     var labsTv = false        // --labs-tv: force Labs › TV mode on for this run (tests)
     var fakeSpaces: [Int]? = nil // tests: simulate displays with N,M,... Spaces and generated thumbnails (needs --dry-run)
-    var labsPairing: Bool? = nil       // Labs: --labs-pairing forces "Instant pairing" on for this run (docs/labs/pairing.md)
+    var instantPairing: Bool? = nil    // instant pairing (docs/pairing.md) is on by default; --no-instant-pairing turns it off
+                                       // for this run, --labs-pairing (old name, tests) forces it on
+    var requireApproval = false        // --require-approval: force "Require approval for new devices" on (tests)
     var fakeApprove: Bool? = nil       // tests: --fake-approve (Allow) / --fake-approve-deny (Deny) every prompt (needs --dry-run)
+    var fakeProximity = false          // tests: answer `labs.pair.prox` with the BLE proximity token (needs --dry-run)
     var fakeTailscaleOwner: String? = nil // tests: every peer is a tailnet node owned by this ("self" = this Mac's owner) (needs --dry-run)
     var fakeContext: String? = nil // Labs tests: read the frontmost-app context from this JSON file (needs --dry-run)
     var fakeNowPlaying = false     // Labs tests: a synthetic now-playing session (needs --dry-run)
@@ -34,7 +37,10 @@ struct Config {
             case "--allow-tailscale": c.allowTailscale = true
             case "--stdin-control": c.stdinControl = true
             case "--labs-tv": c.labsTv = true
-            case "--labs-pairing": c.labsPairing = true
+            case "--labs-pairing": c.instantPairing = true
+            case "--no-instant-pairing": c.instantPairing = false
+            case "--require-approval": c.requireApproval = true
+            case "--fake-proximity": c.fakeProximity = true
             case "--fake-approve": c.fakeApprove = true
             case "--fake-approve-deny": c.fakeApprove = false
             case "--fake-tailscale-owner": if let v = it.next() { c.fakeTailscaleOwner = v }
@@ -53,7 +59,8 @@ struct Config {
                 MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying]   (tests, need --dry-run; port 0 = any free port)
-                          [--labs-pairing] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID]   (Labs; fakes need --dry-run)
+                          [--no-instant-pairing | --labs-pairing] [--require-approval]   (instant pairing: off / force on; approval prompts)
+                          [--fake-proximity] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID]   (instant pairing tests, need --dry-run)
                 """)
                 exit(0)
             default: break // ignore launch-services noise (-psn_..., -NS...)
@@ -73,7 +80,8 @@ final class Settings {
     var onChange: (() -> Void)?
 
     /// "Allow Tailscale connections": accept tailnet peers (100.64/10, fd7a:115c:a1e0::/48) and
-    /// MagicDNS (*.ts.net) or tailnet-literal Host headers. Default off.
+    /// MagicDNS (*.ts.net) or tailnet-literal Host headers. Default on (an explicit off is kept);
+    /// with --memory-store (tests) off unless --allow-tailscale.
     var allowTailscale: Bool {
         didSet {
             guard allowTailscale != oldValue else { return }
@@ -102,7 +110,7 @@ final class Settings {
             hostId = randomHex(8)
             defaults?.set(hostId, forKey: "hostId")
         }
-        allowTailscale = config.allowTailscale ?? defaults?.bool(forKey: "allowTailscale") ?? false
+        allowTailscale = config.allowTailscale ?? defaults.map { $0.object(forKey: "allowTailscale") as? Bool ?? true } ?? false
         shareSpaceThumbnails = (defaults?.object(forKey: "shareSpaceThumbnails") as? Bool) ?? true
     }
 }

@@ -106,13 +106,18 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         _ = add(clients.isEmpty ? "No connected devices" : "Connected devices:")
         for s in clients { _ = add("   \(s.deviceName) · \(s.transport)") }
         _ = add("Paired devices: \(hub.store.devices.count)")
+        let ip = hub.instantPairing!
+        if ip.enabled {
+            _ = add("Trusted phones: \(ip.trustedCount)")
+            _ = add("This Mac's key: \(groupedFingerprint(ip.fp))")
+            _ = add("Require approval for new devices", #selector(toggleRequireApproval), state: ip.requireApproval)
+        }
         menu.addItem(.separator())
 
         let labs = NSMenu()   // Labs (previews, off by default)
         let tvItem = NSMenuItem(title: "TV mode (preview)", action: #selector(toggleTvLab), keyEquivalent: "")
         tvItem.target = self; tvItem.state = hub.tv.enabled ? .on : .off; labs.addItem(tvItem)
         if hub.tv.on { let x = NSMenuItem(title: "Exit TV mode", action: #selector(exitTv), keyEquivalent: ""); x.target = self; labs.addItem(x) }
-        hub.instantPairing.addMenuItems(to: labs)   // Labs: instant pairing
         hub.labs.flatMap { $0.menuItems() }.forEach(labs.addItem)   // Labs modules (Context & now playing)
         if let b = labsBridge { labs.addItem(.separator()); addBridgeItems(to: labs, bridge: b) }
         let labsItem = NSMenuItem(title: "Labs", action: nil, keyEquivalent: ""); labsItem.submenu = labs; menu.addItem(labsItem)
@@ -139,6 +144,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     @objc func startPairing() { hub.pairing.open(); showPairing() }
     @objc func stopPairing() { hub.pairing.close() }
     @objc func togglePause() { hub.paused.toggle() }
+    @objc func toggleRequireApproval() { hub.instantPairing.requireApproval.toggle() }
     @objc func toggleTvLab() { hub.tv.enabled.toggle() }
     @objc func exitTv() { hub.tv.exit() }
     @objc func toggleShareThumbs() { hub.settings.shareSpaceThumbnails.toggle() }
@@ -160,7 +166,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let a = NSAlert()
         a.messageText = "Revoke all devices?"
-        a.informativeText = "Every paired phone and browser is disconnected and has to pair again with a new code."
+        a.informativeText = "Every paired phone and browser is disconnected and has to pair again. Blocked phones are unblocked."
         a.addButton(withTitle: "Revoke All")
         a.addButton(withTitle: "Cancel")
         a.alertStyle = .warning
@@ -175,6 +181,64 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             let a = NSAlert(error: error)
             a.runModal()
         }
+    }
+
+    // MARK: new-device notice
+
+    private var notice: NSPanel?
+    private var noticeFp: String?
+    private var noticeGen = 0
+
+    /// Non-modal, non-activating notice for a newly trusted phone, top right, gone after 15 s. One Block button.
+    func showNewDevice(name: String, via: String, fp: String) {
+        notice?.close()
+        let how = via == "nearby" ? "via Bluetooth proximity" : via == "tailscale" ? "via Tailscale" : "approved on this Mac"
+        let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 320, height: 76),
+                        styleMask: [.titled, .closable, .nonactivatingPanel, .utilityWindow, .hudWindow], backing: .buffered, defer: false)
+        p.title = "Mote"
+        p.isFloatingPanel = true
+        p.level = .floating
+        p.hidesOnDeactivate = false
+        p.becomesKeyOnlyIfNeeded = true
+        p.isReleasedWhenClosed = false
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        let title = NSTextField(labelWithString: "\(name) connected to Mote.")
+        title.font = .systemFont(ofSize: 13, weight: .semibold)
+        title.lineBreakMode = .byTruncatingTail
+        let sub = NSTextField(labelWithString: how)
+        sub.font = .systemFont(ofSize: 11)
+        sub.textColor = .secondaryLabelColor
+        let text = NSStackView(views: [title, sub])
+        text.orientation = .vertical
+        text.alignment = .leading
+        text.spacing = 2
+        let block = NSButton(title: "Block", target: self, action: #selector(blockNotice))
+        block.bezelStyle = .rounded
+        let row = NSStackView(views: [text, block])
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 12
+        row.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
+        text.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        block.setContentHuggingPriority(.required, for: .horizontal)
+        p.contentView = row
+        if let vf = NSScreen.main?.visibleFrame {
+            p.setFrameTopLeftPoint(NSPoint(x: vf.maxX - p.frame.width - 12, y: vf.maxY - 12))
+        }
+        p.orderFrontRegardless()
+        notice = p
+        noticeFp = fp
+        noticeGen += 1
+        let gen = noticeGen
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            guard let self, self.noticeGen == gen else { return }
+            self.notice?.close(); self.notice = nil; self.noticeFp = nil
+        }
+    }
+
+    @objc func blockNotice() {
+        if let fp = noticeFp { hub.instantPairing.block(fp) }
+        notice?.close(); notice = nil; noticeFp = nil
     }
 
     // MARK: pairing window
