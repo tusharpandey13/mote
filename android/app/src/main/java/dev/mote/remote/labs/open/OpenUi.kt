@@ -50,7 +50,7 @@ import dev.mote.remote.net.Caps
 import dev.mote.remote.net.Remote
 import dev.mote.remote.ui.Cap
 import dev.mote.remote.ui.EditCap
-import dev.mote.remote.ui.GlassIcon
+import dev.mote.remote.ui.EmbossIcon
 import dev.mote.remote.ui.Haptic
 import dev.mote.remote.ui.MoteSheet
 import dev.mote.remote.ui.Repeat
@@ -333,8 +333,8 @@ fun TvRemotePanel(h: OpenTvHandle) {
         ) {
             Cap(Modifier.width(76.dp).height(88.dp), RoundedCornerShape(22.dp), haptic = Haptic.TICK, description = "Volume down", repeat = Repeat(),
                 onDown = { Remote.consumer(Consumer.VOL_DOWN) }) { MIcon("volDown", c.ink, size = 26.dp) }
-            Cap(Modifier.weight(1f).height(88.dp), RoundedCornerShape(24.dp), tone = Tone.GLASS, description = "Play or pause",
-                onClick = { key("playpause") }) { GlassIcon("playPause", 32.dp) }
+            Cap(Modifier.weight(1f).height(88.dp), RoundedCornerShape(24.dp), tone = Tone.METAL_PLAY, description = "Play or pause",
+                onClick = { key("playpause") }) { EmbossIcon("playPause", 32.dp) }
             Cap(Modifier.width(76.dp).height(88.dp), RoundedCornerShape(22.dp), haptic = Haptic.TICK, description = "Volume up", repeat = Repeat(),
                 onDown = { Remote.consumer(Consumer.VOL_UP) }) { MIcon("volUp", c.ink, size = 26.dp) }
         }
