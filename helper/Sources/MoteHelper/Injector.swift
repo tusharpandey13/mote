@@ -20,6 +20,13 @@ extension Dictionary where Key == String, Value == Any {
         if let def { return def }
         throw ProtoError("bad", "missing number '\(k)'")
     }
+    /// Optional string: nil if absent or null, `bad` if present with another type.
+    func optStr(_ k: String) throws -> String? {
+        guard let v = self[k], !(v is NSNull) else { return nil }
+        guard let s = v as? String else { throw ProtoError("bad", "'\(k)' must be a string") }
+        return s
+    }
+
     func str(_ k: String, _ def: String? = nil) throws -> String {
         if let s = self[k] as? String { return s }
         if let def { return def }

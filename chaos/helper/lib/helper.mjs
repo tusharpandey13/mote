@@ -37,7 +37,7 @@ function run(cmd, args) {
 }
 
 /**
- * opts.store: 'memory' (default) or { keychainService } (opt-in; touches the login Keychain).
+ * opts.stdin: pipe stdin (for --stdin-control), written with h.stdin(). opts.store: 'memory' (default) or { keychainService } (opt-in; touches the login Keychain).
  * Returns a handle with the pairing code, a parsed DRY-line log, and RSS / fd samplers.
  */
 export async function startHelper(opts = {}) {
@@ -50,7 +50,7 @@ export async function startHelper(opts = {}) {
   if (opts.extraArgs) args.push(...opts.extraArgs);   // e.g. --fake-spaces N
   if (!args.includes('--dry-run')) throw new Error('refusing to start the helper without --dry-run');
 
-  const proc = spawn(BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc = spawn(BIN, args, { stdio: [opts.stdin ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
   live.add(proc);
   proc.on('exit', () => live.delete(proc));
   const h = {
@@ -84,6 +84,8 @@ export async function startHelper(opts = {}) {
   proc.on('exit', (code, signal) => { h.exit = { code, signal }; readyResolve(); });
 
   h.alive = () => h.exit === null;
+  /** Writes to the helper's stdin (opts.stdin + --stdin-control); no-op otherwise. */
+  h.stdin = (s) => { if (proc.stdin && h.alive()) proc.stdin.write(s); };
   h.kill = (sig = 'SIGKILL') => { try { process.kill(h.pid, sig); } catch {} };
   h.stop = async () => {
     if (!h.alive()) return h.exit;

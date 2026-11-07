@@ -1,5 +1,5 @@
-// Spaces (protocol 1.3) under fuzz: a --fake-spaces helper (generated thumbnails, no Screen Recording,
-// nothing captured or injected). Unauthenticated spaces.* is always refused; authenticated fuzzed
+// Spaces (protocol 1.3 / 1.4) under fuzz: a two-display --fake-spaces helper (generated thumbnails, no
+// Screen Recording, nothing captured or injected), with the active display flipped over stdin-control. Unauthenticated spaces.* is always refused; authenticated fuzzed
 // spaces.sub / spaces.thumb / spaces.goto never crash or hang the helper, state stays consistent,
 // every thumbnail is a JPEG under the 60 KiB message budget, and a client that requests thumbnails
 // without reading them is dropped instead of growing memory.
@@ -10,22 +10,34 @@ import { authed, open, pair } from '../lib/ws.mjs';
 export const name = 'spaces';
 export const weight = 0.08;
 
-const N = 4;
+const COUNTS = [4, 3];                       // desktops per fake display
+const IDS = COUNTS.map((_, k) => `fake-${k + 1}`);
+const N = COUNTS[0];
 const IDX = [1, 2, 3, 4, 0, -1, 5, 16, 17, 2 ** 31, -(2 ** 53), 1.5, '1', null, true, [], {}, 'x'.repeat(300)];
+const DISPLAY = [...IDS, ...IDS, 'fake-3', 'Main', '', 0, 1, null, true, [], {}, 'x'.repeat(300), 'fake-1\u0000'];
+
+/** A state is consistent if both displays are listed and the 1.3 fields mirror the active one. */
+function consistent(s) {
+  if (s.displays?.length !== COUNTS.length || s.shared !== false) return false;
+  if (!s.displays.every((d, k) => d.id === IDS[k] && d.count === COUNTS[k] && d.current >= 1 && d.current <= d.count && d.thumbs?.length === d.count)) return false;
+  const a = s.displays.find((d) => d.id === s.display);
+  return !!a && s.count === a.count && s.current === a.current && JSON.stringify(s.thumbs) === JSON.stringify(a.thumbs);
+}
 
 function msg(r) {
   const t = r.pick(['spaces.sub', 'spaces.thumb', 'spaces.goto', 'spaces', 'spaces.', 'Spaces.sub', 'spaces.goto\u0000']);
   const m = { t };
   if (r.chance(0.9)) m.i = r.pick(IDX);
   if (t === 'spaces.sub' || r.chance(0.1)) m.on = r.pick([true, false, 1, 0, 'yes', null]);
+  if (r.chance(0.5)) m.display = r.pick(DISPLAY);
   if (r.chance(0.05)) delete m.t;
   return m;
 }
 
 export async function run({ r, deadline }) {
   const chk = new Checker(name);
-  const h = await startHelper({ extraArgs: ['--fake-spaces', String(N)] });
-  chk.ok(h.log.some((l) => l.includes(`fake spaces: ${N}`)), 'helper runs with --fake-spaces');
+  const h = await startHelper({ extraArgs: ['--fake-spaces', COUNTS.join(','), '--stdin-control'], stdin: true });
+  chk.ok(h.log.some((l) => l.includes(`fake spaces: ${COUNTS.join(',')}`)), 'helper runs with --fake-spaces 4,3');
   const base = { baseFds: (await h.fds()).all, baseFp: await h.footprint() };
   const cred = await pair(h);
 
@@ -46,12 +58,13 @@ export async function run({ r, deadline }) {
   const watch = await authed(h, cred, { host: PEERS[1] });
   const states = [];
   const s0 = await watch.req({ t: 'spaces.sub' });
-  chk.ok(s0?.t === 'spaces' && s0.count === N, 'subscriber gets state', s0);
+  chk.ok(s0?.t === 'spaces' && s0.count === N && consistent(s0), 'subscriber gets state for both displays', s0);
   const a = await authed(h, cred, { host: PEERS[2] });
   let cases = 0, thumbs = 0, badThumbs = [], badReplies = [];
   while (Date.now() < deadline - 6000) {
     const batch = Array.from({ length: 20 }, () => msg(r));
     for (const m of batch) a.send(m);
+    if (r.chance(0.3)) h.stdin(`display ${r.int(0, COUNTS.length + 1)}\n`);   // flip (or try a bad) active display
     const n = 1e6 + cases;
     a.send({ t: 'ping', n });
     for (;;) {
@@ -62,7 +75,8 @@ export async function run({ r, deadline }) {
       else if (m.t === 'spaces.thumb') {
         thumbs++;
         const j = Buffer.from(m.data ?? '', 'base64');
-        if (!(j[0] === 0xff && j[1] === 0xd8 && m.i >= 1 && m.i <= N && JSON.stringify(m).length <= 60 * 1024)) badThumbs.push({ i: m.i, len: j.length });
+        const k = IDS.indexOf(m.display);
+        if (!(j[0] === 0xff && j[1] === 0xd8 && k >= 0 && m.i >= 1 && m.i <= COUNTS[k] && JSON.stringify(m).length <= 60 * 1024)) badThumbs.push({ i: m.i, d: m.display, len: j.length });
       } else if (m.t === 'err') { if (!['bad', 'notfound', 'unknown', 'unsupported'].includes(m.code)) badReplies.push(m); }
       else badReplies.push(m);
     }
@@ -85,8 +99,9 @@ export async function run({ r, deadline }) {
   chk.ok(h.alive(), 'helper survived the spaces fuzz', h.exit);
   chk.ok(badReplies.length === 0, 'only bad/notfound/unknown errors, no hang', badReplies.slice(0, 3));
   chk.ok(badThumbs.length === 0, `every thumbnail is a JPEG within budget (${thumbs})`, badThumbs.slice(0, 3));
-  const inconsistent = states.filter((s) => s.count !== N || s.current < 1 || s.current > N || s.thumbs?.length !== N);
-  chk.ok(inconsistent.length === 0, `${states.length} states consistent (count ${N}, current 1-${N})`, inconsistent.slice(0, 2));
+  const inconsistent = states.filter((s) => !consistent(s));
+  chk.ok(inconsistent.length === 0, `${states.length} states consistent (displays ${COUNTS.join(',')}, top level mirrors the active one)`, inconsistent.slice(0, 2));
+  chk.ok(new Set(states.map((s) => s.display)).size === COUNTS.length, 'active display switches were pushed', [...new Set(states.map((s) => s.display))]);
   chk.ok(h.log.some((l) => /DRY spaces goto=/.test(l)), 'gotos were executed (dry run)');
   a.destroy(); watch.destroy();
 

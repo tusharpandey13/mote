@@ -13,7 +13,7 @@ node chaos/helper/run.mjs --budget 90s --only fuzz,auth
 node chaos/helper/run.mjs --keychain                # also SIGKILL during Keychain writes (see below)
 ```
 
-- `--budget` (`90s`, `10m`, `1h`) is split across scenarios by weight: fuzz 40%, net 25%, load 15%, process 15%, spaces 8%, auth 5% (relative weights). `spaces` fuzzes the protocol 1.3 Spaces messages against a `--fake-spaces` helper. Fixed-size checks run even with a tiny budget. Time-boxed loops (fuzz cases, proxy rounds) scale with it.
+- `--budget` (`90s`, `10m`, `1h`) is split across scenarios by weight: fuzz 40%, net 25%, load 15%, process 15%, spaces 8%, auth 5% (relative weights). `spaces` fuzzes the protocol 1.3/1.4 Spaces messages (including the `display` field) against a two-display `--fake-spaces 4,3` helper whose active display it flips over `--stdin-control`. Fixed-size checks run even with a tiny budget. Time-boxed loops (fuzz cases, proxy rounds) scale with it.
 - `--seed N` makes every random choice reproducible: fault profiles, fuzz cases (per worker stream), kill timings. The seed is printed at the start and the end. Timing-dependent outcomes (which frame a 20% drop hits) can still vary between runs.
 - `MOTE_HELPER_BIN=/path/to/MoteHelper` tests another build. `CHAOS_VERBOSE=1` prints fuzz crashes as they happen.
 - The runner kills every helper it started on exit or Ctrl-C.

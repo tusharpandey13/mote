@@ -3,50 +3,80 @@ import CoreGraphics
 import ImageIO
 import ScreenCaptureKit
 
-/// macOS Spaces on the main display (protocol 1.3, docs/protocol.md "spaces"): current index and
-/// count from private CGS calls, thumbnails captured with ScreenCaptureKit shortly after each
-/// Space change, and `goto` via the Switch-to-Desktop shortcut or ⌃←/⌃→ steps.
+/// macOS Spaces per display (protocol 1.4, docs/protocol.md "spaces"): index and count per display
+/// from private CGS calls, the active display (frontmost window, else the cursor), thumbnails
+/// captured per display with ScreenCaptureKit shortly after each Space change, and `goto` via the
+/// Switch-to-Desktop shortcut or ⌃←/⌃→ steps. The 1.3 top-level fields mirror the active display.
 /// Thumbnails stay in memory only. Main-queue only.
 final class Spaces {
     static let maxDesktops = 16
+    static let maxDisplays = 8
     static let maxMessageBytes = 60 * 1024   // a `spaces.thumb` message stays under the 64 KiB cap
     static let thumbWidth = 320
     static let captureDelay = 0.6            // after the Space slide animation
+    static let debounce = 0.15               // coalesces bursts of Space / app / screen notifications
 
     struct Thumb { let v: Int; let w: Int; let h: Int; let jpeg: Data }
 
+    /// One display's Spaces. `id` is the CGS "Display Identifier" (a UUID, or "Main" when displays share Spaces).
+    struct Display: Equatable {
+        let id: String
+        let name: String
+        let cgID: CGDirectDisplayID
+        let desktops: [UInt64]               // desktop Space ids, in Mission Control order
+        let all: [UInt64]                    // desktops and full-screen Spaces, in order (⌃←/⌃→ walk this)
+        let current: UInt64
+        /// 1-based index of the current desktop; 0 if unknown or a full-screen Space is showing.
+        var index: Int { desktops.firstIndex(of: current).map { $0 + 1 } ?? 0 }
+    }
+
     private let dryRun: Bool
-    private let fake: Int?                   // --fake-spaces N (dry-run only): no CGS, no capture
+    private let fake: [Int]?                 // --fake-spaces N[,M...] (dry-run only): no CGS, no capture
     private let settings: Settings
     private let injector: Injector
-    private var fakeCurrent = 1
-    private var desktops: [UInt64] = []      // desktop Space ids, in Mission Control order
-    private var all: [UInt64] = []           // desktops and full-screen Spaces, in order (⌃←/⌃→ walk this)
-    private var currentID: UInt64 = 0
-    private var thumbs: [UInt64: Thumb] = [:]
+    private var fakeCurrent: [Int]           // per fake display, 1-based
+    private var fakeActive = 0               // 0-based fake display that is active
+    private(set) var displays: [Display] = []
+    private(set) var activeID = ""
+    private(set) var shared = false          // "Displays have separate Spaces" is off: one list for all screens
+    private var thumbs: [UInt64: Thumb] = [:]   // Space ids are unique across displays
     private var version = 0
     private var armed = false                // a client subscribed this run: capture on every visit
     private var pending: DispatchWorkItem?
+    private var pendingDisplays = Set<String>()
+    private var kickItem: DispatchWorkItem?
     private var lastPermission: Bool
-    /// State changed (index, count, a thumbnail, toggle, permission): broadcast to subscribers.
+    /// State changed (index, count, active display, a thumbnail, toggle, permission): broadcast to subscribers.
     var onChange: (() -> Void)?
+    /// Whether any session is subscribed; the 1 s poll does nothing otherwise.
+    var isSubscribed: (() -> Bool)?
 
     init(config: Config, settings: Settings, injector: Injector) {
         dryRun = config.dryRun
         fake = config.dryRun ? config.fakeSpaces : nil
+        fakeCurrent = Array(repeating: 1, count: fake?.count ?? 0)
         self.settings = settings
         self.injector = injector
         lastPermission = false
         lastPermission = permitted
         refresh()
-        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.spaceChanged()
+        let ws = NSWorkspace.shared.notificationCenter
+        for n in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification] {
+            ws.addObserver(forName: n, object: nil, queue: .main) { [weak self] _ in self?.kick() }
+        }
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.kick()
+        }
+        // The active display also changes with clicks and cursor moves, which post nothing: poll while subscribed.
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self, self.isSubscribed?() == true else { return }
+            self.poll()
         }
     }
 
-    var count: Int { desktops.count }
-    /// 1-based index of the current desktop; 0 if unknown or a full-screen Space is showing.
-    var current: Int { desktops.firstIndex(of: currentID).map { $0 + 1 } ?? 0 }
+    var active: Display? { displays.first { $0.id == activeID } ?? displays.first }
+    var count: Int { active?.desktops.count ?? 0 }
+    var current: Int { active?.index ?? 0 }
 
     // MARK: permission and capture status
 
@@ -76,64 +106,107 @@ final class Spaces {
 
     // MARK: state
 
-    /// Re-reads the Spaces layout. Returns true if index or count changed.
+    /// Re-reads the Spaces layout and the active display. Returns true if anything changed.
     @discardableResult
     func refresh() -> Bool {
-        let before = (desktops, currentID)
-        if let n = fake {
-            desktops = (1...max(1, n)).map { UInt64($0) }
-            all = desktops
-            currentID = UInt64(fakeCurrent)
-        } else if let s = CGSSpaces.read() {
-            desktops = Array(s.desktops.prefix(Spaces.maxDesktops)); all = s.all; currentID = s.current
+        let before = (displays, activeID, shared)
+        if let f = fake {
+            displays = f.enumerated().map { d, n in
+                let ids = (1...n).map { UInt64((d + 1) * 100 + $0) }
+                return Display(id: "fake-\(d + 1)", name: "Fake Display \(d + 1)", cgID: 0, desktops: ids, all: ids, current: ids[min(fakeCurrent[d], n) - 1])
+            }
+            shared = false
+            activeID = displays[min(fakeActive, displays.count - 1)].id
+        } else if let raw = CGSSpaces.read() {
+            shared = raw.count == 1 && raw[0].id == "Main"
+            let ids = CGSSpaces.onlineDisplays()
+            displays = raw.prefix(Spaces.maxDisplays).map { r in
+                let cg = r.id == "Main" ? CGMainDisplayID() : (ids.first { CGSSpaces.uuid($0)?.caseInsensitiveCompare(r.id) == .orderedSame } ?? 0)
+                return Display(id: r.id, name: shared ? "All displays" : Spaces.screenName(cg), cgID: cg,
+                               desktops: Array(r.desktops.prefix(Spaces.maxDesktops)), all: r.all, current: r.current)
+            }
+            if shared {
+                activeID = displays[0].id
+            } else {
+                let focus = Spaces.frontWindowDisplay() ?? Spaces.cursorDisplay()
+                activeID = (displays.first { $0.cgID == focus } ?? displays.first { $0.cgID == CGMainDisplayID() } ?? displays[0]).id
+            }
         } else {
-            desktops = []; all = []; currentID = 0
+            displays = []; activeID = ""; shared = false
         }
-        let live = Set(all)
+        let live = Set(displays.flatMap(\.all))
         thumbs = thumbs.filter { live.contains($0.key) }
-        return before.0 != desktops || before.1 != currentID
+        return before.0 != displays || before.1 != activeID || before.2 != shared
     }
+
+    private func versions(_ d: Display) -> [Int] { d.desktops.map { thumbs[$0]?.v ?? 0 } }
 
     func state() -> [String: Any] {
-        ["t": "spaces", "count": count, "current": current, "thumbs": desktops.map { thumbs[$0]?.v ?? 0 }, "capture": captureStatus]
+        let list: [[String: Any]] = displays.map { ["id": $0.id, "name": $0.name, "count": $0.desktops.count, "current": $0.index, "thumbs": versions($0)] }
+        var s: [String: Any] = ["t": "spaces", "count": count, "current": current, "thumbs": active.map(versions) ?? [],
+                                "capture": captureStatus, "displays": list, "shared": shared]
+        if !activeID.isEmpty { s["display"] = activeID }
+        return s
     }
 
-    /// A client sent `spaces.sub on:true`: arm capturing, ask for permission, grab the current Space.
+    /// A client sent `spaces.sub on:true`: arm capturing, ask for permission, grab each display's current Space.
     func subscribed() {
         refresh()
         if !armed {
             armed = true
             requestPermission()
         }
-        if thumbs[currentID] == nil { scheduleCapture(after: 0.1) }
+        let missing = displays.filter { $0.current != 0 && thumbs[$0.current] == nil }.map(\.id)
+        if !missing.isEmpty { scheduleCapture(missing, after: 0.1) }
     }
 
-    /// Called every 2 s by the hub: picks up added/removed desktops and a newly granted permission.
+    /// Every second while subscribed: picks up the active display, added/removed desktops and displays,
+    /// missed Space changes and a newly granted permission.
     func poll() {
         let p = permitted
         let permChanged = p != lastPermission
         lastPermission = p
-        if refresh() || permChanged {
-            if permChanged && p && armed { scheduleCapture(after: 0.1) }
-            onChange?()
-        }
+        if permChanged && p && armed { scheduleCapture(displays.map(\.id), after: 0.1) }
+        if !update(captureAfter: Spaces.captureDelay) && permChanged { onChange?() }
     }
 
-    private func spaceChanged() {
-        refresh()
+    /// Debounced re-read after a notification (Space change, app activation, screen change).
+    private func kick() {
+        kickItem?.cancel()
+        let w = DispatchWorkItem { [weak self] in self?.update(captureAfter: Spaces.captureDelay - Spaces.debounce) }
+        kickItem = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + Spaces.debounce, execute: w)
+    }
+
+    /// Re-reads; on a change broadcasts and captures every display whose current Space moved. True if changed.
+    @discardableResult
+    private func update(captureAfter delay: Double) -> Bool {
+        let prev = Dictionary(displays.map { ($0.id, $0.current) }, uniquingKeysWith: { a, _ in a })
+        guard refresh() else { return false }
         onChange?()
-        if armed { scheduleCapture(after: Spaces.captureDelay) }
+        let moved = displays.filter { $0.current != 0 && prev[$0.id] != $0.current }.map(\.id)
+        if armed && !moved.isEmpty { scheduleCapture(moved, after: delay) }
+        return true
     }
 
-    /// `spaces.thumb` reply for desktop `i` (1-based), or nil if none is cached.
-    func thumbMessage(_ i: Int) -> [String: Any]? {
-        guard (1...max(1, count)).contains(i), i <= count, let t = thumbs[desktops[i - 1]] else { return nil }
-        return ["t": "spaces.thumb", "i": i, "v": t.v, "w": t.w, "h": t.h, "mime": "image/jpeg", "data": t.jpeg.base64EncodedString()]
+    /// Test-only (`--stdin-control` `display N`): make fake display N (1-based) the active one.
+    func fakeActivate(_ n: Int) {
+        guard let f = fake, (1...f.count).contains(n) else { log("spaces: display \(n) needs --fake-spaces with that many displays"); return }
+        fakeActive = n - 1
+        log("spaces: fake active display \(n)")
+        kick()
+    }
+
+    /// `spaces.thumb` reply for desktop `i` (1-based) of `display` (default: the active one), or nil if none is cached.
+    func thumbMessage(_ i: Int, display: String? = nil) -> [String: Any]? {
+        guard let d = display.map({ id in displays.first { $0.id == id } }) ?? active,
+              (1...max(1, d.desktops.count)).contains(i), i <= d.desktops.count, let t = thumbs[d.desktops[i - 1]] else { return nil }
+        return ["t": "spaces.thumb", "i": i, "display": d.id, "v": t.v, "w": t.w, "h": t.h, "mime": "image/jpeg", "data": t.jpeg.base64EncodedString()]
     }
 
     /// Menu "Clear Space thumbnails", toggle off, revoke all.
     func clear() {
-        pending?.cancel(); pending = nil
+        pending?.cancel(); pending = nil; pendingDisplays.removeAll()
         guard !thumbs.isEmpty else { return }
         thumbs.removeAll()
         log("spaces: thumbnails cleared")
@@ -141,45 +214,56 @@ final class Spaces {
     }
 
     func shareToggled() {
-        if !settings.shareSpaceThumbnails { thumbs.removeAll(); pending?.cancel() }
-        else if armed { requestPermission(); scheduleCapture(after: 0.1) }
+        if !settings.shareSpaceThumbnails { thumbs.removeAll(); pending?.cancel(); pendingDisplays.removeAll() }
+        else if armed { requestPermission(); scheduleCapture(displays.map(\.id), after: 0.1) }
         onChange?()
     }
 
     // MARK: capture
 
-    private func scheduleCapture(after delay: Double) {
+    /// Captures the current Space of each display in `ids` after `delay` (merged with any capture already pending).
+    private func scheduleCapture(_ ids: [String], after delay: Double) {
         pending?.cancel()
-        guard capturing else { return }
-        let target = currentID
-        let w = DispatchWorkItem { [weak self] in self?.capture(target) }
+        guard capturing else { pendingDisplays.removeAll(); return }
+        pendingDisplays.formUnion(ids)
+        let w = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let targets = self.pendingDisplays
+            self.pendingDisplays.removeAll()
+            self.refresh()
+            for id in self.displays.map(\.id) where targets.contains(id) { self.capture(id) }
+        }
         pending = w
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: w)
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0, delay), execute: w)
     }
 
-    private func capture(_ space: UInt64) {
-        refresh()
-        guard capturing, space != 0, space == currentID else { return }
+    private func capture(_ displayID: String) {
+        guard capturing, let d = displays.first(where: { $0.id == displayID }), d.current != 0 else { return }
+        let space = d.current
         let done: (CGImage?) -> Void = { [weak self] img in
             DispatchQueue.main.async {
                 // The user may have moved on (or turned sharing off) while the frame was taken.
-                guard let self, self.capturing, space == self.currentID, let img, let jpeg = Spaces.jpeg(img) else { return }
+                guard let self, self.capturing, self.displays.first(where: { $0.id == displayID })?.current == space,
+                      let img, let jpeg = Spaces.jpeg(img) else { return }
                 self.version += 1
                 self.thumbs[space] = Thumb(v: self.version, w: img.width, h: img.height, jpeg: jpeg)
                 self.onChange?()
             }
         }
         if fake != nil {
-            done(Spaces.solid(index: current, of: count))
+            let k = displays.firstIndex(of: d) ?? 0
+            done(Spaces.solid(index: d.index, of: d.desktops.count, display: k))
         } else if #available(macOS 14.0, *) {
-            Spaces.captureMainDisplay(done)
+            Spaces.captureDisplay(d.cgID, done)
         }
     }
 
+    /// One frame of display `id` (the SCDisplay with that CGDirectDisplayID; 0 or unknown = main display).
     @available(macOS 14.0, *)
-    private static func captureMainDisplay(_ done: @escaping (CGImage?) -> Void) {
+    private static func captureDisplay(_ id: CGDirectDisplayID, _ done: @escaping (CGImage?) -> Void) {
         SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: true) { content, err in
-            guard let content, let d = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) ?? content.displays.first else {
+            guard let content, let d = content.displays.first(where: { $0.displayID == (id == 0 ? CGMainDisplayID() : id) })
+                    ?? content.displays.first(where: { $0.displayID == CGMainDisplayID() }) ?? content.displays.first else {
                 if let err { log("spaces: capture unavailable: \(err.localizedDescription)") }
                 done(nil); return
             }
@@ -206,47 +290,103 @@ final class Spaces {
         return nil
     }
 
-    /// --fake-spaces: a solid colour per desktop (hue by index), 320x200.
-    static func solid(index: Int, of n: Int) -> CGImage? {
+    /// --fake-spaces: a solid colour per desktop (hue by index, brightness by display), 320x200.
+    static func solid(index: Int, of n: Int, display: Int = 0) -> CGImage? {
         let w = thumbWidth, h = 200
         guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
                                   space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
-        let c = NSColor(hue: CGFloat(max(0, index - 1)) / CGFloat(max(1, n)), saturation: 0.6, brightness: 0.8, alpha: 1)
+        let c = NSColor(hue: CGFloat(max(0, index - 1)) / CGFloat(max(1, n)), saturation: 0.6, brightness: 0.8 - 0.2 * CGFloat(display % 3), alpha: 1)
         ctx.setFillColor(c.cgColor)
         ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
         return ctx.makeImage()
     }
 
+    // MARK: display helpers
+
+    /// The display holding the frontmost app's frontmost normal window (keyboard focus), or nil if it has none.
+    /// Window bounds and owners need no Screen Recording permission.
+    static func frontWindowDisplay() -> CGDirectDisplayID? {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
+        for w in list where (w[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid && (w[kCGWindowLayer as String] as? NSNumber)?.intValue == 0 {
+            guard let b = w[kCGWindowBounds as String] as? NSDictionary, let r = CGRect(dictionaryRepresentation: b), r.width > 1, r.height > 1 else { continue }
+            if let d = display(at: CGPoint(x: r.midX, y: r.midY)) { return d }
+        }
+        return nil
+    }
+
+    /// The display under the mouse cursor.
+    static func cursorDisplay() -> CGDirectDisplayID? {
+        guard let p = CGEvent(source: nil)?.location else { return nil }
+        return display(at: p)
+    }
+
+    private static func display(at p: CGPoint) -> CGDirectDisplayID? {
+        var id: CGDirectDisplayID = 0, n: UInt32 = 0
+        guard CGGetDisplaysWithPoint(p, 1, &id, &n) == .success, n > 0 else { return nil }
+        return id
+    }
+
+    /// NSScreen.localizedName for a display, else "Display".
+    static func screenName(_ id: CGDirectDisplayID) -> String {
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        return NSScreen.screens.first { ($0.deviceDescription[key] as? NSNumber)?.uint32Value == id }?.localizedName ?? "Display"
+    }
+
     // MARK: goto
 
-    /// `spaces.goto`: the user's Switch-to-Desktop shortcut if enabled, else ⌃←/⌃→ steps from the current index.
-    func goto(_ i: Int) throws {
+    /// `spaces.goto` desktop `i` of `display` (default: the active one): the user's Switch-to-Desktop
+    /// shortcut if enabled (numbered across displays in macOS order), else ⌃←/⌃→ steps on that display,
+    /// after moving the cursor onto it (steps act on the display under the cursor).
+    func goto(_ i: Int, display: String? = nil) throws {
         refresh()
-        let upper = count > 0 ? count : Spaces.maxDesktops
+        var target = active
+        if let display {
+            guard let d = displays.first(where: { $0.id == display }) else { throw ProtoError("notfound", "no display \(display)") }
+            target = d
+        }
+        let n = target?.desktops.count ?? 0
+        let upper = n > 0 ? n : Spaces.maxDesktops
         guard (1...upper).contains(i) else { throw ProtoError("bad", "desktop index must be 1-\(upper)") }
+        let tag = target.map { " display=\($0.id)" } ?? ""
+        // "Switch to Desktop N" numbers desktops globally: display 1's desktops, then display 2's, ...
+        let offset = target.map { t in displays.prefix { $0.id != t.id }.reduce(0) { $0 + $1.desktops.count } } ?? 0
         // Fake spaces always step, so tests don't depend on this Mac's shortcut settings.
-        if fake == nil, let hk = SymbolicHotkeys.desktop(i) {
-            if dryRun { log("DRY spaces goto=\(i) from=\(current) via=shortcut") } else { log("spaces: goto \(i) via shortcut") }
+        if fake == nil, let hk = SymbolicHotkeys.desktop(offset + i) {
+            if dryRun { log("DRY spaces goto=\(i) from=\(target?.index ?? 0) via=shortcut n=\(offset + i)\(tag)") } else { log("spaces: goto \(i) via shortcut \(offset + i)\(tag)") }
             try injector.key(usage: hk.usage, mods: hk.mods, action: "tap")
             return
         }
-        guard currentID != 0, let from = all.firstIndex(of: currentID) else {
-            throw ProtoError("unsupported", "current Space unknown; enable Switch to Desktop \(i) in Keyboard Shortcuts")
+        guard let d = target, d.current != 0, let from = d.all.firstIndex(of: d.current) else {
+            throw ProtoError("unsupported", "current Space unknown; enable Switch to Desktop \(offset + i) in Keyboard Shortcuts")
         }
-        let to = all.firstIndex(of: desktops[i - 1]) ?? from
+        let to = d.all.firstIndex(of: d.desktops[i - 1]) ?? from
         let steps = to - from
-        if dryRun { log("DRY spaces goto=\(i) from=\(current) via=step") } else { log("spaces: goto \(i) via \(abs(steps)) steps") }
+        if dryRun { log("DRY spaces goto=\(i) from=\(d.index) via=step\(tag)") } else { log("spaces: goto \(i) via \(abs(steps)) steps\(tag)") }
+        let warp = steps != 0 && !shared && (fake != nil ? d.id != activeID : Spaces.cursorDisplay() != d.cgID)
+        if warp { warpCursor(to: d) }
+        let lead = warp ? 100 : 0
         let usage = steps > 0 ? 79 : 80   // HID Right / Left arrow
         for k in 0..<abs(steps) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(80 * k)) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(lead + 80 * k)) { [weak self] in
                 try? self?.injector.key(usage: usage, mods: 1, action: "tap")
             }
         }
-        if fake != nil {
-            // Simulate the Space change the real keys would cause.
-            fakeCurrent = i
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(80 * abs(steps))) { [weak self] in self?.spaceChanged() }
+        if fake != nil, let k = displays.firstIndex(of: d) {
+            // Simulate the Space change the real keys would cause (and the focus the warp would move).
+            fakeCurrent[k] = i
+            if warp { fakeActive = k }
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(lead + 80 * abs(steps))) { [weak self] in self?.update(captureAfter: Spaces.captureDelay) }
         }
+    }
+
+    /// Moves the cursor (no click) to the centre of `d`, so ⌃←/⌃→ act on it. Logged only in --dry-run.
+    private func warpCursor(to d: Display) {
+        if dryRun { log("DRY spaces warp display=\(d.id)"); return }
+        let r = CGDisplayBounds(d.cgID == 0 ? CGMainDisplayID() : d.cgID)
+        CGWarpMouseCursorPosition(CGPoint(x: r.midX, y: r.midY))
+        CGAssociateMouseAndMouseCursorPosition(1)
+        log("spaces: cursor moved to display \(d.id)")
     }
 }
 
@@ -271,25 +411,36 @@ enum CGSSpaces {
     private static let activeSpace = sym("CGSGetActiveSpace", GetActiveSpace.self)
     static var available: Bool { mainConnection != nil && copyManaged != nil }
 
-    struct Layout { let desktops: [UInt64]; let all: [UInt64]; let current: UInt64 }
+    struct Layout { let id: String; let desktops: [UInt64]; let all: [UInt64]; let current: UInt64 }
 
-    /// Spaces of the main display ("Main" when displays share Spaces, else the main display's UUID).
-    static func read() -> Layout? {
+    /// Spaces per display, in macOS order. One entry with id "Main" when displays share Spaces.
+    static func read() -> [Layout]? {
         guard let mainConnection, let copyManaged else { return nil }
         let cid = mainConnection()
         guard let displays = copyManaged(cid)?.takeRetainedValue() as? [[String: Any]], !displays.isEmpty else { return nil }
-        let mainUUID = CGDisplayCreateUUIDFromDisplayID(CGMainDisplayID()).map { CFUUIDCreateString(nil, $0.takeRetainedValue()) as String }
-        let disp = displays.first { d in
-            guard let id = d["Display Identifier"] as? String else { return false }
-            return id == "Main" || (mainUUID.map { id.caseInsensitiveCompare($0) == .orderedSame } ?? false)
-        } ?? displays[0]
-        guard let spaces = disp["Spaces"] as? [[String: Any]] else { return nil }
         func id(_ s: [String: Any]) -> UInt64? { ((s["ManagedSpaceID"] ?? s["id64"]) as? NSNumber)?.uint64Value }
-        let all = spaces.compactMap(id)
-        let desktops = spaces.filter { (($0["type"] as? NSNumber)?.intValue ?? 0) == 0 }.compactMap(id)
-        var current = (disp["Current Space"] as? [String: Any]).flatMap(id) ?? 0
-        if current == 0, let activeSpace { current = activeSpace(cid) }
-        return Layout(desktops: desktops, all: all, current: current)
+        let out: [Layout] = displays.compactMap { disp in
+            guard let did = disp["Display Identifier"] as? String, let spaces = disp["Spaces"] as? [[String: Any]] else { return nil }
+            let all = spaces.compactMap(id)
+            let desktops = spaces.filter { (($0["type"] as? NSNumber)?.intValue ?? 0) == 0 }.compactMap(id)
+            var current = (disp["Current Space"] as? [String: Any]).flatMap(id) ?? 0
+            if current == 0, displays.count == 1, let activeSpace { current = activeSpace(cid) }
+            return Layout(id: did, desktops: desktops, all: all, current: current)
+        }
+        return out.isEmpty ? nil : out
+    }
+
+    /// Online displays (CGDirectDisplayID).
+    static func onlineDisplays() -> [CGDirectDisplayID] {
+        var n: UInt32 = 0
+        guard CGGetOnlineDisplayList(0, nil, &n) == .success, n > 0 else { return [] }
+        var ids = [CGDirectDisplayID](repeating: 0, count: Int(n))
+        guard CGGetOnlineDisplayList(n, &ids, &n) == .success else { return [] }
+        return Array(ids.prefix(Int(n)))
+    }
+
+    static func uuid(_ id: CGDirectDisplayID) -> String? {
+        CGDisplayCreateUUIDFromDisplayID(id).map { CFUUIDCreateString(nil, $0.takeRetainedValue()) as String }
     }
 }
 
