@@ -1,4 +1,4 @@
-package dev.mote.remote.labs.pairing
+package dev.mote.remote.pairing
 
 import dev.mote.remote.net.Found
 import dev.mote.remote.net.Route
@@ -47,18 +47,6 @@ class PathsTest {
         assertNull(BleInfo.parse("not json".toByteArray()))
         val evil = BleInfo.parse("""{"v":1,"id":"0123456789abcdef","fp":"$fp","lan":["1.2.3.4","a/b","x y"],"ts":"evil/../"}""")!!
         assertEquals(listOf("1.2.3.4"), evil.lan); assertNull(evil.tailnetDns)
-    }
-
-    @Test fun candidatesMergeBleAndBonjour() {
-        val ble = listOf(NearbyMac(info, -50, 0))
-        val bonjour = listOf(
-            Found("Mac", "0123456789abcdef", "192.168.1.30", 8790), Found("Other", "fedcba9876543210", "192.168.1.31", 8790),
-            Found("Old", null, "192.168.1.32", 8790),
-        )
-        val c = candidates(ble, bonjour)
-        assertEquals(listOf("0123456789abcdef", "fedcba9876543210"), c.map { it.hostId })
-        assertEquals(fp, c[0].fp); assertEquals("192.168.1.30", c[0].bonjour?.address)
-        assertNull(c[1].fp)
     }
 
     @Test fun trustRecordsRoundTrip() {

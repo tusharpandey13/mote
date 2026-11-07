@@ -1,4 +1,4 @@
-package dev.mote.remote.labs.pairing
+package dev.mote.remote.pairing
 
 import dev.mote.remote.net.Proto
 import dev.mote.remote.net.toHex

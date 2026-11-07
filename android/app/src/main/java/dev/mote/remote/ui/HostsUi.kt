@@ -66,6 +66,7 @@ import dev.mote.remote.net.routeOf
 import dev.mote.remote.ui.theme.LocalMote
 import dev.mote.remote.ui.theme.MIcon
 import dev.mote.remote.ui.theme.well
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -147,13 +148,13 @@ fun SecondaryButton(label: String, modifier: Modifier = Modifier, onClick: () ->
 fun WifiGateOption(primary: Boolean, onWifi: () -> Unit) {
     val c = LocalMote.current
     Spacer(Modifier.height(if (primary) 24.dp else 12.dp))
-    if (primary) PrimaryButton("Use Wi-Fi with Mote Helper", onClick = onWifi) else SecondaryButton("Use Wi-Fi with Mote Helper", onClick = onWifi)
+    if (primary) PrimaryButton("Connect to your Mac", onClick = onWifi) else SecondaryButton("Connect to your Mac instead", onClick = onWifi)
     Spacer(Modifier.height(8.dp))
-    Text("Needs the free Mote Helper app on the Mac ($HELPER_URL). Adds Unicode typing, precise brightness and click-at-point.",
+    Text("Over Wi-Fi or Tailscale with the free Mote Helper on the Mac ($HELPER_URL). Adds Unicode typing, precise brightness and click-at-point.",
         style = T.small, color = c.subtle)
 }
 
-private enum class Page { LIST, NEARBY, ADDRESS, CODE }
+private enum class Page { LIST, FIND, FIND_ADDRESS, NEARBY, ADDRESS, CODE }
 
 /**
  * The host picker: one list mixing Bluetooth HID hosts and Mote Helper hosts (grouped by hostId /
@@ -175,7 +176,8 @@ fun HostSheet(
     val ws by Net.wsStatus.collectAsState()
     val link by Net.pendingLink.collectAsState()
 
-    var page by remember { mutableStateOf(if (startAdding) Page.NEARBY else Page.LIST) }
+    var page by remember { mutableStateOf(if (startAdding) Page.FIND else Page.LIST) }
+    var more by remember { mutableStateOf(false) } // overflow: Pair with code, Enter address
     var target by remember { mutableStateOf<String?>(null) }  // address being paired
     var targetPort by remember { mutableStateOf(8790) }
     var targetName by remember { mutableStateOf("") }
@@ -251,12 +253,25 @@ fun HostSheet(
                 Text("Devices", style = T.title, color = c.ink)
                 val note = when {
                     ws is WsStatus.Failed -> failedText(ws as WsStatus.Failed)
-                    s.phase == Phase.UNSUPPORTED -> "This phone can't be a Bluetooth keyboard. Use Wi-Fi with Mote Helper."
+                    s.phase == Phase.UNSUPPORTED -> "This phone can't be a Bluetooth keyboard. Add a Mac with Mote Helper."
                     s.phase == Phase.BLOCKED -> "Bluetooth HID is unavailable. Another app may be registered as a keyboard; close it and reopen Mote."
                     else -> "Mote reconnects to the selected device while the app is open."
                 }
                 Text(note, style = T.body, color = c.muted)
-                dev.mote.remote.labs.pairing.InstantPairingRows(close) // Labs: nearby Macs, no code
+                // Not connecting to the selected Mac: asleep (no answer) vs helper not running (refused).
+                val wsHost = (active as? WsTransport)?.hostId
+                var reach by remember { mutableStateOf<String?>(null) }
+                LaunchedEffect(wsHost, ws is WsStatus.Ready) {
+                    reach = null
+                    val h = saved.firstOrNull { it.hostId == wsHost } ?: return@LaunchedEffect
+                    if (ws is WsStatus.Ready) return@LaunchedEffect
+                    delay(1500)
+                    val reaches = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        h.candidates().take(4).map { a -> async { dev.mote.remote.pairing.tcpReach(a, h.port) } }.map { it.await() }
+                    }
+                    reach = dev.mote.remote.pairing.reachNote(h.name, reaches)
+                }
+                reach?.let { Text(it, style = T.body, color = c.danger) }
                 // A saved host that was unpaired is no longer in the bonded list; keep it visible so its "Not paired" state shows.
                 val btHosts = s.selected?.takeIf { sel -> s.unpaired && bt.hosts.none { it.address == sel.address } }?.let { bt.hosts + it } ?: bt.hosts
                 val rows = hostRows(btHosts, saved, found)
@@ -291,19 +306,40 @@ fun HostSheet(
                         }
                     }
                 }
-                SecondaryButton("Add Mac over Wi-Fi") { error = null; page = Page.NEARBY }
-                SecondaryButton("Enter address") { error = null; page = Page.ADDRESS }
+                SecondaryButton("Add a Mac") { error = null; page = Page.FIND }
+                if (!more) dev.mote.remote.pairing.SmallLink("More options") { more = true } else {
+                    dev.mote.remote.pairing.SmallLink("Pair with code") { error = null; page = Page.NEARBY }
+                    dev.mote.remote.pairing.SmallLink("Enter address") { error = null; page = Page.FIND_ADDRESS }
+                }
                 if (bt.gate == BtGate.READY) {
                     SecondaryButton("Pair new Bluetooth device") { requestDiscoverable(ctx) }
                     Text("Makes this phone visible for 2 minutes. Pair it from the computer's Bluetooth settings; Android asks you to confirm the code.",
                         style = T.small, color = c.subtle)
+                    var stale by remember { mutableStateOf(false) }
+                    if (!stale) dev.mote.remote.pairing.SmallLink("Connected over Bluetooth but buttons do nothing?") { stale = true }
+                    else Text("The computer kept an old pairing. Fix: on the computer, forget this phone in Bluetooth settings; here, long-press it and forget it too; then Pair new Bluetooth device again.",
+                        style = T.small, color = c.muted)
                 } else if (bt.gate != BtGate.UNSUPPORTED) {
                     SecondaryButton(if (bt.gate == BtGate.BT_OFF) "Turn on Bluetooth" else "Set up Bluetooth", onClick = onBtSetup)
                 }
             }
 
+            Page.FIND -> {
+                Header("Add a Mac") { page = Page.LIST }
+                Column(Modifier.fillMaxWidth().well(RoundedCornerShape(20.dp))) {
+                    dev.mote.remote.pairing.FindMacPanel(onEnterAddress = { page = Page.FIND_ADDRESS }, onDone = close)
+                }
+            }
+
+            Page.FIND_ADDRESS -> {
+                Header("Enter address") { page = Page.LIST }
+                Column(Modifier.fillMaxWidth().well(RoundedCornerShape(20.dp))) {
+                    dev.mote.remote.pairing.AddressConnect(onBack = { page = Page.FIND }, onDone = close)
+                }
+            }
+
             Page.NEARBY -> {
-                Header("Add Mac over Wi-Fi") { page = Page.LIST }
+                Header("Pair with code") { page = Page.LIST }
                 Text("On the Mac, open the Mote Helper menu and choose Pair new device. Then pick the Mac here, or scan its QR with the camera and tap Open in the Mote app.",
                     style = T.body, color = c.muted)
                 val unpaired = found.filter { f -> saved.none { it.hostId == f.hostId } }
@@ -356,6 +392,10 @@ private fun Header(title: String, onBack: () -> Unit) {
 private fun ErrorText(e: String?) {
     if (e != null) Text(e, style = T.small, color = LocalMote.current.danger)
 }
+
+/** Address entry for the instant-pairing "Enter address" card. */
+@Composable
+fun AddressField(value: String, placeholder: String, onChange: (String) -> Unit) = InputField(value, placeholder, KeyboardType.Uri, onChange)
 
 @Composable
 private fun InputField(value: String, placeholder: String, type: KeyboardType, onChange: (String) -> Unit) {
@@ -440,7 +480,7 @@ private fun FoundCap(f: Found, onClick: () -> Unit) {
 }
 
 private fun failedText(f: WsStatus.Failed) = when (f.code) {
-    "auth", "revoked" -> "The Mac no longer knows this phone. Long-press it to forget, then pair again."
+    "auth", "revoked" -> "The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again."
     "version" -> f.msg
     "unpaired" -> "Pairing data is missing. Long-press the Mac to forget it, then pair again."
     else -> f.msg

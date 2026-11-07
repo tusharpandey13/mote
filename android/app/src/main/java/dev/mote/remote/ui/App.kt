@@ -81,6 +81,10 @@ import dev.mote.remote.labs.context.SmartRemoteEffects
 import dev.mote.remote.labs.Labs
 import dev.mote.remote.labs.video.VideoBridge
 import dev.mote.remote.net.Net
+import dev.mote.remote.net.Selection
+import dev.mote.remote.pairing.FindMacScreen
+import dev.mote.remote.pairing.StartScreen
+import dev.mote.remote.pairing.startScreen
 import dev.mote.remote.net.Remote
 import dev.mote.remote.service.HidService
 import dev.mote.remote.ui.theme.LocalMote
@@ -140,7 +144,6 @@ private fun Root(theme: ThemeChoice) {
     val modeState = rememberSaveableStateHolder()
     var deviceSheet by remember { mutableStateOf(false) }
     var addHost by remember { mutableStateOf(false) } // open the host sheet on "Add Mac over Wi-Fi"
-    val wifiChosen by Net.wifiChosen.collectAsState()
     val link by Net.pendingLink.collectAsState()
     LaunchedEffect(link) { if (link != null) deviceSheet = true }
     val linked by Remote.linked.collectAsState()
@@ -181,8 +184,19 @@ private fun Root(theme: ThemeChoice) {
             else -> permLauncher.launch(requestedPermissions())
         }
     }
-    if (bt.gate != BtGate.READY && !wifiChosen && link == null && !demo) {
-        BtGateScreen(bt.gate, openSettings, gateAction, onWifi = { Net.chooseWifi(); addHost = true; deviceSheet = true })
+    val loaded by Net.loaded.collectAsState()
+    val saved by Net.saved.collectAsState()
+    val selection by Net.selection.collectAsState()
+    val btChosen by Net.btChosen.collectAsState()
+    val wifiChosen by Net.wifiChosen.collectAsState()
+    val start = startScreen(
+        hasHelperHost = saved.isNotEmpty(), btSelected = selection is Selection.Bt || (selection == null && s.selected != null),
+        macChosen = wifiChosen, btChosen = btChosen, btPermitted = bt.permitted, btReady = bt.gate == BtGate.READY, skip = demo || link != null,
+    )
+    if (!loaded && !demo) { Box(Modifier.fillMaxSize().chassis()); return }
+    if (start == StartScreen.FIND_MAC) { FindMacScreen(onBluetooth = { Net.chooseBluetooth() }); return }
+    if (start == StartScreen.BT_GATE) {
+        BtGateScreen(bt.gate, openSettings, gateAction, onWifi = { Net.chooseWifi() })
         return
     }
 
@@ -296,7 +310,6 @@ private fun Root(theme: ThemeChoice) {
         }
         TailscalePrompt()
         dev.mote.remote.labs.open.OpenTvSheet(openTv)
-        dev.mote.remote.labs.pairing.InstantPairingHost() // Labs: "Connect to <Mac>?" sheet (flag off: nothing)
     }
 }
 

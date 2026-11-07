@@ -1,4 +1,4 @@
-package dev.mote.remote.labs.pairing
+package dev.mote.remote.pairing
 
 import android.os.Build
 import java.security.KeyFactory

@@ -47,6 +47,7 @@ object Net {
     private val HOSTS = stringPreferencesKey("helper_hosts")
     private val SELECTION = stringPreferencesKey("selection")
     private val WIFI_CHOSEN = booleanPreferencesKey("wifi_chosen")
+    private val BT_CHOSEN = booleanPreferencesKey("bt_chosen")
 
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val http by lazy { helperHttpClient() }
@@ -64,6 +65,12 @@ object Net {
     /** The user chose "Use Wi-Fi with Mote Helper" on the first-run gate (no Bluetooth needed). */
     private val _wifiChosen = MutableStateFlow(false)
     val wifiChosen: StateFlow<Boolean> = _wifiChosen.asStateFlow()
+    /** The user chose "Use Bluetooth instead (no helper)" on the first-run screen. */
+    private val _btChosen = MutableStateFlow(false)
+    val btChosen: StateFlow<Boolean> = _btChosen.asStateFlow()
+    /** Saved hosts and choices are loaded (the first screen waits for this, so it doesn't flash). */
+    private val _loaded = MutableStateFlow(false)
+    val loaded: StateFlow<Boolean> = _loaded.asStateFlow()
     /** A pairing link opened from outside (mote://pair). The UI shows the pairing sheet for it. */
     val pendingLink = MutableStateFlow<PairLink?>(null)
 
@@ -81,19 +88,21 @@ object Net {
         app.getSystemService(WifiManager::class.java).createWifiLock(mode, "mote-input").apply { setReferenceCounted(false) }
     }
 
-    private var loaded = false
+    private var inited = false
     private var stopJob: Job? = null
 
     fun init(context: Context) {
-        if (loaded) return
-        loaded = true
+        if (inited) return
+        inited = true
         app = context.applicationContext
         scope.launch {
-            dev.mote.remote.labs.pairing.InstantPairing.load(app) // Labs: trusted-key hosts need their records before reconnecting
+            dev.mote.remote.pairing.InstantPairing.load(app) // trusted-key hosts need their records before reconnecting
             val p = app.store.data.first()
             _saved.value = SavedHost.decode(p.typed(HOSTS))
             _wifiChosen.value = p.typed(WIFI_CHOSEN) ?: false
+            _btChosen.value = p.typed(BT_CHOSEN) ?: false
             Selection.decode(p.typed(SELECTION))?.let { apply(it) }
+            _loaded.value = true
         }
         // Wi-Fi power save delayed 3 of 12 sparse taps by 140-530 ms (Nothing Phone 2, Android 16);
         // hold a low-latency Wi-Fi lock only while a helper host is active and the app is on screen.
@@ -186,7 +195,7 @@ object Net {
     private fun targetFor(hostId: String): WsTarget? {
         val h = _saved.value.firstOrNull { it.hostId == hostId } ?: return null
         val fresh = discovery.found.value.firstOrNull { it.hostId == hostId }
-        dev.mote.remote.labs.pairing.InstantPairing.target(h, fresh?.address)?.let { return it } // Labs: key handshake, no token
+        dev.mote.remote.pairing.InstantPairing.target(h, fresh?.address)?.let { return it } // key handshake, no token
         val sign = Vault.signer(h) ?: return null
         return WsTarget(h.candidates(fresh?.address), fresh?.port ?: h.port, h.deviceId, sign)
     }
@@ -208,9 +217,16 @@ object Net {
         app.store.edit { it[HOSTS] = SavedHost.encode(list) }
     }
 
+    /** First run: Bluetooth HID instead of the helper. Exclusive with [chooseWifi]. */
+    fun chooseBluetooth() {
+        _btChosen.value = true; _wifiChosen.value = false
+        scope.launch { app.store.edit { it[BT_CHOSEN] = true; it[WIFI_CHOSEN] = false } }
+    }
+
+    /** The helper path (Wi-Fi / Tailscale). Exclusive with [chooseBluetooth]. */
     fun chooseWifi() {
-        _wifiChosen.value = true
-        scope.launch { app.store.edit { it[WIFI_CHOSEN] = true } }
+        _wifiChosen.value = true; _btChosen.value = false
+        scope.launch { app.store.edit { it[WIFI_CHOSEN] = true; it[BT_CHOSEN] = false } }
     }
 
     /** Opens [address] and returns its hello: checks that a helper answers before pairing / saving. */
@@ -240,7 +256,7 @@ object Net {
         return h
     }
 
-    /** Labs instant pairing: stores a key-trusted host (no Vault token) and selects it. */
+    /** Instant pairing: stores a key-trusted host (no Vault token) and selects it. */
     fun adoptTrusted(h: SavedHost) {
         scope.launch { persist(_saved.value.filterNot { it.hostId == h.hostId } + h) }
         _saved.value = _saved.value.filterNot { it.hostId == h.hostId } + h

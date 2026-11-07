@@ -20,8 +20,8 @@ android {
         applicationId = "dev.mote.remote"
         minSdk = 28
         targetSdk = 35
-        versionCode = 30
-        versionName = "0.4.0"
+        versionCode = 50
+        versionName = "0.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Fresh process + cleared data per test. The physical-HID suite is opt-in (see README).
@@ -36,6 +36,8 @@ android {
     testOptions {
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
         animationsDisabled = true
+        // Opt-in live LAN sweep (LiveSweepTest): ./gradlew :app:testDebugUnitTest -Dmote.liveSweep=192.168.1.0/24
+        unitTests.all { t -> System.getProperty("mote.liveSweep")?.let { t.systemProperty("mote.liveSweep", it) } }
     }
 
     sourceSets {
@@ -87,7 +89,7 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.datastore.preferences)
     implementation(libs.okhttp)
-    implementation(libs.bouncycastle) // Labs instant pairing: Ed25519 below API 33 (lightweight RFC 8032 class only; R8 strips the rest)
+    implementation(libs.bouncycastle) // instant pairing: Ed25519 below API 33 (lightweight RFC 8032 class only; R8 strips the rest)
     testImplementation(libs.junit)
     testImplementation(libs.org.json) // the JVM test classpath has only stubs of android.jar's org.json
 

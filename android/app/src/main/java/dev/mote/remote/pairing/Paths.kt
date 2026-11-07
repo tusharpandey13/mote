@@ -1,4 +1,4 @@
-package dev.mote.remote.labs.pairing
+package dev.mote.remote.pairing
 
 import dev.mote.remote.net.Route
 import dev.mote.remote.net.SavedHost
@@ -9,7 +9,7 @@ import dev.mote.remote.net.routeOf
 data class PairPath(val route: Route, val address: String)
 
 /**
- * Connection order for a Mac (docs/labs/pairing.md section 5), pure:
+ * Connection order for a Mac (docs/pairing.md section 5), pure:
  * 1. LAN: fresh Bonjour address, BLE info LAN IPs, last working LAN IP, `<local>.local`;
  * 2. tailnet: MagicDNS name (stable), then the 100.x / fd7a: address;
  * 3. Bluetooth HID, when the Mac is linked to a bonded HID host ([btAddress]).

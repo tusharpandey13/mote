@@ -1,4 +1,4 @@
-package dev.mote.remote.labs.pairing
+package dev.mote.remote.pairing
 
 import dev.mote.remote.net.HelperError
 import dev.mote.remote.net.Msg
@@ -36,7 +36,7 @@ sealed interface PairState {
 }
 
 /**
- * Pure client side of the handshake (docs/labs/pairing.md section 3). Fed every helper message in
+ * Pure client side of the handshake (docs/pairing.md section 3). Fed every helper message in
  * order; anything out of order, a bad helper signature or a key that doesn't match [pinnedFp]
  * (from the BLE info or the stored trust) ends in [PairState.Failed].
  */
@@ -84,19 +84,21 @@ class PairMachine(
 fun newNonce(): String = ByteArray(16).also { SecureRandom().nextBytes(it) }.toHex()
 
 /**
- * Runs the handshake on an open [WsSession] (after `hello`). Returns [PairState.Done] or throws
- * [HelperError]: `denied` / `rate` / `timeout` (with the reason), `helper-key` (wrong Mac or key),
- * `revoked` (prompt needed but [allowPrompt] is false), `unauth` (Labs off on the Mac).
+ * Runs the handshake on an open [WsSession] (after `hello`). [prox] is the proximity token read over
+ * BLE (docs/pairing.md section 4), if any. Returns [PairState.Done] or throws [HelperError] whose
+ * code is the helper's deny reason (`far`, `stale`, `blocked`, `bad-proximity`, `denied`, `timeout`,
+ * `busy`, `rate`), `helper-key` (wrong Mac or key), `revoked` (prompt needed but [allowPrompt] is
+ * false) or `unauth` (instant pairing turned off on the Mac).
  */
 suspend fun labsHandshake(
     s: WsSession, me: Signer, name: String, pinnedFp: String?, allowPrompt: Boolean = true,
-    onState: (PairState) -> Unit = {},
+    prox: String? = null, onState: (PairState) -> Unit = {},
 ): PairState.Done {
     val hostId = s.hello.hostId ?: throw HelperError("version", "Mote Helper too old for Instant pairing")
     val pub = me.pub.toHex()
     val cn = newNonce()
     val machine = PairMachine(hostId, s.hello.nonce, cn, pub, pinnedFp, allowPrompt)
-    s.send(PairProto.hello(pub, name, cn, me.sign(PairProto.clientProof(hostId, s.hello.nonce, pub)).toHex()))
+    s.send(PairProto.hello(pub, name, cn, me.sign(PairProto.clientProof(hostId, s.hello.nonce, pub)).toHex(), prox))
     onState(machine.state)
     while (!machine.state.terminal) {
         val wait = (machine.state as? PairState.Pending)?.let { (it.timeout + 10) * 1000L } ?: 8000L
@@ -111,7 +113,7 @@ suspend fun labsHandshake(
     }
     return when (val st = machine.state) {
         is PairState.Done -> st
-        is PairState.Denied -> throw HelperError(if (st.reason == "rate") "rate" else "denied", st.reason, st.retryAfter)
+        is PairState.Denied -> throw HelperError(st.reason, st.reason, st.retryAfter)
         is PairState.Failed -> throw HelperError(st.code, st.msg)
         else -> throw HelperError("bad", "handshake ended in $st")
     }
