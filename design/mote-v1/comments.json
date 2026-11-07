@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextNumber": 73,
+  "nextNumber": 77,
   "comments": [
     {
       "id": "c-512cf5e39358",
@@ -1729,6 +1729,102 @@
       "sentAt": 1794049006771,
       "resolvedAt": 1794049163477,
       "resolution": "The centre is now a raised, domed 52dp rubber thumbstick with a side wall, grip ridges, a concave dish and a cast shadow, in a visible recessed well with a 25dp travel gap and engraved direction marks. Deflected and pressed states are on dpad-press; recipe in tokens.json (rev7.1)."
+    },
+    {
+      "id": "c-a8df00a8e634",
+      "number": 73,
+      "body": "BT should not be primary. BT is fallback. By default both wifi and bt are needed for full funcitonality, if user wants, only BT can be used then, this current flow feels wrong",
+      "anchor": {
+        "artboardId": "journey-first-run-bt",
+        "dcId": "gate-primary",
+        "path": "body > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2)",
+        "tag": "div",
+        "text": "Connect with Bluetooth",
+        "html": "<div class=\"btn-primary accent-cap\" style=\"margin-top:12px\" data-dc-id=\"gate-primary\">Connect with Bluetooth</div>",
+        "rect": {
+          "x": 77.993408203125,
+          "y": 509.7314147949219,
+          "width": 177.99913024902344,
+          "height": 27.999462127685547
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1794061792899,
+      "sentAt": 1794061873547,
+      "resolvedAt": 1794062034461,
+      "resolution": "J1 is now 'First run (Wi-Fi + Bluetooth)': Set up Mote → discover → one-tap Connect over Wi-Fi, then a recommended, pre-checked 'Also pair Bluetooth' step that the helper accepts on the Mac. 'Use Bluetooth only (limited)' is a secondary branch."
+    },
+    {
+      "id": "c-93ae6c33ea8f",
+      "number": 74,
+      "body": "no, pairing is triggered by app not mac. this menu item can remain but this should not be part of user jouney. mac should auto pair",
+      "anchor": {
+        "artboardId": "journey-wifi-helper",
+        "dcId": "j2-m2",
+        "path": "body > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1)",
+        "tag": "div",
+        "text": "Fri 9:41 Mote Helper: Ready Pair new device… ⌘N Wi-Fi remote: http://macbook-pro.local:8790 or http://192.168.1.20:8790 Allow Tailscale connections Tailscale: not detected (is it running?) No connecte",
+        "html": "<div class=\"mac\" data-dc-id=\"j2-m2\"><div class=\"menubar\"><span class=\"mi\"><span class=\"mi on\" title=\"Mote Helper\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><circle cx=\"8\" cy=\"8\" r=\"2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\"></circle><path d=\"M4.6 4.6a4.8 4.8 0 0 0 0 6.8M11.4 4.6a4.8 4.8 0 0 1 0 6.8M2.6 2.6a7.6 7.6 0 0 0 0 10.8M13.4 2.6a7.6 7.6 0 0 1 0 10.8\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\"></path></svg></span></span><span class=\"mi\">Fri 9:41</span></div><div class=\"desk\"><div class=\"menu\" style=\"width:262px\"><div class=\"it\"><b>Mote Helper: Ready</b></div><div class=\"it hl\">Pair new device… <span>⌘N</span></div><div class=\"sep\"></div><div class=\"it\">Wi-Fi remote: http://macbook-pro.local:8790</div><div class=\"it dis\">&nbsp;&nbsp;&nbsp;&nbsp; or http://192.168.1.20:8790</div><div class=\"sep\"></div><div class=\"it\">Allow Tailscale connections</div><div class=\"it dis\">Tailscale: not detected (is it running?)</div><div class=\"sep\"></div><div class=\"it dis\">No connected devices</div><div class=\"it dis\">Paired devices: 0</div><div class=\"sep\"></div><div class=\"it\">Labs <span>▸</span></div><div class=\"it\">Pause input <span>⌘P</sp",
+        "rect": {
+          "x": 459.9870910644531,
+          "y": 235.99139404296875,
+          "width": 339.9944763183594,
+          "height": 355.9911193847656
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1794061834253,
+      "sentAt": 1794061873547,
+      "resolvedAt": 1794062034461,
+      "resolution": "Removed the helper-menu 'Pair new device' step from J2; the Mac auto-accepts and shows only a non-blocking 'connected · Block' notice. The menu item stays in the product, as the Mac menu tour in journey A shows."
+    },
+    {
+      "id": "c-84113797fdfa",
+      "number": 75,
+      "body": "removed",
+      "anchor": {
+        "artboardId": "journey-wifi-helper",
+        "dcId": "j2-s3",
+        "path": "body > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(5)",
+        "tag": "div",
+        "text": "3 Fri 9:41 Pair a device with Mote Enter this code in the Mote remote 482 913 Or scan with the phone camera (same Wi-Fi) to open http://… Pairing closes after 5 minutes or once a device pairs. Only pa",
+        "html": "<div class=\"step\" data-dc-id=\"j2-s3\"><span class=\"num\">3</span><div class=\"row\"><div class=\"mac\" data-dc-id=\"j2-m3\"><div class=\"menubar\"><span class=\"mi\"><span class=\"mi\" title=\"Mote Helper\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><circle cx=\"8\" cy=\"8\" r=\"2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\"></circle><path d=\"M4.6 4.6a4.8 4.8 0 0 0 0 6.8M11.4 4.6a4.8 4.8 0 0 1 0 6.8M2.6 2.6a7.6 7.6 0 0 0 0 10.8M13.4 2.6a7.6 7.6 0 0 1 0 10.8\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\"></path></svg></span></span><span class=\"mi\">Fri 9:41</span></div><div class=\"desk\"><div class=\"win\" style=\"left:30px;top:8px;width:280px;height:284px\" data-dc-id=\"mac-pair-window\"><div class=\"tb\"><i></i><i></i><i></i><span style=\"margin-left:6px\">Pair a device with Mote</span></div><div class=\"bd\" style=\"height:264px\"><div style=\"padding:12px;text-align:center;font-size:11.5px\"><div style=\"color:#555\">Enter this code in the Mote remote</div>\n      <div style=\"font:700 30px/38px var(--font-ui);letter-spacing:4px\">482 913</div><div class=\"qr\"></div>\n      <div style=\"color:#777;margin-top:8px\">Or scan with the phone camera (same Wi-Fi) to open http://…</div>\n   ",
+        "rect": {
+          "x": 863.9752197265625,
+          "y": 187.99435424804688,
+          "width": 339.9944763183594,
+          "height": 480.9831237792969
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1794061840903,
+      "sentAt": 1794061873547,
+      "resolvedAt": 1794062034461,
+      "resolution": "Removed the pairing-code window step from J2."
+    },
+    {
+      "id": "c-a265b82874fc",
+      "number": 76,
+      "body": "code is removed",
+      "anchor": {
+        "artboardId": "journey-wifi-helper",
+        "dcId": "j2-s5",
+        "path": "body > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(9)",
+        "tag": "div",
+        "text": "5 9:41 MacBook Pro MOTE Pair with MacBook Pro Enter the 6-digit code shown in the Mote Helper pairing window on the Mac. 482913 Pair Enter or confirm the code A mote://pair link fills it in",
+        "html": "<div class=\"step\" data-dc-id=\"j2-s5\"><span class=\"num\">5</span><div class=\"row\"><div class=\"phone\" data-dc-id=\"j2-p5\"><div class=\"vp\"><div class=\"screen\" style=\"grid-template-rows:var(--status-h) var(--top-h) 1fr var(--nav-h)\" data-dc-id=\"screen\"><div class=\"statusbar\" data-dc-id=\"statusbar\"><span>9:41</span><span class=\"sys\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i16\"><path fill=\"currentColor\" d=\"M3 19h3v-3H3zM8 19h3v-6H8zM13 19h3v-9h-3zM18 19h3V7h-3z\"></path></svg><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M3 9.5A2 2 0 0 1 5 7.5h12a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM21.5 10.5v3\"></path><rect fill=\"currentColor\" x=\"5\" y=\"9.5\" width=\"10\" height=\"5\" rx=\"1\"></rect></svg></span></div><header class=\"topbar\" data-dc-id=\"topbar\"><div class=\"pill raised\" style=\"margin:0\"><span class=\"led amber\"></span><span class=\"name\">MacBook Pro</span><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" class=\"i i20 chev\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.5 10l4.5 4.5 4.5-4.5\"></path><",
+        "rect": {
+          "x": 1591.9541015625,
+          "y": 187.99435424804688,
+          "width": 221.99879455566406,
+          "height": 580.9852905273438
+        }
+      },
+      "status": "resolved",
+      "createdAt": 1794061853264,
+      "sentAt": 1794061873547,
+      "resolvedAt": 1794062034461,
+      "resolution": "Removed phone code entry; J2 is now 'Wi-Fi / Tailscale connect': install the helper → the phone finds it → one tap → connected, plus a zero-prompt Tailscale branch. The old code flow moved to the 'Legacy (0.4.0)' group."
     }
   ]
 }

@@ -120,18 +120,6 @@ Mote, an Android Bluetooth-HID remote for any BT host (Mac first). Revision 2: l
 
 `journeys-index` · [live board](https://tusharpandey.com/mote/design/journeys-index.html) · [in gallery](https://tusharpandey.com/mote/design/#journeys-index)
 
-### J1 First run over Bluetooth
-
-[![journey-first-run-bt](journeys-shipped/journey-first-run-bt.png)](https://tusharpandey.com/mote/design/journey-first-run-bt.html)
-
-`journey-first-run-bt` · [live board](https://tusharpandey.com/mote/design/journey-first-run-bt.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-first-run-bt)
-
-### J2 Wi-Fi with Mote Helper
-
-[![journey-wifi-helper](journeys-shipped/journey-wifi-helper.png)](https://tusharpandey.com/mote/design/journey-wifi-helper.html)
-
-`journey-wifi-helper` · [live board](https://tusharpandey.com/mote/design/journey-wifi-helper.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-wifi-helper)
-
 ### J3 Tailscale
 
 [![journey-tailscale](journeys-shipped/journey-tailscale.png)](https://tusharpandey.com/mote/design/journey-tailscale.html)
@@ -180,12 +168,6 @@ Mote, an Android Bluetooth-HID remote for any BT host (Mac first). Revision 2: l
 
 `journey-setup-phone` · [live board](https://tusharpandey.com/mote/design/journey-setup-phone.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-setup-phone)
 
-### C First connect over Wi-Fi (0.4.0)
-
-[![journey-connect-now](journeys-shipped/journey-connect-now.png)](https://tusharpandey.com/mote/design/journey-connect-now.html)
-
-`journey-connect-now` · [live board](https://tusharpandey.com/mote/design/journey-connect-now.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-connect-now)
-
 ### C2 Bluetooth quirks and stale pairing
 
 [![journey-bt-quirks](journeys-shipped/journey-bt-quirks.png)](https://tusharpandey.com/mote/design/journey-bt-quirks.html)
@@ -209,6 +191,26 @@ Mote, an Android Bluetooth-HID remote for any BT host (Mac first). Revision 2: l
 [![journey-settings](journeys-shipped/journey-settings.png)](https://tusharpandey.com/mote/design/journey-settings.html)
 
 `journey-settings` · [live board](https://tusharpandey.com/mote/design/journey-settings.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-settings)
+
+## User journeys (Next, 0.6.0)
+
+### J1 First run (Wi-Fi + Bluetooth)
+
+[![journey-first-run-bt](journeys-next/journey-first-run-bt.png)](https://tusharpandey.com/mote/design/journey-first-run-bt.html)
+
+`journey-first-run-bt` · [live board](https://tusharpandey.com/mote/design/journey-first-run-bt.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-first-run-bt)
+
+### J2 Wi-Fi / Tailscale connect
+
+[![journey-wifi-helper](journeys-next/journey-wifi-helper.png)](https://tusharpandey.com/mote/design/journey-wifi-helper.html)
+
+`journey-wifi-helper` · [live board](https://tusharpandey.com/mote/design/journey-wifi-helper.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-wifi-helper)
+
+### D Connect: every branch (0.6.0)
+
+[![journey-connect-next](journeys-next/journey-connect-next.png)](https://tusharpandey.com/mote/design/journey-connect-next.html)
+
+`journey-connect-next` · [live board](https://tusharpandey.com/mote/design/journey-connect-next.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-connect-next)
 
 ## User journeys (Preview, Labs) (Preview)
 
@@ -242,10 +244,10 @@ Mote, an Android Bluetooth-HID remote for any BT host (Mac first). Revision 2: l
 
 `journey-live-screen` · [live board](https://tusharpandey.com/mote/design/journey-live-screen.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-live-screen)
 
-## User journeys (Next, 0.6.0)
+## User journeys (Legacy 0.4.0, being replaced)
 
-### D First connect, 0.6.0 (Next)
+### C Code pairing (legacy 0.4.0, being replaced)
 
-[![journey-connect-next](journeys-next/journey-connect-next.png)](https://tusharpandey.com/mote/design/journey-connect-next.html)
+[![journey-connect-now](journeys-legacy/journey-connect-now.png)](https://tusharpandey.com/mote/design/journey-connect-now.html)
 
-`journey-connect-next` · [live board](https://tusharpandey.com/mote/design/journey-connect-next.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-connect-next)
+`journey-connect-now` · [live board](https://tusharpandey.com/mote/design/journey-connect-now.html) · [in gallery](https://tusharpandey.com/mote/design/#journey-connect-now)

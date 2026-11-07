@@ -15,7 +15,7 @@ const src = path.join(root, 'design/mote-v1');
 const out = path.join(root, 'design/exports');
 const LIVE = 'https://tusharpandey.com/mote/design/';
 const MAX_FILE = 300 * 1024, MAX_TOTAL = 5 * 1024 * 1024;
-const GROUP_TITLES = { media: 'Media', pad: 'Mouse', keys: 'Keys', macros: 'Macros', connection: 'Connection', 'journeys-shipped': 'User journeys', 'journeys-labs': 'User journeys (Preview, Labs)', 'journeys-next': 'User journeys (Next, 0.6.0)' };
+const GROUP_TITLES = { media: 'Media', pad: 'Mouse', keys: 'Keys', macros: 'Macros', connection: 'Connection', 'journeys-shipped': 'User journeys', 'journeys-labs': 'User journeys (Preview, Labs)', 'journeys-next': 'User journeys (Next, 0.6.0)', 'journeys-legacy': 'User journeys (Legacy 0.4.0, being replaced)' };
 
 const design = JSON.parse(readFileSync(path.join(src, 'design.json'), 'utf8'));
 rmSync(out, { recursive: true, force: true });

@@ -142,19 +142,19 @@
     },
     {
       "id": "journey-first-run-bt",
-      "title": "J1 First run over Bluetooth",
+      "title": "J1 First run (Wi-Fi + Bluetooth)",
       "file": "journey-first-run-bt.html",
-      "width": 2518,
-      "height": 1000,
-      "group": "journeys-shipped"
+      "width": 2255,
+      "height": 2695,
+      "group": "journeys-next"
     },
     {
       "id": "journey-wifi-helper",
-      "title": "J2 Wi-Fi with Mote Helper",
+      "title": "J2 Wi-Fi / Tailscale connect",
       "file": "journey-wifi-helper.html",
-      "width": 2514,
-      "height": 1000,
-      "group": "journeys-shipped"
+      "width": 1722,
+      "height": 1473,
+      "group": "journeys-next"
     },
     {
       "id": "journey-tailscale",
@@ -262,11 +262,11 @@
     },
     {
       "id": "journey-connect-now",
-      "title": "C First connect over Wi-Fi (0.4.0)",
+      "title": "C Code pairing (legacy 0.4.0, being replaced)",
       "file": "journey-connect-now.html",
       "width": 1923,
       "height": 2149,
-      "group": "journeys-shipped"
+      "group": "journeys-legacy"
     },
     {
       "id": "journey-bt-quirks",
@@ -278,7 +278,7 @@
     },
     {
       "id": "journey-connect-next",
-      "title": "D First connect, 0.6.0 (Next)",
+      "title": "D Connect: every branch (0.6.0)",
       "file": "journey-connect-next.html",
       "width": 1600,
       "height": 3900,
