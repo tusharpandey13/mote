@@ -2,7 +2,7 @@ package dev.mote.remote.net
 
 import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.Key
-import dev.mote.remote.labs.video.VideoBridge
+import dev.mote.remote.labs.LabsBus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -109,14 +109,14 @@ class WsTransport(
                     _status.value = WsStatus.Ready(s.address, a.paused, a.ax)
                     onReady(s.address, s.hello)
                     s.send(Proto.spacesSub())
-                    VideoBridge.onLinked { s.send(it) }
                     for (m in s.inbox) when (m) {
                         is Msg.State -> _status.value = WsStatus.Ready(s.address, m.paused, m.ax)
                         is Msg.Spaces -> onSpaces(s, m)
                         is Msg.SpacesThumb -> onThumb(m)
-                        is Msg.Other -> if (m.t.startsWith("labs.video.")) VideoBridge.onMessage(m.raw)
-                        // `spaces*` / `labs.video*` errors (old helper: `unknown`; `notfound`, `unsupported`) leave the link up.
+                        // `spaces*` errors (old helper: `unknown`; `notfound`, `unsupported`) leave the link up.
                         is Msg.Err -> if (m.code == "revoked") throw HelperError(m.code, m.msg)
+                            else if (LabsBus.isLabs(m.ref)) LabsBus.deliver(org.json.JSONObject().put("t", "err").put("code", m.code).put("msg", m.msg).put("ref", m.ref).toString())
+                        is Msg.Other -> if (LabsBus.isLabs(m.t)) LabsBus.deliver(m.raw)
                         else -> Unit
                     }
                 } catch (e: CancellationException) {
@@ -130,7 +130,6 @@ class WsTransport(
                     // socket dropped: fall through to backoff
                 } finally {
                     session = null
-                    VideoBridge.onUnlinked()
                     _spaces.value = null // thumbnail versions are only meaningful within one helper run
                     s.close()
                 }
@@ -276,6 +275,12 @@ class WsTransport(
 
     /** `spaces.goto`; the helper picks ⌃N or ⌃← / ⌃→ steps and the next `spaces` confirms the switch. */
     override fun spacesGoto(index: Int, display: String?) = sendNow(Proto.spacesGoto(index, display))
+
+    override fun sendLabs(json: String): Boolean {
+        if (session == null) return false
+        sendNow(json)
+        return true
+    }
 
     companion object {
         const val FRAME_MS = 16L

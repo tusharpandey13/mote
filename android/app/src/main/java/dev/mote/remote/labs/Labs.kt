@@ -7,27 +7,27 @@ import androidx.datastore.preferences.preferencesDataStore
 import dev.mote.remote.data.Prefs
 import dev.mote.remote.data.typed
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
-/** A preview feature behind a Settings › Labs switch. [key] is its DataStore key; off by default. */
+/** One preview feature behind a toggle in Settings › Labs. Default off. */
 data class LabFlag(val key: String, val title: String, val summary: String)
 
-/** Preview features (docs/labs/). Add a flag: one line in [all]; Settings lists them in order. */
+/** Labs: preview features, each off until turned on in Settings › Labs. Register a preview with one line in [all]. */
 object Labs {
-    val VIDEO_BRIDGE = LabFlag(
-        "labs_video_bridge", "Browser video control (preview)",
-        "Control the video in the Mac's browser tab with the Mote Video Bridge extension. Needs Mote Helper with Labs › Browser extension bridge on.",
-    )
+    val OPEN_TV = LabFlag("open_tv", "Open & TV mode (preview)", "An Open… sheet that drives the Mac, and a TV remote for YouTube. Needs Mote Helper with Labs › TV mode on.")
+    val VIDEO_BRIDGE = LabFlag("labs_video_bridge", "Browser video control (preview)", "Control the video in the Mac's browser tab with the Mote Video Bridge extension. Needs Mote Helper with Labs › Browser extension bridge on.")
 
-    val all = listOf(
+    /** Shown in Settings › Labs, in this order. */
+    val all: List<LabFlag> = listOf(
+        OPEN_TV,
         VIDEO_BRIDGE,
     )
 
-    private val Context.store by preferencesDataStore("mote_labs", corruptionHandler = Prefs.corruptionHandler)
+    private val Context.store by preferencesDataStore("labs", corruptionHandler = Prefs.corruptionHandler)
 
-    fun flow(c: Context, flag: LabFlag): Flow<Boolean> =
-        c.store.data.map { it.typed(booleanPreferencesKey(flag.key)) ?: false }.distinctUntilChanged()
+    fun flow(c: Context, f: LabFlag): Flow<Boolean> = c.store.data.map { it.typed(booleanPreferencesKey(f.key)) ?: false }
 
-    suspend fun set(c: Context, flag: LabFlag, on: Boolean) { c.store.edit { it[booleanPreferencesKey(flag.key)] = on } }
+    suspend fun set(c: Context, f: LabFlag, on: Boolean) {
+        c.store.edit { it[booleanPreferencesKey(f.key)] = on }
+    }
 }

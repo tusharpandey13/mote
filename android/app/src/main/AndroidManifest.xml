@@ -59,6 +59,19 @@
                 <data android:scheme="mote" android:host="pair" />
             </intent-filter>
         </activity>
+        <!-- Labs (Open & TV mode preview): share a link to the Mac. Disabled until the Labs toggle is on (OpenTv.syncShareTarget). -->
+        <activity-alias
+            android:name=".labs.open.ShareTarget"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/labs_share_label"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
         <service
             android:name=".service.HidService"
             android:exported="false"

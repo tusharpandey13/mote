@@ -66,7 +66,8 @@ private val SPEEDS = listOf(0.5, 1.0, 1.25, 1.5, 2.0)
 
 /** Visible when the Labs flag is on (else [VideoBridge.state] stays null) and a tab reports a video. */
 @Composable
-fun webVideoVisible(): Boolean = VideoBridge.state.collectAsState().value?.active == true
+fun webVideoVisible(): Boolean =
+    VideoBridge.state.collectAsState().value?.active == true && dev.mote.remote.net.Remote.caps.collectAsState().value.clickAt // helper transport only
 
 /**
  * Labs preview: the main video of the Mac's browser tab (docs/labs/video-bridge.md). Title and host,
