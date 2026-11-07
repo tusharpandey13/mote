@@ -24,8 +24,10 @@ final class WebServer {
         params.prohibitedInterfaceTypes = [.cellular]
         let l = try NWListener(using: params, on: NWEndpoint.Port(rawValue: hub.config.port)!)
         // TXT: id = stable hostId (match saved hosts without connecting), v = protocol major.
-        l.service = NWListener.Service(name: Host.computerName, type: "_mote._tcp", domain: nil,
-                                       txtRecord: NWTXTRecord(["id": hub.settings.hostId, "v": "1"]))
+        if hub.config.bonjour {
+            l.service = NWListener.Service(name: Host.computerName, type: "_mote._tcp", domain: nil,
+                                           txtRecord: NWTXTRecord(["id": hub.settings.hostId, "v": "1"]))
+        }
         l.stateUpdateHandler = { [weak self, weak l] st in
             guard let self else { return }
             switch st {

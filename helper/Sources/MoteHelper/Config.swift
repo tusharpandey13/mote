@@ -25,6 +25,7 @@ struct Config {
     var fakeTailscaleOwner: String? = nil // tests: every peer is a tailnet node owned by this ("self" = this Mac's owner) (needs --dry-run)
     var fakeContext: String? = nil // Labs tests: read the frontmost-app context from this JSON file (needs --dry-run)
     var fakeNowPlaying = false     // Labs tests: a synthetic now-playing session (needs --dry-run)
+    var bonjour = true        // --no-bonjour: don't advertise _mote._tcp (tests: keeps a test helper invisible to real phones on the LAN)
     var fakeScreen = false    // tests: Labs live screen streams synthetic frames of a fake display (needs --dry-run; turns the lab on)
 
     static func parse(_ args: [String]) -> Config {
@@ -36,6 +37,7 @@ struct Config {
             case "--headless": c.headless = true
             case "--open-pairing": c.openPairing = true
             case "--no-ble": c.ble = false
+            case "--no-bonjour": c.bonjour = false
             case "--memory-store": c.memoryStore = true
             case "--allow-tailscale": c.allowTailscale = true
             case "--stdin-control": c.stdinControl = true
@@ -64,7 +66,7 @@ struct Config {
                 print("""
                 MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
-                          [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
+                          [--stdin-control] [--no-bonjour] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
                           [--no-instant-pairing | --labs-pairing] [--require-approval]   (instant pairing: off / force on; approval prompts)
                           [--fake-proximity] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID]   (instant pairing tests, need --dry-run)
                           [--fake-bt-pair | --fake-bt-pair-fail REASON]   (Bluetooth HID setup without Bluetooth, needs --dry-run)
