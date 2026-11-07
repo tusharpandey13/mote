@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Mock Video - YouTube</title></head>
+<body style="margin:0">
+  <!-- A tiny mock of YouTube's player DOM (class names the youtube adapter uses). Served for
+       https://www.youtube.com/* by a Playwright route: no request leaves the machine. -->
+  <div id="movie_player" class="html5-video-player">
+    <video class="html5-main-video" src="/clip.webm" preload="auto" muted style="width:640px;height:360px"></video>
+    <div class="ytp-chrome-bottom">
+      <button class="ytp-next-button" aria-label="Next" onclick="window.nextClicks=(window.nextClicks||0)+1">Next</button>
+      <button class="ytp-subtitles-button" aria-pressed="false"
+        onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') === 'true' ? 'false' : 'true')">CC</button>
+    </div>
+    <button class="ytp-skip-ad-button" onclick="this.style.display='none'; window.adSkipped=true">Skip</button>
+  </div>
+  <div id="title"><h1 class="ytd-watch-metadata"><yt-formatted-string>Mock Video Title</yt-formatted-string></h1></div>
+</body>
+</html>
