@@ -15,7 +15,8 @@ sealed interface Msg {
     data class State(val paused: Boolean, val ax: Boolean) : Msg
     data class Err(val code: String, val msg: String, val retryAfter: Int? = null, val ref: String? = null) : Msg
     data class Pong(val n: Int) : Msg
-    data class Other(val t: String) : Msg
+    /** Any other type; [raw] is the whole frame (e.g. `labs.video.*` for the Labs bridge). */
+    data class Other(val t: String, val raw: String = "") : Msg
 
     /**
      * `spaces` (protocol 1.3): [count] desktops on the active display (1.3 helpers: main display; 0 =
@@ -157,7 +158,7 @@ object Proto {
                 if (i !in 1..SPACES_MAX || jpeg.isEmpty()) null
                 else Msg.SpacesThumb(i, o.optInt("v"), o.optInt("w"), o.optInt("h"), jpeg, o.optString("display").ifEmpty { null })
             }
-            else -> Msg.Other(t)
+            else -> Msg.Other(t, json)
         }
     }.getOrNull()
 

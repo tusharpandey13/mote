@@ -1,6 +1,8 @@
 package dev.mote.remote.ui
 
 import dev.mote.remote.net.Remote
+import dev.mote.remote.labs.video.WebVideoPanel
+import dev.mote.remote.labs.video.webVideoVisible
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Rect
@@ -65,10 +67,13 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
     BoxWithConstraints(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 12.dp)) {
         // fixed: favourites ~200, brightness 74 + 24, transport 20 + 112; the control cluster absorbs the rest
         val showSpaces = favourites.any { it.kind == Macro.Kind.SPACES }
-        val cluster = (maxHeight - (if (showSpaces) 448 else 336).dp).coerceIn(196.dp, 256.dp)
+        // Labs: the browser video panel (184) takes the place of favourites + brightness
+        val video = webVideoVisible()
+        val cluster = (maxHeight - (if (video) 340 else if (showSpaces) 448 else 336).dp).coerceIn(196.dp, 256.dp)
         val slot = cluster - 24.dp
         val dpad = (cluster - 48.dp).coerceAtMost(208.dp)
         Column(Modifier.fillMaxSize()) {
+            if (video) { CappedFontScale { WebVideoPanel() }; Spacer(Modifier.weight(1f)) } else {
             CappedFontScale { // fixed-height header + carousel
             // the Edit chip's 48dp touch target overhangs this 32dp row
             Row(Modifier.fillMaxWidth().height(32.dp).padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -96,6 +101,7 @@ fun MediaScreen(favourites: List<Macro>, run: (Macro) -> Unit, onEditFavourites:
                     repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_DOWN) }) { Arrowed("sunDown", "arrowDown") }
                 Cap(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(17.dp), haptic = Haptic.TICK, description = "Brightness up",
                     repeat = Repeat(), onDown = { Remote.consumer(Consumer.BRIGHTNESS_UP) }) { Arrowed("sunUp", "arrowUp") }
+            }
             }
             Spacer(Modifier.height(24.dp))
             Box(Modifier.fillMaxWidth().height(cluster)) {

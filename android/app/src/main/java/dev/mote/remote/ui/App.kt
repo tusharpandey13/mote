@@ -75,6 +75,8 @@ import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.HidState
 import dev.mote.remote.hid.Host
 import dev.mote.remote.hid.Phase
+import dev.mote.remote.labs.Labs
+import dev.mote.remote.labs.video.VideoBridge
 import dev.mote.remote.net.Net
 import dev.mote.remote.net.Remote
 import dev.mote.remote.service.HidService
@@ -137,6 +139,8 @@ private fun Root(theme: ThemeChoice) {
     val link by Net.pendingLink.collectAsState()
     LaunchedEffect(link) { if (link != null) deviceSheet = true }
     val linked by Remote.linked.collectAsState()
+    val videoLab by remember { Labs.flow(ctx, Labs.VIDEO_BRIDGE) }.collectAsState(initial = false)
+    LaunchedEffect(videoLab) { VideoBridge.setEnabled(videoLab) } // Labs: subscribes to labs.video.state while on
     var menuSheet by remember { mutableStateOf(false) }
     var pointerBanner by remember { mutableStateOf(false) }
     // Single source of truth for adapter / permissions / bonded hosts: feeds the gate, the pill and the device sheet.

@@ -60,7 +60,7 @@ class ProtoTest {
         assertEquals(Msg.Hello(1, "Mac", null, null, "ab", false), Proto.parse("""{"t":"hello","v":1,"host":"Mac","nonce":"ab","pairing":false}"""))
         assertEquals(Msg.Err("rate", "too many", 42, "auth"), Proto.parse("""{"t":"err","code":"rate","msg":"too many","retryAfter":42,"ref":"auth"}"""))
         assertEquals(Msg.Authed("id", "phone", false, true), Proto.parse("""{"t":"authed","id":"id","name":"phone","paused":false,"ax":true}"""))
-        assertEquals(Msg.Other("future"), Proto.parse("""{"t":"future","x":1}"""))
+        assertEquals(Msg.Other("future", """{"t":"future","x":1}"""), Proto.parse("""{"t":"future","x":1}"""))
         assertNull(Proto.parse("not json"))
     }
 
