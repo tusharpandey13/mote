@@ -108,6 +108,11 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         _ = add("Paired devices: \(hub.store.devices.count)")
         menu.addItem(.separator())
 
+        let labs = NSMenu()   // Labs (previews, off by default)
+        let tvItem = NSMenuItem(title: "TV mode (preview)", action: #selector(toggleTvLab), keyEquivalent: "")
+        tvItem.target = self; tvItem.state = hub.tv.enabled ? .on : .off; labs.addItem(tvItem)
+        if hub.tv.on { let x = NSMenuItem(title: "Exit TV mode", action: #selector(exitTv), keyEquivalent: ""); x.target = self; labs.addItem(x) }
+        let labsItem = NSMenuItem(title: "Labs", action: nil, keyEquivalent: ""); labsItem.submenu = labs; menu.addItem(labsItem)
         _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
         _ = add("Revoke all devices…", #selector(revokeAll))
         _ = add("Launch at login", #selector(toggleLogin), state: SMAppService.mainApp.status == .enabled)
@@ -131,6 +136,8 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     @objc func startPairing() { hub.pairing.open(); showPairing() }
     @objc func stopPairing() { hub.pairing.close() }
     @objc func togglePause() { hub.paused.toggle() }
+    @objc func toggleTvLab() { hub.tv.enabled.toggle() }
+    @objc func exitTv() { hub.tv.exit() }
     @objc func toggleShareThumbs() { hub.settings.shareSpaceThumbnails.toggle() }
     @objc func clearThumbs() { hub.spaces.clear() }
     @objc func grantScreenRecording() {
