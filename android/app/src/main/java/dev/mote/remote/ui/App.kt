@@ -75,6 +75,9 @@ import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.HidState
 import dev.mote.remote.hid.Host
 import dev.mote.remote.hid.Phase
+import dev.mote.remote.labs.context.AutoKeyboardChip
+import dev.mote.remote.labs.context.SmartPanel
+import dev.mote.remote.labs.context.SmartRemoteEffects
 import dev.mote.remote.net.Net
 import dev.mote.remote.net.Remote
 import dev.mote.remote.service.HidService
@@ -211,6 +214,8 @@ private fun Root(theme: ThemeChoice) {
         onDispose { w?.attributes = w?.attributes?.apply { screenBrightness = -1f } }
     }
 
+    SmartRemoteEffects(mode) { mode = it } // Labs › Smart remote: helper subscription + auto-keyboard
+
     CompositionLocalProvider(LocalLinked provides linkedUi) {
         Column(Modifier.fillMaxSize().chassis().systemBarsPadding().imePadding()) {
           val p = page
@@ -244,12 +249,15 @@ private fun Root(theme: ThemeChoice) {
                     },
                     label = "mode",
                 ) { m -> modeState.SaveableStateProvider(m.name) { when (m) {
-                    Mode.MEDIA -> MediaScreen(macros.filter { it.star }, runMacro, onEditFavourites = { mode = Mode.MACROS })
+                    Mode.MEDIA -> Column(Modifier.fillMaxSize()) {
+                        SmartPanel() // Labs › Smart remote (preview); renders nothing when off
+                        Box(Modifier.weight(1f)) { MediaScreen(macros.filter { it.star }, runMacro, onEditFavourites = { mode = Mode.MACROS }) }
+                    }
                     Mode.MOUSE -> MouseScreen(
                         banner = pointerBanner,
                         onBannerDone = { pointerBanner = false; mode = Mode.MACROS },
                     )
-                    Mode.KEYS -> KeysScreen()
+                    Mode.KEYS -> Column(Modifier.fillMaxSize()) { AutoKeyboardChip(); Box(Modifier.weight(1f)) { KeysScreen() } }
                     Mode.MACROS -> MacrosScreen(macros, runMacro, saveMacros)
                 } } }
             }

@@ -192,7 +192,9 @@ final class LabsContext: NSObject, LabsModule {
 
     private func npState() -> [String: Any] {
         guard settings.enabled else { return ["t": "labs.np", "enabled": false] }
-        var m: [String: Any] = ["t": "labs.np", "enabled": true, "source": nowPlaying.status, "seek": seekPaths()]
+        // `now` (Mac clock, ms) lets clients extrapolate from `np.at` without trusting the phone's clock.
+        var m: [String: Any] = ["t": "labs.np", "enabled": true, "source": nowPlaying.status, "seek": seekPaths(),
+                                "now": Int64(Date().timeIntervalSince1970 * 1000)]
         m["np"] = nowPlaying.info ?? NSNull()
         return m
     }

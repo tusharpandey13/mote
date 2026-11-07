@@ -2,6 +2,7 @@ package dev.mote.remote.net
 
 import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.Key
+import dev.mote.remote.labs.LabsBus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -108,12 +109,14 @@ class WsTransport(
                     _status.value = WsStatus.Ready(s.address, a.paused, a.ax)
                     onReady(s.address, s.hello)
                     s.send(Proto.spacesSub())
+                    LabsBus.linked(this) { json -> sendNow(json) }
                     for (m in s.inbox) when (m) {
+                        is Msg.Labs -> LabsBus.receive(m)
                         is Msg.State -> _status.value = WsStatus.Ready(s.address, m.paused, m.ax)
                         is Msg.Spaces -> onSpaces(s, m)
                         is Msg.SpacesThumb -> onThumb(m)
                         // `spaces*` errors (old helper: `unknown`; `notfound`, `unsupported`) leave the link up.
-                        is Msg.Err -> if (m.code == "revoked") throw HelperError(m.code, m.msg)
+                        is Msg.Err -> if (m.code == "revoked") throw HelperError(m.code, m.msg) else if (m.ref?.startsWith("labs.") == true) LabsBus.receive(m)
                         else -> Unit
                     }
                 } catch (e: CancellationException) {
@@ -127,6 +130,7 @@ class WsTransport(
                     // socket dropped: fall through to backoff
                 } finally {
                     session = null
+                    LabsBus.unlinked(this)
                     _spaces.value = null // thumbnail versions are only meaningful within one helper run
                     s.close()
                 }

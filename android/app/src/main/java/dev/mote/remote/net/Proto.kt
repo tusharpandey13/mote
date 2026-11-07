@@ -16,6 +16,8 @@ sealed interface Msg {
     data class Err(val code: String, val msg: String, val retryAfter: Int? = null, val ref: String? = null) : Msg
     data class Pong(val n: Int) : Msg
     data class Other(val t: String) : Msg
+    /** Any `labs.*` message (preview features, docs/labs/); the lab parses [o] itself. */
+    class Labs(val t: String, val o: JSONObject) : Msg
 
     /**
      * `spaces` (protocol 1.3): [count] desktops on the active display (1.3 helpers: main display; 0 =
@@ -157,7 +159,7 @@ object Proto {
                 if (i !in 1..SPACES_MAX || jpeg.isEmpty()) null
                 else Msg.SpacesThumb(i, o.optInt("v"), o.optInt("w"), o.optInt("h"), jpeg, o.optString("display").ifEmpty { null })
             }
-            else -> Msg.Other(t)
+            else -> if (t.startsWith("labs.")) Msg.Labs(t, o) else Msg.Other(t)
         }
     }.getOrNull()
 
