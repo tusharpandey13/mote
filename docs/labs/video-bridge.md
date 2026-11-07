@@ -130,6 +130,6 @@ Not built yet. The extension uses only standard WebExtension APIs plus `chrome.w
 
 ## Testing
 
-- `node helper/tests/bridge.mjs <port> <bridge-port>` against `--dry-run --labs-bridge --stdin-control`: loopback-only, origin check, auth required, pinning, relay.
+- `node helper/tests/bridge.mjs` (starts its own `--dry-run --labs-bridge --stdin-control` helper; stdin `bridge pair|on|off|forget` stand in for the menu): loopback-only, Host/Origin checks, auth required, origin pinning, sanitising, relay, pause, forget.
 - `e2e/web/tests/video-bridge.spec.ts`: Playwright with a persistent Chromium context that loads `extension/` unpacked, local test pages (a plain `<video>` page and a mock YouTube DOM, never real sites), a dry-run helper, and a fake phone over WebSocket.
 - Android: `VideoStateTest` (reducer).

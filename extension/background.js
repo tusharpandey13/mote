@@ -81,8 +81,13 @@ function bestFrame(tabId) {
   return best;
 }
 
+/** Focused tab with a video, else the tab that played last, else the tab that reported a video last. */
 function target() {
-  const t = focusedTab != null && bestFrame(focusedTab) ? focusedTab : lastPlaying != null && bestFrame(lastPlaying) ? lastPlaying : null;
+  let t = focusedTab != null && bestFrame(focusedTab) ? focusedTab : lastPlaying != null && bestFrame(lastPlaying) ? lastPlaying : null;
+  if (t == null) {
+    let at = 0;
+    for (const id of frames.keys()) { const f = bestFrame(id); if (f && f.at > at) { at = f.at; t = id; } }
+  }
   return t == null ? null : { tabId: t, ...bestFrame(t) };
 }
 
