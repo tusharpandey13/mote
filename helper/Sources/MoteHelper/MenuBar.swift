@@ -68,14 +68,12 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         if !hub.inputReady { _ = add("Grant Accessibility…", #selector(openAX)) }
         menu.addItem(.separator())
 
-        if let code = hub.pairing.code {
+        if let code = hub.pairing.code {   // the 6-digit code (Advanced › Pair with code), only while it is open
             _ = add("Pairing code: \(code.prefix(3)) \(code.suffix(3))")
             _ = add("Show pairing code and QR…", #selector(showPairing))
             _ = add("Stop pairing", #selector(stopPairing))
-        } else {
-            _ = add("Pair new device…", #selector(startPairing), key: "n")
+            menu.addItem(.separator())
         }
-        menu.addItem(.separator())
 
         _ = add("Wi-Fi remote: \(mdnsURL)", #selector(copyURL(_:))).representedObject = mdnsURL
         if let ip = ipURL { _ = add("     or \(ip)", #selector(copyURL(_:))).representedObject = ip }
@@ -108,7 +106,28 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         _ = add("Paired devices: \(hub.store.devices.count)")
         let ip = hub.instantPairing!
         if ip.enabled {
-            _ = add("Trusted phones: \(ip.trustedCount)")
+            let devices = NSMenu()   // trusted phones (Block each) and blocked phones (Unblock each)
+            func sub(_ title: String, _ action: Selector? = nil, fp: String? = nil) {
+                let i = NSMenuItem(title: title, action: action, keyEquivalent: "")
+                i.target = self; i.representedObject = fp; i.isEnabled = action != nil
+                devices.addItem(i)
+            }
+            sub(ip.trusted.isEmpty ? "No trusted phones" : "Trusted phones")
+            for k in ip.trusted {
+                let via = k.via == "nearby" ? "Bluetooth proximity" : k.via == "tailscale" ? "Tailscale" : "approved"
+                sub("   \(k.name) · \(via)")
+                sub("      Block", #selector(blockDevice(_:)), fp: k.fp)
+            }
+            if !ip.blocked.isEmpty {
+                devices.addItem(.separator())
+                sub("Blocked")
+                for b in ip.blocked {
+                    sub("   \(b.name) · \(b.fp.prefix(4)) \(b.fp.dropFirst(4).prefix(4))")
+                    sub("      Unblock", #selector(unblockDevice(_:)), fp: b.fp)
+                }
+            }
+            let d = add("Trusted phones: \(ip.trustedCount)\(ip.blocked.isEmpty ? "" : " (\(ip.blocked.count) blocked)")")
+            d.isEnabled = true; d.submenu = devices
             _ = add("This Mac's key: \(groupedFingerprint(ip.fp))")
             _ = add("Require approval for new devices", #selector(toggleRequireApproval), state: ip.requireApproval)
         }
@@ -121,6 +140,10 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         hub.labs.flatMap { $0.menuItems() }.forEach(labs.addItem)   // Labs modules (Context & now playing)
         if let b = labsBridge { labs.addItem(.separator()); addBridgeItems(to: labs, bridge: b) }
         let labsItem = NSMenuItem(title: "Labs", action: nil, keyEquivalent: ""); labsItem.submenu = labs; menu.addItem(labsItem)
+        let adv = NSMenu()   // off the default path: phones set up by instant pairing
+        let codeItem = NSMenuItem(title: "Pair with code (web remote)…", action: #selector(startPairing), keyEquivalent: "")
+        codeItem.target = self; adv.addItem(codeItem)
+        let advItem = NSMenuItem(title: "Advanced", action: nil, keyEquivalent: ""); advItem.submenu = adv; menu.addItem(advItem)
         _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
         _ = add("Revoke all devices…", #selector(revokeAll))
         _ = add("Launch at login", #selector(toggleLogin), state: SMAppService.mainApp.status == .enabled)
@@ -144,6 +167,8 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     @objc func startPairing() { hub.pairing.open(); showPairing() }
     @objc func stopPairing() { hub.pairing.close() }
     @objc func togglePause() { hub.paused.toggle() }
+    @objc func blockDevice(_ sender: NSMenuItem) { if let fp = sender.representedObject as? String { hub.instantPairing.block(fp) } }
+    @objc func unblockDevice(_ sender: NSMenuItem) { if let fp = sender.representedObject as? String { hub.instantPairing.unblock(fp) } }
     @objc func toggleRequireApproval() { hub.instantPairing.requireApproval.toggle() }
     @objc func toggleTvLab() { hub.tv.enabled.toggle() }
     @objc func exitTv() { hub.tv.exit() }

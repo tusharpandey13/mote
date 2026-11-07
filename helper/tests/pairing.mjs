@@ -1,5 +1,5 @@
 // Instant pairing (docs/pairing.md) against the real helper in --dry-run (nothing is injected).
-// Starts its own helpers, one per scenario, on ports base..base+6:
+// Starts its own helpers, one per scenario, on ports base..base+10 (default 8800..8810):
 //   MoteHelper --dry-run --headless --no-ble --memory-store --fake-proximity --port N [scenario flags]
 //   node helper/tests/pairing.mjs [basePort=8800]     (MOTE_HELPER= overrides the binary)
 // --fake-proximity answers `labs.pair.prox {dw}` with the BLE proximity token for window w+dw (stands in for the BLE read).
@@ -191,6 +191,12 @@ await withHelper(++port, ['--stdin-control'], async (h) => {
   const again = await pairAttempt(port, phone, 'blocked phone', { prox: (await prox(port, 1)).v });
   ok(again.d.t === 'labs.pair.denied' && again.d.reason === 'blocked', `blocked key: denied blocked even with a valid token (${again.d.reason})`);
   again.ws.close();
+  h.stdin.write('unblock\n');
+  await sleep(200);
+  const back = await pairAttempt(port, phone, 'blocked phone', { prox: (await prox(port, 1)).v });
+  ok(back.d.t === 'labs.pair.ok' && back.d.via === 'nearby' && back.authed?.t === 'authed', `unblock: a fresh token connects again via nearby (${back.d.via ?? back.d.reason})`);
+  h.stdin.write('block\n');
+  ok((await back.ws.next()).code === 'revoked', 'blocked again');
   h.stdin.write('revoke\n');
   await sleep(200);
   const after = await pairAttempt(port, phone, 'blocked phone', { prox: (await prox(port, -1)).v });
@@ -240,6 +246,56 @@ await withHelper(++port, ['--require-approval', '--fake-approve-deny'], async ()
   const d = r.d.t === 'labs.pair.pending' ? await r.ws.next() : r.d;
   ok(r.d.t === 'labs.pair.pending' && d.t === 'labs.pair.denied' && d.reason === 'denied', 'require approval + Deny: denied');
   r.ws.close();
+});
+
+// --- Bluetooth HID setup (bt.pair / bt.info), started by a trusted phone; --fake-bt-pair: no real Bluetooth
+async function trustedSession(p, name = 'bt phone') {
+  await roomInWindow(5);
+  const r = await pairAttempt(p, keypair(), name, { prox: (await prox(p)).v });
+  ok(r.d.via === 'nearby' && r.authed?.t === 'authed', `${name}: trusted via nearby`);
+  return r.ws;
+}
+const statuses = async (ws, n) => { const out = []; for (let i = 0; i < n; i++) out.push(await ws.next()); return out; };
+await withHelper(++port, ['--fake-bt-pair'], async () => {
+  {
+    const ws = await open(port); await ws.next();
+    const r = await ws.req({ t: 'bt.pair', name: 'Pixel' });
+    ok(r.t === 'err' && r.code === 'unauth', 'bt.pair before auth: unauth');
+    ok((await ws.req({ t: 'bt.info' })).code === 'unauth', 'bt.info before auth: unauth');
+    ws.close();
+  }
+  const ws = await trustedSession(port);
+  const info = await ws.req({ t: 'bt.info' });
+  ok(info.t === 'bt.info' && /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(info.address) && typeof info.name === 'string' && info.on === true, 'bt.info: address, name, on');
+  const bad = await ws.req({ t: 'bt.pair', name: '  ' });
+  ok(bad.t === 'err' && bad.code === 'bad', 'bt.pair without a name: bad');
+  ws.send(JSON.stringify({ t: 'bt.pair', name: ' pixel 8 ' }));
+  ws.send(JSON.stringify({ t: 'bt.pair', name: 'Pixel 8' }));
+  const st = await statuses(ws, 4);
+  const busy = st.find((m) => m.t === 'err');
+  ok(busy?.code === 'busy', 'second bt.pair while one runs: busy');
+  const s = st.filter((m) => m.t === 'bt.pair.status');
+  ok(s.map((m) => m.state).join() === 'searching,pairing,paired' && s[2].address === '02:00:00:00:00:01' && s[1].address === s[2].address,
+    `bt.pair: searching -> pairing -> paired with the phone's address (${s.map((m) => m.state).join(', ')})`);
+  const again = await ws.req({ t: 'bt.pair', name: 'Pixel 8' });
+  ok(again.t === 'bt.pair.status' && again.state === 'searching', 'a new bt.pair after the first finished');
+  await statuses(ws, 2);
+  ws.close();
+});
+await withHelper(++port, ['--fake-bt-pair-fail', 'notfound'], async () => {
+  const ws = await trustedSession(port);
+  ws.send(JSON.stringify({ t: 'bt.pair', name: 'Pixel 8' }));
+  const s = await statuses(ws, 2);
+  ok(s[0].state === 'searching' && s[1].state === 'failed' && s[1].reason === 'notfound', `fake failure: failed notfound (${s[1].state} ${s[1].reason})`);
+  ws.close();
+});
+await withHelper(++port, [], async () => {   // dry-run + headless without the fake: real Bluetooth is never touched
+  const ws = await trustedSession(port);
+  const r = await ws.req({ t: 'bt.pair', name: 'Pixel 8' });
+  ok(r.t === 'bt.pair.status' && r.state === 'failed' && r.reason === 'unavailable', 'no fake in a headless dry run: failed unavailable');
+  const info = await ws.req({ t: 'bt.info' });
+  ok(info.t === 'bt.info' && info.address === null && info.on === false, 'bt.info without Bluetooth: address null, on false');
+  ws.close();
 });
 
 // --- kill switch; without --fake-proximity the token never goes over the WebSocket

@@ -20,6 +20,8 @@ struct Config {
     var requireApproval = false        // --require-approval: force "Require approval for new devices" on (tests)
     var fakeApprove: Bool? = nil       // tests: --fake-approve (Allow) / --fake-approve-deny (Deny) every prompt (needs --dry-run)
     var fakeProximity = false          // tests: answer `labs.pair.prox` with the BLE proximity token (needs --dry-run)
+    var fakeBtPair: String? = nil      // tests: `bt.pair` without real Bluetooth: "ok" (--fake-bt-pair) or a failure reason
+                                       // (--fake-bt-pair-fail REASON) (needs --dry-run)
     var fakeTailscaleOwner: String? = nil // tests: every peer is a tailnet node owned by this ("self" = this Mac's owner) (needs --dry-run)
     var fakeContext: String? = nil // Labs tests: read the frontmost-app context from this JSON file (needs --dry-run)
     var fakeNowPlaying = false     // Labs tests: a synthetic now-playing session (needs --dry-run)
@@ -41,6 +43,8 @@ struct Config {
             case "--no-instant-pairing": c.instantPairing = false
             case "--require-approval": c.requireApproval = true
             case "--fake-proximity": c.fakeProximity = true
+            case "--fake-bt-pair": c.fakeBtPair = "ok"
+            case "--fake-bt-pair-fail": if let v = it.next() { c.fakeBtPair = v }
             case "--fake-approve": c.fakeApprove = true
             case "--fake-approve-deny": c.fakeApprove = false
             case "--fake-tailscale-owner": if let v = it.next() { c.fakeTailscaleOwner = v }
@@ -61,6 +65,7 @@ struct Config {
                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying]   (tests, need --dry-run; port 0 = any free port)
                           [--no-instant-pairing | --labs-pairing] [--require-approval]   (instant pairing: off / force on; approval prompts)
                           [--fake-proximity] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID]   (instant pairing tests, need --dry-run)
+                          [--fake-bt-pair | --fake-bt-pair-fail REASON]   (Bluetooth HID setup without Bluetooth, needs --dry-run)
                 """)
                 exit(0)
             default: break // ignore launch-services noise (-psn_..., -NS...)

@@ -13,6 +13,7 @@ final class Hub {
     let spaces: Spaces
     let tv: TvMode   // Labs (preview): Open… + TV mode, docs/labs/open-tv.md
     private(set) var instantPairing: InstantPairing!   // instant pairing (InstantPairing.swift)
+    private(set) var bt: BtPair!   // Bluetooth HID setup started by a trusted phone (BtPair.swift)
     private(set) var sessions: [Session] = []
     /// Labs (preview) modules, registered in main.swift; each owns `labs.*` message prefixes and a Labs menu section.
     var labs: [LabsModule] = []
@@ -51,6 +52,7 @@ final class Hub {
             if now != self.axTrusted { self.axTrusted = now; self.broadcastState(); self.onChange?() }
         }
         instantPairing = InstantPairing(hub: self)
+        bt = BtPair(hub: self)
     }
 
     /// Accessibility doesn't matter in dry-run (nothing is posted).
@@ -60,6 +62,7 @@ final class Hub {
     func remove(_ s: Session) {
         sessions.removeAll { $0 === s }
         instantPairing.ended(s)
+        bt.ended(s)
         if !sessions.contains(where: { $0.authed }) { injector.releaseAll() }
         onChange?()
     }
@@ -235,6 +238,7 @@ final class Session {
                 return
             }
             if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
+            if t == "bt.pair" || t == "bt.info" { hub.bt.handle(t, m, from: self); return }   // Bluetooth HID setup, not input
             if t == "labs.tv.get" { send(hub.tv.state()); return }   // Labs: a read, like spaces.sub
             if t.hasPrefix("labs.video."), let b = labsBridge {   // Labs: video bridge (docs/labs/video-bridge.md)
                 do { try b.phone(t, m, from: self) } catch let e as ProtoError { err(e.code, e.msg, ref: t) } catch { err("bad", "\(error)", ref: t) }

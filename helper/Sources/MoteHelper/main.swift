@@ -61,6 +61,7 @@ if config.stdinControl {
                     case "pair": openPairing()
                     case "revoke": hub.revokeAll()
                     case "block": hub.instantPairing.blockLast()
+                    case "unblock": hub.instantPairing.unblockLast()
                     case "pause": hub.paused = true
                     case "resume": hub.paused = false
                     case let c where c.hasPrefix("bridge "): labsBridge?.stdin(c)

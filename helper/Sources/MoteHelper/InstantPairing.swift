@@ -213,8 +213,9 @@ final class InstantPairing: NSObject {
 
     /// Block: forget the key, refuse it from now on, and drop its open sessions.
     func block(_ cfp: String) {
-        store.block(cfp)
-        for s in hub.sessions where s.authed && s.deviceId == "k:" + cfp { s.revoke() }
+        let open = hub.sessions.filter { $0.authed && $0.deviceId == "k:" + cfp }
+        store.block(cfp, name: open.first?.deviceName ?? "Phone")
+        for s in open { s.revoke() }
         log("labs: blocked k:\(cfp)")
         hub.onChange?()
     }
@@ -224,6 +225,22 @@ final class InstantPairing: NSObject {
         guard let f = lastNew else { log("labs: block: no new device"); return }
         block(f)
     }
+
+    /// Unblock: the phone can connect again by proximity / Tailscale (it is not trusted until then).
+    func unblock(_ cfp: String) {
+        store.unblock(cfp)
+        log("labs: unblocked k:\(cfp)")
+        hub.onChange?()
+    }
+
+    /// Tests (--stdin-control `unblock`): unblocks the most recently blocked phone.
+    func unblockLast() {
+        guard let f = store.blocked.last?.fp else { log("labs: unblock: nothing blocked"); return }
+        unblock(f)
+    }
+
+    var trusted: [LabsTrustedKey] { store.keys }
+    var blocked: [LabsBlockedKey] { store.blocked }
 
     private func denied(_ s: Session, _ reason: String, retryAfter: Int? = nil) {
         var m: [String: Any] = ["t": "labs.pair.denied", "reason": reason]
@@ -399,10 +416,15 @@ struct LabsTrustedKey: Codable {
     var created: Date
 }
 
+struct LabsBlockedKey: Codable {
+    var fp: String
+    var name: String
+}
+
 /// The helper's Ed25519 identity, the trusted phone keys and the blocked fingerprints, three generic-password items.
 final class LabsKeyStore {
     private(set) var keys: [LabsTrustedKey] = []
-    private(set) var blocked: [String] = []   // fps
+    private(set) var blocked: [LabsBlockedKey] = []
     private let service: String
     private let memoryOnly: Bool
 
@@ -413,15 +435,28 @@ final class LabsKeyStore {
             let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
             keys = (try? dec.decode([LabsTrustedKey].self, from: d)) ?? []
         }
-        if let d = read("blocked") { blocked = (try? JSONDecoder().decode([String].self, from: d)) ?? [] }
+        if let d = read("blocked") {   // [{fp, name}]; early builds stored [fp]
+            blocked = (try? JSONDecoder().decode([LabsBlockedKey].self, from: d))
+                ?? ((try? JSONDecoder().decode([String].self, from: d)) ?? []).map { LabsBlockedKey(fp: $0, name: "Phone") }
+        }
     }
 
-    func isBlocked(_ fp: String) -> Bool { blocked.contains(fp) }
+    func isBlocked(_ fp: String) -> Bool { blocked.contains { $0.fp == fp } }
 
-    func block(_ fp: String) {
+    func block(_ fp: String, name: String) {
+        let name = keys.first { $0.fp == fp }?.name ?? name
         keys.removeAll { $0.fp == fp }
         save()
-        if !blocked.contains(fp) { blocked.append(fp) }
+        if !isBlocked(fp) { blocked.append(LabsBlockedKey(fp: fp, name: name)) }
+        saveBlocked()
+    }
+
+    func unblock(_ fp: String) {
+        blocked.removeAll { $0.fp == fp }
+        saveBlocked()
+    }
+
+    private func saveBlocked() {
         if let d = try? JSONEncoder().encode(blocked) { write("blocked", d, label: "Mote Helper instant pairing blocked phones") }
     }
 
