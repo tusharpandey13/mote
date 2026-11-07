@@ -10,24 +10,16 @@ import kotlin.math.hypot
  * not lost, and each report is clamped to ±[MAX_COUNT].
  */
 class PointerMapper(var speed: Float = 1f) {
-    private var remX = 0f
-    private var remY = 0f
+    private val acc = SubPixel()
 
     /** Returns whole counts (x, y) for this motion sample; the fraction is kept for the next one. */
     fun map(dxDp: Float, dyDp: Float, dtMs: Long): Pair<Int, Int> {
         val v = hypot(dxDp, dyDp) / dtMs.coerceAtLeast(1)
         val g = gain(v) * speed
-        val fx = remX + dxDp * g
-        val fy = remY + dyDp * g
-        val ix = fx.toInt().coerceIn(-MAX_COUNT, MAX_COUNT)
-        val iy = fy.toInt().coerceIn(-MAX_COUNT, MAX_COUNT)
-        // keep only the sub-count fraction; anything clamped away is dropped, not replayed later
-        remX = if (abs(fx) > MAX_COUNT) 0f else fx - ix
-        remY = if (abs(fy) > MAX_COUNT) 0f else fy - iy
-        return ix to iy
+        return acc.add(dxDp * g, dyDp * g)
     }
 
-    fun reset() { remX = 0f; remY = 0f }
+    fun reset() = acc.reset()
 
     companion object {
         /** Counts per dp at speed 1.0 (was 1.8 with up to 4x quadratic boost). */
@@ -44,4 +36,26 @@ class PointerMapper(var speed: Float = 1f) {
             return BASE * (1f + (MAX_BOOST - 1f) * eased)
         }
     }
+}
+
+/**
+ * Sub-count accumulator shared by the touchpad and the joystick: fractional deltas carry over to the
+ * next report, so slow motion is never lost; each report is clamped to ±[max].
+ */
+class SubPixel(private val max: Int = PointerMapper.MAX_COUNT) {
+    private var remX = 0f
+    private var remY = 0f
+
+    fun add(dx: Float, dy: Float): Pair<Int, Int> {
+        val fx = remX + dx
+        val fy = remY + dy
+        val ix = fx.toInt().coerceIn(-max, max)
+        val iy = fy.toInt().coerceIn(-max, max)
+        // keep only the sub-count fraction; anything clamped away is dropped, not replayed later
+        remX = if (abs(fx) > max) 0f else fx - ix
+        remY = if (abs(fy) > max) 0f else fy - iy
+        return ix to iy
+    }
+
+    fun reset() { remX = 0f; remY = 0f }
 }

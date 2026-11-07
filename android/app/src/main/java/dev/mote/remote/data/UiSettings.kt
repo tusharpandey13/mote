@@ -33,6 +33,8 @@ data class UiSettings(
     val ctrlNumberShortcuts: Boolean = false,
     /** The one-time ⌃N hint card was dismissed with Done. */
     val spacesHintDone: Boolean = false,
+    /** The one-time joystick onboarding pulse (rev 7.1) has played. */
+    val stickIntroDone: Boolean = false,
 ) {
     companion object {
         const val SPEED_MIN = 0.25f
@@ -57,6 +59,7 @@ object UiPrefs {
     private val DESKTOPS = androidx.datastore.preferences.core.intPreferencesKey("desktop_count")
     private val CTRL_N = booleanPreferencesKey("ctrl_number_shortcuts")
     private val SPACES_HINT = booleanPreferencesKey("spaces_hint_done")
+    private val STICK_INTRO = booleanPreferencesKey("stick_intro_done")
 
     private fun clampSpeed(v: Float?) = (v ?: 1f).coerceIn(UiSettings.SPEED_MIN, UiSettings.SPEED_MAX)
 
@@ -76,6 +79,7 @@ object UiPrefs {
         desktopCount = (p.typed(DESKTOPS) ?: 4).coerceIn(1, 16),
         ctrlNumberShortcuts = p.typed(CTRL_N) ?: false,
         spacesHintDone = p.typed(SPACES_HINT) ?: false,
+        stickIntroDone = p.typed(STICK_INTRO) ?: false,
     )
 
     fun flow(c: Context): Flow<UiSettings> = c.store.data.map(::read)
@@ -100,6 +104,7 @@ object UiPrefs {
             this[H_STRENGTH] = s.hapticStrength.name; this[H_KEYS] = s.hapticKeys
             this[H_DETENTS] = s.hapticDetents; this[H_LINK] = s.hapticLink
             this[DESKTOPS] = s.desktopCount.coerceIn(1, 16); this[CTRL_N] = s.ctrlNumberShortcuts; this[SPACES_HINT] = s.spacesHintDone
+            this[STICK_INTRO] = s.stickIntroDone
         }
     }
 }

@@ -45,15 +45,22 @@ data class Macro(
 }
 
 object Macros {
-    /** 2: favourites follow design rev 3+ (Spaces only by default); see [migrate]. */
-    private const val VERSION = 2
+    /** 2: favourites follow design rev 3+ (Spaces only by default); 3: rev 7 adds a starred Return. See [migrate]. */
+    private const val VERSION = 3
 
     /** The favourites every install had before v2: Spaces + Spotlight + Lock filled the 4-column strip. */
     private val OLD_DEFAULT_FAVOURITES = setOf("spaces", "spotlight", "lock")
 
-    /** Revision 4 defaults: only Spaces is starred; esc left Media and lives here as "Escape". */
+    /** The favourites of v2 defaults (rev 4-6): Spaces only. */
+    private val V2_DEFAULT_FAVOURITES = setOf("spaces")
+
+    /**
+     * Revision 4 defaults: esc left Media and lives here as "Escape". Revision 7: the D-pad's OK became
+     * the joystick, so Return is a starred macro right after Spaces.
+     */
     val defaults: List<Macro> = listOf(
         Macro(id = "spaces", name = "Spaces", icon = "spaces", kind = Macro.Kind.SPACES, star = true),
+        Macro(id = "return", name = "Return", icon = "ret", steps = listOf(Step.Chord(0, "return")), star = true),
         Macro(id = "spotlight", name = "Spotlight", icon = "search", steps = listOf(Step.Chord(Mod.CMD, "space"))),
         Macro(id = "escape", name = "Escape", icon = "escape", steps = listOf(Step.Chord(0, "esc"))),
         Macro(id = "mission", name = "Mission Control", icon = "windows", steps = listOf(Step.Chord(Mod.CTRL, "up"))),
@@ -70,7 +77,19 @@ object Macros {
     fun load(json: String): List<Macro>? {
         val list = decode(json) ?: return null
         val v = runCatching { JSONObject(json).optInt("v", 1) }.getOrDefault(1)
-        return if (v < 2) migrate(list) else list
+        return if (v < 3) migrateV3(if (v < 2) migrate(list) else list) else list
+    }
+
+    /**
+     * v2 -> v3: if the favourites are still exactly the v2 defaults (Spaces only), add the starred
+     * Return macro right after Spaces (or star an existing one). Custom favourites are untouched.
+     */
+    fun migrateV3(list: List<Macro>): List<Macro> {
+        if (list.filter { it.star }.map { it.id }.toSet() != V2_DEFAULT_FAVOURITES) return list
+        val ret = list.firstOrNull { it.id == "return" }?.copy(star = true) ?: defaults.first { it.id == "return" }
+        val out = list.filter { it.id != "return" }.toMutableList()
+        out.add((out.indexOfFirst { it.id == "spaces" } + 1).coerceIn(0, out.size), ret)
+        return out
     }
 
     /**
