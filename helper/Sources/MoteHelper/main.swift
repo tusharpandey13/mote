@@ -35,7 +35,7 @@ hub.settings.onChange = {
     refresh()
 }
 if let n = config.fakeSpaces {
-    if config.dryRun { log("fake spaces: \(n)") } else { log("--fake-spaces needs --dry-run; ignoring it") }
+    if config.dryRun { log("fake spaces: \(n.map(String.init).joined(separator: ","))") } else { log("--fake-spaces needs --dry-run; ignoring it") }
 }
 log("hostId \(hub.settings.hostId), tailscale connections \(hub.settings.allowTailscale ? "allowed" : "refused")")
 ble?.onChange = refresh
@@ -58,6 +58,7 @@ if config.stdinControl {
                     case "revoke": hub.revokeAll()
                     case "pause": hub.paused = true
                     case "resume": hub.paused = false
+                    case let c where c.hasPrefix("display "): hub.spaces.fakeActivate(Int(c.dropFirst(8)) ?? 0)
                     case let c: log("stdin-control: unknown command '\(c)'")
                     }
                 }

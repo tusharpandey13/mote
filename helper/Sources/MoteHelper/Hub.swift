@@ -34,13 +34,13 @@ final class Hub {
         self.injector = Injector(dryRun: config.dryRun)
         self.spaces = Spaces(config: config, settings: settings, injector: injector)
         spaces.onChange = { [weak self] in self?.broadcastSpaces(); self?.onChange?() }
+        spaces.isSubscribed = { [weak self] in self?.sessions.contains(where: { $0.spacesSub }) ?? false }
         pairing.onChange = { [weak self] in self?.onChange?() }
         // Accessibility can be granted at any time in System Settings; poll and tell clients.
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self else { return }
             let now = AXIsProcessTrusted()
             if now != self.axTrusted { self.axTrusted = now; self.broadcastState(); self.onChange?() }
-            if self.sessions.contains(where: { $0.spacesSub }) { self.spaces.poll() }
         }
     }
 
@@ -82,7 +82,7 @@ final class Hub {
         switch m["t"] as? String {
         case "macro": try runMacro(m["steps"])
         case "cancel": cancelMacro()
-        case "spaces.goto": try spaces.goto(m.int("i"))
+        case "spaces.goto": try spaces.goto(m.int("i"), display: m.optStr("display"))
         default: try injector.exec(m)
         }
     }
@@ -226,7 +226,9 @@ final class Session {
         }
         guard transport != "BLE" else { err("unsupported", "Space thumbnails need Wi-Fi or Tailscale", ref: t); return }
         guard let i = try? m.int("i") else { err("bad", "missing number 'i'", ref: t); return }
-        guard let reply = hub.spaces.thumbMessage(i) else { err("notfound", "no thumbnail for desktop \(i)", ref: t); return }
+        let display: String?
+        do { display = try m.optStr("display") } catch { err("bad", "'display' must be a string", ref: t); return }
+        guard let reply = hub.spaces.thumbMessage(i, display: display) else { err("notfound", "no thumbnail for desktop \(i)", ref: t); return }
         send(reply)
     }
 

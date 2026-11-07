@@ -18,14 +18,22 @@ sealed interface Msg {
     data class Other(val t: String) : Msg
 
     /**
-     * `spaces` (protocol 1.3): [count] desktops on the main display (0 = unknown, clamped to 0..16),
-     * 1-based [current] (0 = unknown / full-screen Space), [thumbs] = thumbnail version per desktop
-     * (exactly [count] entries, 0 = none yet), [capture] = `on` / `off` / `denied` / `unavailable`.
+     * `spaces` (protocol 1.3): [count] desktops on the active display (1.3 helpers: main display; 0 =
+     * unknown, clamped to 0..16), 1-based [current] (0 = unknown / full-screen Space), [thumbs] =
+     * thumbnail version per desktop (exactly [count] entries, 0 = none yet), [capture] = `on` / `off` /
+     * `denied` / `unavailable`. Protocol 1.4: every display's list in [displays] (empty from a 1.3
+     * helper), [display] = id of the active one, [shared] = one list for all screens.
      */
-    data class Spaces(val count: Int, val current: Int, val thumbs: List<Int>, val capture: String) : Msg
+    data class Spaces(
+        val count: Int, val current: Int, val thumbs: List<Int>, val capture: String,
+        val displays: List<SpacesDisplay> = emptyList(), val display: String? = null, val shared: Boolean = false,
+    ) : Msg
 
-    /** `spaces.thumb` reply: JPEG thumbnail [jpeg] (decoded from base64) of desktop [i] at version [v]. */
-    class SpacesThumb(val i: Int, val v: Int, val w: Int, val h: Int, val jpeg: ByteArray) : Msg
+    /** One display in `spaces.displays` (1.4); same clamping as [Spaces]. */
+    data class SpacesDisplay(val id: String, val name: String, val count: Int, val current: Int, val thumbs: List<Int>)
+
+    /** `spaces.thumb` reply: JPEG thumbnail [jpeg] (decoded from base64) of desktop [i] of [display] (null from 1.3) at version [v]. */
+    class SpacesThumb(val i: Int, val v: Int, val w: Int, val h: Int, val jpeg: ByteArray, val display: String? = null) : Msg
 }
 
 /** Pure codec for the Mote helper protocol v1.x: JSON text frames and the HMAC challenge. */
@@ -77,12 +85,20 @@ object Proto {
 
     /** `spaces.sub` (protocol 1.3): [on] = true subscribes to `spaces` updates, false stops them. */
     fun spacesSub(on: Boolean = true): String = obj("spaces.sub").put("on", on).toString()
-    /** `spaces.thumb` request for the 1-based desktop [i]. */
-    fun spacesThumb(i: Int): String = obj("spaces.thumb").put("i", i).toString()
-    /** `spaces.goto`: switch the Mac to the 1-based desktop [i]. */
-    fun spacesGoto(i: Int): String = obj("spaces.goto").put("i", i).toString()
+    /** `spaces.thumb` request for the 1-based desktop [i] of [display] (1.4; null = the active display). */
+    fun spacesThumb(i: Int, display: String? = null): String = obj("spaces.thumb").put("i", i).apply { if (display != null) put("display", display) }.toString()
+    /** `spaces.goto`: switch the Mac to the 1-based desktop [i] of [display] (1.4; null = the active display). */
+    fun spacesGoto(i: Int, display: String? = null): String = obj("spaces.goto").put("i", i).apply { if (display != null) put("display", display) }.toString()
 
     const val SPACES_MAX = 16
+    const val DISPLAYS_MAX = 8
+
+    /** [o]'s `count` / `current` / `thumbs`, clamped: count 0..16, current 0..count, exactly count versions >= 0. */
+    private fun spaceList(o: JSONObject): Triple<Int, Int, List<Int>> {
+        val count = o.optInt("count").coerceIn(0, SPACES_MAX)
+        val a = o.optJSONArray("thumbs")
+        return Triple(count, o.optInt("current").coerceIn(0, count), List(count) { i -> (a?.optInt(i) ?: 0).coerceAtLeast(0) })
+    }
 
     /** HID consumer usage (what the BT path sends) to the protocol's consumer key. */
     fun consumerKey(usage: Int): String? = when (usage) {
@@ -122,18 +138,24 @@ object Proto {
             )
             "pong" -> Msg.Pong(o.optInt("n"))
             "spaces" -> {
-                val count = o.optInt("count").coerceIn(0, SPACES_MAX)
-                val a = o.optJSONArray("thumbs")
+                val (count, current, thumbs) = spaceList(o)
+                val arr = o.optJSONArray("displays")
+                val displays = (0 until (arr?.length() ?: 0)).mapNotNull { k ->
+                    val d = arr?.optJSONObject(k) ?: return@mapNotNull null
+                    val id = d.optString("id").ifEmpty { return@mapNotNull null }
+                    val (n, cur, v) = spaceList(d)
+                    Msg.SpacesDisplay(id, d.optString("name").take(64), n, cur, v)
+                }.distinctBy { it.id }.take(DISPLAYS_MAX)
                 Msg.Spaces(
-                    count, o.optInt("current").coerceIn(0, count),
-                    List(count) { i -> (a?.optInt(i) ?: 0).coerceAtLeast(0) }, o.optString("capture", "unavailable"),
+                    count, current, thumbs, o.optString("capture", "unavailable"),
+                    displays, o.optString("display").ifEmpty { null }, o.optBoolean("shared"),
                 )
             }
             "spaces.thumb" -> {
                 val i = o.getInt("i")
                 val jpeg = java.util.Base64.getDecoder().decode(o.getString("data"))
                 if (i !in 1..SPACES_MAX || jpeg.isEmpty()) null
-                else Msg.SpacesThumb(i, o.optInt("v"), o.optInt("w"), o.optInt("h"), jpeg)
+                else Msg.SpacesThumb(i, o.optInt("v"), o.optInt("w"), o.optInt("h"), jpeg, o.optString("display").ifEmpty { null })
             }
             else -> Msg.Other(t)
         }

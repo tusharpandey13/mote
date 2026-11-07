@@ -137,28 +137,45 @@ class WsTransport(
         }
     }
 
-    /** Thumbnail version last requested per desktop, so repeated `spaces` don't re-request. Run loop only. */
-    private val requested = HashMap<Int, Int>()
+    // Thumbnails are cached per display ("" = a 1.3 helper, which only knows the main display), so
+    // switching the active display back and forth shows cached pictures at once. Run loop only.
+    /** Thumbnail cache: display -> 1-based index -> newest thumbnail. */
+    private val thumbCache = HashMap<String, Map<Int, SpaceThumb>>()
+    /** Thumbnail version last requested per (display, desktop), so repeated `spaces` don't re-request. */
+    private val requested = HashMap<Pair<String, Int>, Int>()
+    /** Latest helper versions per display, from the last `spaces`. */
+    private var versionsByDisplay: Map<String, List<Int>> = emptyMap()
 
     /**
-     * New `spaces` state: fetch every thumbnail whose version differs from the cached one. A stale
-     * thumbnail stays visible until its replacement arrives; desktops past [Msg.Spaces.count] are dropped.
+     * New `spaces` state: fetch every thumbnail of the active display whose version differs from the
+     * cached one. A stale thumbnail stays visible until its replacement arrives; displays that went
+     * away and desktops past a display's count are dropped.
      */
     private fun onSpaces(s: WsSession, m: Msg.Spaces) {
-        if (_spaces.value == null) requested.clear() // new session
-        val kept = _spaces.value?.thumbs.orEmpty().filterKeys { it <= m.count }
+        if (_spaces.value == null) { requested.clear(); thumbCache.clear() } // new session
+        val key = m.display ?: ""
+        versionsByDisplay = if (m.displays.isEmpty()) mapOf(key to m.thumbs) else m.displays.associate { it.id to it.thumbs } + (key to m.thumbs)
+        thumbCache.keys.retainAll(versionsByDisplay.keys)
+        for ((d, t) in thumbCache.entries.toList()) thumbCache[d] = t.filterKeys { it <= versionsByDisplay.getValue(d).size }
+        val kept = thumbCache[key].orEmpty()
         m.thumbs.forEachIndexed { k, v ->
             val i = k + 1
-            if (v > 0 && kept[i]?.version != v && requested[i] != v) { requested[i] = v; s.send(Proto.spacesThumb(i)) }
+            if (v > 0 && kept[i]?.version != v && requested[key to i] != v) { requested[key to i] = v; s.send(Proto.spacesThumb(i, m.display)) }
         }
-        _spaces.value = SpacesState(m.count, m.current, m.capture, m.thumbs, kept)
+        _spaces.value = SpacesState(
+            m.count, m.current, m.capture, m.thumbs, kept,
+            m.displays.map { DisplaySpaces(it.id, it.name, it.count, it.current) }, m.display, m.shared,
+        )
     }
 
-    /** Stores a thumbnail if it is still the latest version for its desktop. */
+    /** Stores a thumbnail if it is still the latest version for its desktop; shows it if its display is active. */
     private fun onThumb(m: Msg.SpacesThumb) {
         val st = _spaces.value ?: return
-        if (st.versions.getOrNull(m.i - 1) != m.v) return
-        _spaces.value = st.copy(thumbs = st.thumbs + (m.i to SpaceThumb(m.i, m.v, m.jpeg)))
+        val key = m.display ?: st.activeDisplay ?: ""
+        if (versionsByDisplay[key]?.getOrNull(m.i - 1) != m.v) return
+        val t = thumbCache[key].orEmpty() + (m.i to SpaceThumb(m.i, m.v, m.jpeg))
+        thumbCache[key] = t
+        if (key == (st.activeDisplay ?: "")) _spaces.value = st.copy(thumbs = t)
     }
 
     /** Pre-1.1 helpers send no hostId (saved as "addr:…"), so only a present, different id is a mismatch. */
@@ -254,7 +271,7 @@ class WsTransport(
     override fun clickAt(x: Float, y: Float): Boolean { sendNow(Proto.clickAt(x.toDouble(), y.toDouble())); return true }
 
     /** `spaces.goto`; the helper picks ⌃N or ⌃← / ⌃→ steps and the next `spaces` confirms the switch. */
-    override fun spacesGoto(index: Int) = sendNow(Proto.spacesGoto(index))
+    override fun spacesGoto(index: Int, display: String?) = sendNow(Proto.spacesGoto(index, display))
 
     companion object {
         const val FRAME_MS = 16L

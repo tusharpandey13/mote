@@ -158,6 +158,46 @@ class HelperIntegrationTest {
         assertEquals(null, t.spaces.value)
     }
 
+    /**
+     * Protocol 1.4 against `--fake-spaces 6,3 --stdin-control`: both displays parsed, the active display
+     * switch (stdin `display 2`) arrives live and the state then mirrors it, goto addresses a display.
+     */
+    @Test fun spacesFollowTheActiveDisplay() = runBlocking {
+        proc.destroy(); proc.waitFor()
+        log.clear()
+        val started = runCatching { spawn("--fake-spaces", "6,3", "--stdin-control") }.isSuccess
+        assumeTrue("helper without multi-display --fake-spaces; rebuild helper", started && seen("fake spaces: 6,3", 3000) != null)
+
+        val p = pairWith(http, "127.0.0.1", port, code, "jvm displays")
+        val token = p.token.copyOf()
+        val t = WsTransport(http, scope, p.hostId, {
+            WsTarget(listOf("127.0.0.1"), port, p.deviceId) { Proto.hmacHex(token, it) }
+        })
+        t.start()
+        val s = withTimeout(10_000) { t.spaces.first { it != null && it.thumbs[1] != null } }!!
+        assertEquals(listOf(DisplaySpaces("fake-1", "Fake Display 1", 6, 1), DisplaySpaces("fake-2", "Fake Display 2", 3, 1)), s.displays)
+        assertEquals("fake-1", s.activeDisplay)
+        assertEquals(6, s.count)
+        assertEquals(false, s.shared)
+        val v1 = s.thumbs[1]!!.version
+
+        proc.outputStream.write("display 2\n".toByteArray()); proc.outputStream.flush()
+        val sw = withTimeout(10_000) { t.spaces.first { it?.activeDisplay == "fake-2" && it.thumbs[1] != null } }!!
+        assertEquals(3, sw.count)
+        assertEquals(3, sw.versions.size)
+        assertEquals(sw.active, DisplaySpaces("fake-2", "Fake Display 2", 3, 1))
+        assertTrue("thumbnail of fake-2, not fake-1's", sw.thumbs[1]!!.version != v1)
+
+        t.spacesGoto(2, "fake-1")
+        waitFor("DRY spaces goto=2 from=1 via=step display=fake-1")
+        waitFor("DRY spaces warp display=fake-1")
+        val back = withTimeout(10_000) { t.spaces.first { it?.activeDisplay == "fake-1" && it.current == 2 } }!!
+        assertEquals(6, back.count)
+        // fake-1's desktop 1 thumbnail survived the round trip through fake-2 in the per-display cache.
+        assertEquals(v1, back.thumbs[1]?.version)
+        t.stop()
+    }
+
     @Test fun wrongTokenFailsWithAuthAndStops() = runBlocking {
         val p = pairWith(http, "127.0.0.1", port, code, "jvm bad")
         val t = WsTransport(http, scope, p.hostId, {

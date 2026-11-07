@@ -61,8 +61,8 @@ function message(r, ctx) {
     macro: () => ({ steps: r.chance(0.1) ? Array.from({ length: r.int(60, 70) }, step) : Array.from({ length: r.int(0, 6) }, step) }),
     wait: () => ({ ms: r.pick([0, 100, 5000, 5001]) }),
     'spaces.sub': () => ({ on: r.pick([true, false, 1, null]) }),
-    'spaces.thumb': () => ({ i: r.pick([1, 2, 0, -1, 17, 2 ** 40, 'x']) }),
-    'spaces.goto': () => ({ i: r.pick([1, 2, 0, -1, 16, 17, 2 ** 40, 'x']) }),
+    'spaces.thumb': () => ({ i: r.pick([1, 2, 0, -1, 17, 2 ** 40, 'x']), ...(r.chance(0.5) ? { display: r.pick(['Main', 'fake-1', '', 7, null]) } : {}) }),
+    'spaces.goto': () => ({ i: r.pick([1, 2, 0, -1, 16, 17, 2 ** 40, 'x']), ...(r.chance(0.5) ? { display: r.pick(['Main', 'fake-1', '', 7, null]) } : {}) }),
   };
   const m = { t, ...(Object.hasOwn(base, t) ? base[t]() : {}) };
   // Never send real-looking brightness or click storms more than the fuzzer needs; all of it is dry-run anyway.

@@ -20,6 +20,46 @@ class SpacesTest {
         assertEquals("spaces.thumb", th.getString("t")); assertEquals(3, th.getInt("i"))
         val g = j(Proto.spacesGoto(2))
         assertEquals("spaces.goto", g.getString("t")); assertEquals(2, g.getInt("i"))
+        assertTrue(!g.has("display") && !th.has("display"))
+        assertEquals("D-2", j(Proto.spacesGoto(2, "D-2")).getString("display"))
+        assertEquals("D-2", j(Proto.spacesThumb(1, "D-2")).getString("display"))
+    }
+
+    @Test fun parsesDisplays() {
+        val m = Proto.parse(
+            """{"t":"spaces","count":3,"current":1,"thumbs":[4,0,0],"capture":"on","display":"B","shared":false,
+               "displays":[{"id":"A","name":"Built-in","count":6,"current":2,"thumbs":[1,2,0,0,0,0]},
+                           {"id":"B","name":"DELL","count":3,"current":1,"thumbs":[4,0,0]}]}""",
+        ) as Msg.Spaces
+        assertEquals("B", m.display)
+        assertEquals(false, m.shared)
+        assertEquals(listOf(Msg.SpacesDisplay("A", "Built-in", 6, 2, listOf(1, 2, 0, 0, 0, 0)), Msg.SpacesDisplay("B", "DELL", 3, 1, listOf(4, 0, 0))), m.displays)
+    }
+
+    @Test fun displaysAreClampedAndJunkDropped() {
+        val m = Proto.parse(
+            """{"t":"spaces","count":1,"current":1,"thumbs":[1],"shared":true,"displays":[
+               {"id":"Main","name":"All displays","count":99,"current":120,"thumbs":[-3]},
+               {"name":"no id","count":2}, 7, null, {"id":"","count":1}, {"id":"Main","count":2}]}""",
+        ) as Msg.Spaces
+        assertEquals(1, m.displays.size)
+        val d = m.displays[0]
+        assertEquals(16, d.count); assertEquals(16, d.current); assertEquals(0, d.thumbs[0]); assertEquals(16, d.thumbs.size)
+        assertTrue(m.shared)
+        assertNull(m.display)
+        val many = Proto.parse("""{"t":"spaces","count":0,"displays":[${(1..20).joinToString(",") { "{\"id\":\"d$it\"}" }}]}""") as Msg.Spaces
+        assertEquals(8, many.displays.size)
+        // A 1.3 helper: no displays at all.
+        val old = Proto.parse("""{"t":"spaces","count":4,"current":2,"thumbs":[3,0,7,0],"capture":"on"}""") as Msg.Spaces
+        assertEquals(emptyList<Msg.SpacesDisplay>(), old.displays); assertNull(old.display); assertEquals(false, old.shared)
+        val notList = Proto.parse("""{"t":"spaces","count":1,"displays":"x","display":5}""") as Msg.Spaces
+        assertEquals(emptyList<Msg.SpacesDisplay>(), notList.displays); assertEquals("5", notList.display)
+    }
+
+    @Test fun thumbCarriesDisplay() {
+        val m = Proto.parse("""{"t":"spaces.thumb","i":1,"v":2,"display":"B","data":"/9g="}""") as Msg.SpacesThumb
+        assertEquals("B", m.display)
+        assertNull((Proto.parse("""{"t":"spaces.thumb","i":1,"v":2,"data":"/9g="}""") as Msg.SpacesThumb).display)
     }
 
     @Test fun parsesSpaces() {

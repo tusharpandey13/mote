@@ -69,7 +69,8 @@ import kotlin.math.abs
 // ---------------------------------------------------------------------------------------------
 // data seam
 
-// Helper Spaces come from [Remote.spaces] / [Remote.spacesGoto] (net/, protocol 1.3); null state =
+// Helper Spaces come from [Remote.spaces] / [Remote.spacesGoto] (net/, protocol 1.3; 1.4 adds per-display
+// lists: the state's count/current/thumbs are the active display's and follow it live); null state =
 // the transport can't see Spaces (Bluetooth, pre-1.3 helper, helper count unknown): use [BtSpaces].
 
 /**
@@ -124,7 +125,8 @@ fun SpacesCarousel(cardWidth: Dp = 104.dp, modifier: Modifier = Modifier) {
     val count = helper?.count ?: cfg.desktopCount
     val current = helper?.current ?: btCurrent
     val list = rememberLazyListState()
-    LaunchedEffect(Unit) { list.scrollToItem((current - 2).coerceAtLeast(0)) }
+    // Re-centre when the Mac's active display changes (its list replaces the previous one).
+    LaunchedEffect(helper?.activeDisplay) { list.scrollToItem((current - 2).coerceAtLeast(0)) }
     val shape = RoundedCornerShape(22.dp)
     Box(modifier.fillMaxWidth().height(84.dp).well(shape)) {
         LazyRow(
@@ -137,7 +139,7 @@ fun SpacesCarousel(cardWidth: Dp = 104.dp, modifier: Modifier = Modifier) {
             items(count) { i ->
                 val n = i + 1
                 SpaceCard(n, n == current, cardWidth, helper != null, helper?.thumbs?.get(n)?.image) {
-                    if (helper != null) Remote.spacesGoto(n) else BtSpaces.goto(n, cfg)
+                    if (helper != null) Remote.spacesGoto(n, helper.activeDisplay) else BtSpaces.goto(n, cfg)
                 }
             }
         }
