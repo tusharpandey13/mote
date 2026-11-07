@@ -35,6 +35,6 @@ object Remote {
     fun click(mask: Int) = t.click(mask)
     fun scroll(wheel: Int, pan: Int) = t.scroll(wheel, pan)
     fun clickAt(x: Float, y: Float): Boolean = t.clickAt(x, y)
-    /** Switch the Mac to the 1-based desktop [index] (helper `spaces.goto`, or ⌃N / ⌃arrows over Bluetooth). */
-    fun spacesGoto(index: Int) = t.spacesGoto(index)
+    /** Switch the Mac to the 1-based desktop [index] of [display] (null = active) (helper `spaces.goto`, or ⌃N / ⌃arrows over Bluetooth). */
+    fun spacesGoto(index: Int, display: String? = null) = t.spacesGoto(index, display)
 }

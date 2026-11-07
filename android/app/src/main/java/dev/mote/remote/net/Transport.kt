@@ -53,13 +53,14 @@ interface Transport {
     /** Normalised point on the main display. False when the transport can't do it. */
     fun clickAt(x: Float, y: Float): Boolean
 
-    /** Mac Spaces (protocol 1.3) with thumbnails; null when unknown (Bluetooth, older helper, not linked). */
+    /** Mac Spaces (protocol 1.3, per display since 1.4) with thumbnails; null when unknown (Bluetooth, older helper, not linked). */
     val spaces: StateFlow<SpacesState?> get() = NO_SPACES
     /**
-     * Switch the Mac to the 1-based desktop [index] (helper: `spaces.goto`). No-op by default: over
-     * Bluetooth the UI drives ⌃N / ⌃←⌃→ itself (`ui/BtSpaces`), since HID gets no Spaces feedback.
+     * Switch the Mac to the 1-based desktop [index] of [display] (a [DisplaySpaces.uuid]; null = the
+     * active display) (helper: `spaces.goto`). No-op by default: over Bluetooth the UI drives
+     * ⌃N / ⌃←⌃→ itself (`ui/BtSpaces`), since HID gets no Spaces feedback.
      */
-    fun spacesGoto(index: Int) {}
+    fun spacesGoto(index: Int, display: String? = null) {}
 }
 
 private val NO_SPACES: StateFlow<SpacesState?> = MutableStateFlow(null)
