@@ -42,6 +42,7 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
 - HID can't be tested in an emulator; needs a real phone.
 - A browser can't be a Bluetooth peripheral; that's why the helper exists.
 - The helper is ad-hoc signed: each build needs Accessibility re-granted.
+- Instrumented tests (`connectedAndroidTest`, `am instrument`) MUST be pinned to an emulator: `ANDROID_SERIAL=emulator-5554 ./gradlew ...` (or `adb -s emulator-…`). Gradle otherwise installs, runs, clears data and uninstalls on EVERY connected device, including the user's physical phone (serial b7e39c2f). Never run tests on the physical phone unless the user explicitly asks.
 
 ## README screenshots
 (`design/exports/` is a separate, locally built gallery: use `tools/design-build.sh`.)
