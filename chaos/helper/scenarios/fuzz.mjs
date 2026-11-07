@@ -34,17 +34,18 @@ async function phase(chk, r, kind, until) {
   const st = { cases: 0, batches: 0, hangs: [], crashes: [], missing: [], unexpectedClose: [], closes: 0, completed: [], pending: [] };
   let restarting = null;
 
-  const restart = async (why) => {
+  const restart = async (why, dead) => {
+    st.crashes.push(why);   // every report, so the culprit batch isn't lost when another worker saw the death first
+    if (dead !== h && !restarting) return;   // already replaced
     if (!restarting) {
       restarting = (async () => {
-        st.crashes.push(why);
         if (process.env.CHAOS_VERBOSE) console.error('\n[fuzz] ' + why);
         mon.stop();
         await h.stop();
         h = await startHelper();
         for (let i = 0; i < 20; i++) { try { cred = kind === 'authed' ? await pair(h) : null; break; } catch { await sleep(100); } }
         mon = sampler(h, 1000);
-      })();
+      })().finally(() => { restarting = null; });
     }
     await restarting;
   };
@@ -65,7 +66,7 @@ async function phase(chk, r, kind, until) {
           try { conn = kind === 'authed' ? await authed(myH, cred, { host: PEERS[w] }) : await open({ port: myH.port, host: PEERS[w] }); }
           catch (e) { lastErr = e.message; if (!myH.alive()) break; await sleep(20); }
         }
-        if (!conn) { if (!myH.alive()) { await restart(`helper died (connect)`); continue; } chk.ok(false, `${kind}: could not connect`, `${lastErr}; log: ${myH.log.slice(-3).join(' / ')}`); return; }
+        if (!conn) { if (!myH.alive()) { await restart(`helper died (connect) exit=${JSON.stringify(myH.exit)} log: ${myH.log.slice(-3).join(" / ")}`, myH); continue; } chk.ok(false, `${kind}: could not connect`, `${lastErr}; log: ${myH.log.slice(-3).join(' / ')}`, myH); return; }
       }
       ctx.id = cred?.id;
       const batch = [];
@@ -89,7 +90,7 @@ async function phase(chk, r, kind, until) {
       const last = batch.at(-1);
       const descs = () => batch.map((c) => c.desc).join(' ') + ' | last payload: ' + (last.payload ?? Buffer.alloc(0)).subarray(0, 120).toString('hex');
       if (!myH.alive()) {
-        await restart(`crash after batch [${descs()}] exit=${JSON.stringify(myH.exit)} log: ${myH.log.slice(-3).join(' / ')}`);
+        await restart(`crash after batch [${descs()}] exit=${JSON.stringify(myH.exit)} log: ${myH.log.slice(-3).join(' / ')}`, myH);
         conn = null;
         continue;
       }

@@ -69,6 +69,9 @@ if config.stdinControl {
                     case "screen-lab-off": hub.settings.labsLiveScreen = false
                     case "screen-lab-on": hub.settings.labsLiveScreen = true
                     case let c where c.hasPrefix("display "): hub.spaces.fakeActivate(Int(c.dropFirst(8)) ?? 0)
+                    case let c where c.hasPrefix("displays "): hub.spaces.fakeReplug(String(c.dropFirst(9)))
+                    case "tailscale on": hub.settings.allowTailscale = true
+                    case "tailscale off": hub.settings.allowTailscale = false
                     case let c: log("stdin-control: unknown command '\(c)'")
                     }
                 }

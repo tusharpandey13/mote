@@ -48,10 +48,20 @@ object Vault {
     /** A signer for the hello nonce, or null if the credential is gone (re-pair). */
     fun signer(host: SavedHost): ((String) -> String)? {
         host.wrapped?.let { blob ->
-            return { nonce -> unwrap(blob).let { t -> try { Proto.hmacHex(t, nonce) } finally { t.fill(0) } } }
+            return wrappedSigner(blob, ::unwrap) ?: run { Log.w(TAG, "wrapped token for ${host.hostId} no longer decrypts; re-pair"); null }
         }
         val key = runCatching { keystore().getKey(alias(host.hostId), null) as? SecretKey }.getOrNull() ?: return null
         return { nonce -> sign(key, nonce) }
+    }
+
+    /**
+     * A signer over a wrapped token, or null when the blob no longer decrypts (wrap key gone from the
+     * Keystore, corrupt blob). Checked up front: failing inside auth looked like a dropped socket, so
+     * the phone reconnected forever showing "Connecting…" instead of asking to pair again.
+     */
+    internal fun wrappedSigner(blob: String, unwrap: (String) -> ByteArray): ((String) -> String)? {
+        runCatching { unwrap(blob).fill(0) }.getOrElse { return null }
+        return { nonce -> unwrap(blob).let { t -> try { Proto.hmacHex(t, nonce) } finally { t.fill(0) } } }
     }
 
     fun forget(hostId: String) { runCatching { keystore().deleteEntry(alias(hostId)) } }

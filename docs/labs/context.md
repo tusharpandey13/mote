@@ -105,5 +105,5 @@ Profiles (first match wins):
   - seek via fake, JS (logged only) and keys (`DRY key`);
   - the 250 ms debounce and coalescing;
   - unauthenticated sessions and the lab being off by default.
-- `--fake-context FILE` (dry-run only) reads `{app, bundle, url, title, text, secure, browser?, automation?}` from FILE and re-reads it when it changes. `--fake-nowplaying` (dry-run only) is a 300 s "Fake Song" that plays. In dry run without `--fake-nowplaying`, the real reader never starts, so tests can't touch real media.
+- `--fake-context FILE` (dry-run only) reads `{app, bundle, url, title, text, secure, browser?, automation?}` from FILE and re-reads it when it changes. `--fake-nowplaying` (dry-run only) is a 300 s "Fake Song" that plays. In dry run without `--fake-nowplaying`, the real reader never starts, so tests can't touch real media. `--fake-nowplaying-reader EXE` (dry-run only, chaos) runs EXE in its place to test crash loops and garbage output; reader lines over 256 KiB are dropped.
 - Android: `RulesTest`, `NowPlayingReducerTest`, and `LabsContextIntegrationTest` (real dry-run helper, app codecs).

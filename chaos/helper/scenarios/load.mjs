@@ -109,7 +109,7 @@ async function reconnectAndFlood(chk, r, deadline) {
 
   // Reconnect storm: 6 concurrent loops per peer, connect -> auth -> (input | RST | close).
   let reconnects = 0, refused = 0, authFails = 0, sent = 0;
-  const stormEnd = Math.min(Date.now() + 8000, deadline - 15000);
+  const stormEnd = Math.max(Date.now() + 4000, Math.min(Date.now() + 8000, deadline - 15000));   // fixed minimum, even on a tiny budget
   await Promise.all(PEERS.flatMap((host, p) => Array.from({ length: 6 }, async (_, k) => {
     const rr = r.fork(`storm-${p}-${k}`);
     while (Date.now() < stormEnd) {

@@ -156,7 +156,7 @@ final class LabsContext: NSObject, LabsModule {
         let fakeCtx = hub.config.dryRun && hub.config.fakeContext != nil
         let fakeNp = hub.config.dryRun && hub.config.fakeNowPlaying
         fake = fakeCtx
-        nowPlaying = NowPlaying(fake: fakeNp, dryRun: hub.config.dryRun)
+        nowPlaying = NowPlaying(fake: fakeNp, dryRun: hub.config.dryRun, reader: hub.config.dryRun ? hub.config.fakeNowPlayingReader : nil)
         super.init()
         if (hub.config.fakeContext != nil || hub.config.fakeNowPlaying) && !hub.config.dryRun { log("labs: --fake-context / --fake-nowplaying need --dry-run; ignoring them") }
         if fakeCtx || fakeNp { settings.enabled = true; log("labs: context & now playing on (fake\(fakeCtx ? " context" : "")\(fakeNp ? " now-playing" : ""))") }
@@ -471,8 +471,11 @@ final class NowPlaying {
     private var failures: [Date] = []
     private var wanted = false
     private var fakeTimer: Timer?
+    private let reader: String?   // chaos (--fake-nowplaying-reader, dry-run only): stands in for perl + the dylib
+    /// A reader line longer than this is dropped (a reader that never sends a newline can't grow memory).
+    static let maxLine = 256 * 1024
 
-    init(fake: Bool, dryRun: Bool) { self.fake = fake; self.dryRun = dryRun }
+    init(fake: Bool, dryRun: Bool, reader: String? = nil) { self.fake = fake; self.dryRun = dryRun; self.reader = reader }
 
     var duration: Double? { (info?["duration"] as? NSNumber)?.doubleValue }
 
@@ -528,14 +531,19 @@ final class NowPlaying {
     private func launch() {
         guard wanted, proc == nil else { return }
         // Dry run never touches the real media session (MediaRemote seek would be real input); use --fake-nowplaying.
-        if dryRun { status = "unavailable"; log("labs: now-playing reader off in dry run"); onUpdate?(); return }
-        guard let r = resources(), FileManager.default.isExecutableFile(atPath: "/usr/bin/perl") else {
-            status = "unavailable"; log("labs: now-playing reader not bundled"); onUpdate?(); return
+        let p = Process()
+        if let reader {
+            p.executableURL = URL(fileURLWithPath: reader)
+        } else {
+            if dryRun { status = "unavailable"; log("labs: now-playing reader off in dry run"); onUpdate?(); return }
+            guard let r = resources(), FileManager.default.isExecutableFile(atPath: "/usr/bin/perl") else {
+                status = "unavailable"; log("labs: now-playing reader not bundled"); onUpdate?(); return
+            }
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+            p.arguments = [r.script, r.dylib]
         }
         status = "starting"
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
-        p.arguments = [r.script, r.dylib]
+        buf = Data()
         let out = Pipe(), inp = Pipe()
         p.standardOutput = out; p.standardInput = inp; p.standardError = FileHandle.nullDevice
         out.fileHandleForReading.readabilityHandler = { [weak self] h in
@@ -552,6 +560,7 @@ final class NowPlaying {
         while let nl = buf.firstIndex(of: 0x0A) {
             let line = buf.subdata(in: buf.startIndex..<nl)
             buf.removeSubrange(buf.startIndex...nl)
+            guard line.count <= Self.maxLine else { log("labs: now-playing line too long (\(line.count) B), dropped"); continue }
             guard let j = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any] else { continue }
             if let ok = j["ok"] as? Bool {
                 status = ok ? "mediaremote" : "unavailable"
@@ -563,6 +572,8 @@ final class NowPlaying {
                 onUpdate?()
             }
         }
+        // No newline yet and already over the cap: discard until the next newline.
+        if buf.count > Self.maxLine { log("labs: now-playing reader sent \(buf.count) B without a newline, dropped"); buf = Data() }
     }
 
     /// Booleans arrive as 0/1 from the adapter; keep the message small and typed.

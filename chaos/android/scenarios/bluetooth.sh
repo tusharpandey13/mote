@@ -21,21 +21,21 @@ scenario_bluetooth() {
   mark; launch; pause 2
   local note="" peak
   peak=$(bt_toggle_storm 60 3)                     # fast: 0-0.2 s between toggles
-  [ "$peak" -gt 1 ] && note="peak $peak HidService records (fast storm)"
+  [ "$peak" -gt 1 ] && note=$(tag S2 I2 "peak $peak HidService records (fast storm)")
   peak=$(bt_toggle_storm 20 9)                     # slower: lets the HID proxy bind/unbind
-  [ "$peak" -gt 1 ] && note="${note:+$note; }peak $peak HidService records (slow storm)"
+  [ "$peak" -gt 1 ] && note=$(add "$note" "$(tag S2 I2 "peak $peak HidService records (slow storm)")")
   sh_ cmd bluetooth_manager enable >/dev/null 2>&1; pause 5
   shot bt-after-storm
-  alive || note="${note:+$note; }app died during storm"
-  ui_has "How do you want to connect?" && note="${note:+$note; }gate still shown with Bluetooth on"
+  alive || note=$(add "$note" "$(tag S2 I10 "app died during storm")")
+  ui_has "How do you want to connect?" && note=$(add "$note" "$(tag S2 I8 "gate still shown with Bluetooth on")")
   # background: with no host connected the service must stop itself
   home; pause 5
   local c; c=$(svc_count)
-  [ "${c:-0}" -gt 0 ] && note="${note:+$note; }HidService still running in background ($c)"
+  [ "${c:-0}" -gt 0 ] && note=$(add "$note" "$(tag S2 I4 "HidService still running in background ($c)")")
   # storm while backgrounded, then come back
   bt_toggle_storm 20 5 >/dev/null
   sh_ cmd bluetooth_manager enable >/dev/null 2>&1; pause 3
-  c=$(svc_count); [ "${c:-0}" -gt 0 ] && note="${note:+$note; }HidService restarted in background ($c)"
-  local h; h=$(healthy); [ -n "$h" ] && note="${note:+$note; }$h"
+  c=$(svc_count); [ "${c:-0}" -gt 0 ] && note=$(add "$note" "$(tag S2 I4 "HidService restarted in background ($c)")")
+  note=$(add "$note" "$(healthy)")
   finish bluetooth-toggle "$note"
 }

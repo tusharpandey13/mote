@@ -32,6 +32,14 @@ export async function freePort() {
   }
 }
 
+let helpText;
+/** The helper's --help text: chaos feature-detects test seams by their flags. */
+export async function helperHelp() {
+  helpText ??= await new Promise((res) => execFile(BIN, ['--help'], { timeout: 5000 }, (_e, out) => res(String(out ?? ''))));
+  return helpText;
+}
+export const hasFlag = async (flag) => (await helperHelp()).includes(flag);
+
 function run(cmd, args) {
   return new Promise((res) => execFile(cmd, args, { maxBuffer: 1 << 24 }, (err, out) => res(err && !out ? '' : out)));
 }
@@ -48,6 +56,8 @@ export async function startHelper(opts = {}) {
   if (opts.store?.keychainService) args.push('--keychain-service', opts.store.keychainService);
   else args.push('--memory-store');
   if (opts.extraArgs) args.push(...opts.extraArgs);   // e.g. --fake-spaces N
+  // Don't advertise dry-run helpers on the user's LAN (phones nearby would list them), unless asked.
+  if (opts.bonjour !== true && !args.includes('--no-bonjour') && (await hasFlag('--no-bonjour'))) args.push('--no-bonjour');
   if (!args.includes('--dry-run')) throw new Error('refusing to start the helper without --dry-run');
 
   const proc = spawn(BIN, args, { stdio: [opts.stdin ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
@@ -56,6 +66,7 @@ export async function startHelper(opts = {}) {
   const h = {
     proc, pid: proc.pid, port, args, code: null, exit: null,
     log: [],            // last N stderr lines
+    out: [],            // last N stdout lines (PAIRING CODE, BRIDGE CODE, NEW DEVICE, ...)
     dryCount: 0,        // DRY lines (one per executed input)
     dryByKind: {},
     markers: new Map(), // text marker -> times executed (DRY text "<marker>")
@@ -66,6 +77,9 @@ export async function startHelper(opts = {}) {
   readline.createInterface({ input: proc.stdout }).on('line', (l) => {
     const m = /PAIRING CODE: (\d{6})/.exec(l);
     if (m) h.code = m[1];
+    h.out.push(l);
+    if (h.out.length > 400) h.out.splice(0, 200);
+    for (const f of h.listeners) f(l);
   });
   // Always drain stderr: a full pipe would block the helper's main thread and look like a hang.
   readline.createInterface({ input: proc.stderr }).on('line', (l) => {
