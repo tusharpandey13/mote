@@ -66,7 +66,7 @@ async function bridge(chk, r, deadline) {
 
   // Reconnect storm: connect, auth, state, then close / RST / vanish; the phone ends on the last state.
   let n = 0, last = null;
-  const end = Math.min(deadline - 3000, Date.now() + 6000);
+  const end = Math.max(Date.now() + 2000, Math.min(deadline - 3000, Date.now() + 6000));
   while (Date.now() < end && n < 150) {
     const c = await authExt();
     if (!c) { n++; continue; }
@@ -98,7 +98,7 @@ async function screen(chk, r, deadline) {
   const cred = await pair(h);
   // Close during a frame: RST while a frame is mid-flight; the stream must stop within the I4 budget.
   const stops = [];
-  for (let i = 0; i < 8 && Date.now() < deadline - 6000; i++) {
+  for (let i = 0; i < 8 && (i < 3 || Date.now() < deadline - 6000); i++) {
     const c = await authed(h, cred, { host: PEERS[i % 3] });
     c.send({ t: 'labs.screen.start', w: 960, fps: 15, credits: 3 });
     await c.until((m) => m.t === 'labs.screen.frame', 2000);
@@ -109,7 +109,7 @@ async function screen(chk, r, deadline) {
     r.chance(0.5) ? c.reset() : c.destroy();
     stops.push((await stopped) ? Date.now() - t0 : null);
   }
-  const worst = stops.some((x) => x === null) ? null : Math.max(...stops);
+  const worst = !stops.length || stops.some((x) => x === null) ? null : Math.max(...stops);
   chk.budget('screen.stopAfterCloseMs(max)', worst, 3000, { tag: 'S2 I4' });
   // Take-over storm: two viewers alternate starts; at the end only the last starter receives frames.
   const a = await authed(h, cred, { host: PEERS[0] }), b = await authed(h, cred, { host: PEERS[1] });
@@ -181,7 +181,7 @@ async function tv(chk, r, deadline) {
     () => ({ t: 'labs.open.url', url: r.pick(['https://example.com/', 'javascript:alert(1)', 'file:///etc/passwd', 'https://youtu.be/abc', 'x'.repeat(3000)]), mode: r.pick(['tv', 'browser', 'evil']) }),
     () => ({ t: 'labs.open.action', a: r.pick(['closeTab', 'exitFullscreen', 'pauseAll', 'rm']) }), () => ({ t: 'labs.tv.get' })];
   let n = 0, badErr = [], badState = [];
-  const end = Math.min(deadline - 3000, Date.now() + 6000);
+  const end = Math.max(Date.now() + 2000, Math.min(deadline - 3000, Date.now() + 6000));
   while (Date.now() < end) {
     for (let i = 0; i < 10; i++) c.send(r.pick(ops)());
     const pn = 3e6 + n; c.send({ t: 'ping', n: pn });
@@ -229,8 +229,9 @@ async function together(chk, r, deadline) {
   const rtts = [];
   let on = true;
   const watch = (async () => { while (on) { rtts.push((await obs.ping(undefined, 2000)) ?? 2000); await sleep(50); } })();
-  const end = Math.min(deadline - 4000, Date.now() + 8000);
+  const end = Math.max(Date.now() + 4000, Math.min(deadline - 4000, Date.now() + 8000));
   let i = 0;
+  const started = Date.now();
   while (Date.now() < end) {
     i++;
     if (i % 3 === 0) write(i);
@@ -246,7 +247,7 @@ async function together(chk, r, deadline) {
     await sleep(40);
   }
   on = false; await watch;
-  const secs = 8;
+  const secs = (Date.now() - started) / 1000;
   chk.ok(Object.values(seen).every((v) => v > 0), 'all Labs panels at once: every stream keeps delivering (ctx, np, video, tv, frames)', seen, 'S2 I10');
   chk.budget('labs.concurrentFrameIntervalMs(<=333 = >=3 fps)', seen.frames ? Math.round(secs * 1000 / seen.frames) : null, 333);
   chk.budget('labs.concurrentObserverP99Ms', pct(rtts, 99), 500);

@@ -26,7 +26,7 @@ export async function run({ r, deadline }) {
   // 1. Active-display switch storm (200 flips, 0-15 ms apart) while gotos target both displays.
   {
     const lat = [];
-    for (let i = 0; i < 200 && Date.now() < deadline - 8000; i++) {
+    for (let i = 0; i < 200 && (i < 50 || Date.now() < deadline - 8000); i++) {
       h.stdin(`display ${r.int(1, 2)}\n`);
       if (r.chance(0.3)) a.send({ t: 'spaces.goto', i: r.int(1, 3), display: `fake-${r.int(1, 2)}` });
       if (i % 25 === 0) { const t0 = performance.now(); await a.ping(); lat.push(performance.now() - t0); }
@@ -62,7 +62,7 @@ export async function run({ r, deadline }) {
     h.stdin('displays 4,3\n'); h.stdin('display 1\n'); await sleep(300); await latest(300);
     const before = h.log.filter((l) => /DRY spaces goto=/.test(l)).length;
     let sent = 0, wrong = [], drift = [];
-    for (let b = 0; b < 15 && Date.now() < deadline - 3000; b++) {
+    for (let b = 0; b < 15 && (b < 5 || Date.now() < deadline - 3000); b++) {
       let last;
       const s0 = (await sub.req({ t: 'spaces.sub' }))?.displays?.[0]?.current;
       const mark = h.log.length;

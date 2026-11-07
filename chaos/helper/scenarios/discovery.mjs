@@ -198,7 +198,7 @@ export async function run({ r, deadline }) {
     chk.ok(held.closed, 'tailscale off drops a connected tailnet session', undefined, 'S1 I6');
     chk.budget('tailnet.dropOnToggleOffMs', held.closed ? Date.now() - t0 : null, 1000, { tag: 'S2 I4' });
     let k = 0, okWhileOff = 0;
-    const end = Math.min(deadline - 4000, Date.now() + 8000);
+    const end = Math.max(Date.now() + 3000, Math.min(deadline - 4000, Date.now() + 8000));
     let state = 'off';
     while (Date.now() < end) {
       state = r.chance(0.5) ? 'on' : 'off';

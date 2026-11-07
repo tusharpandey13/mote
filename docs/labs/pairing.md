@@ -118,6 +118,6 @@ Known limits of the preview: the alert needs the menu-bar app (headless runs wit
 | `--labs-pairing` | Labs on for this run |
 | `--fake-approve` | answer every prompt with Allow after 100 ms instead of showing an alert |
 | `--fake-approve-deny` | answer every prompt with Deny |
-| `--fake-tailscale-owner ID` | pretend Tailscale is present: this Mac's owner is `self`, every peer (loopback included) is a tailnet peer owned by `ID` (`self` → auto-trust) |
+| `--fake-tailscale-owner ID` | pretend Tailscale is present: this Mac's owner is `self`, every peer (loopback included) is a tailnet peer owned by `ID` (`self` → auto-trust; `timeout` → answers "not the same owner" after 3 s, like a hung CLI) |
 
 `node helper/tests/labs-pairing.mjs <port>` checks the handshake against `MoteHelper --dry-run --headless --no-ble --memory-store --labs-pairing --fake-approve --port N`; the Android `LabsPairingIntegrationTest` drives the same helper with a fake BLE info payload.
