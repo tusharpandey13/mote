@@ -15,6 +15,8 @@ final class Spaces {
     static let thumbWidth = 320
     static let captureDelay = 0.6            // after the Space slide animation
     static let debounce = 0.15               // coalesces bursts of Space / app / screen notifications
+    /// After the last stepping key, how long a new goto still trusts the keys over the Space macOS reports (the slide).
+    static let settle = 0.4
 
     struct Thumb { let v: Int; let w: Int; let h: Int; let jpeg: Data }
 
@@ -31,7 +33,7 @@ final class Spaces {
     }
 
     private let dryRun: Bool
-    private let fake: [Int]?                 // --fake-spaces N[,M...] (dry-run only): no CGS, no capture
+    private var fake: [Int]?                 // --fake-spaces N[,M...] (dry-run only): no CGS, no capture
     private let settings: Settings
     private let injector: Injector
     private var fakeCurrent: [Int]           // per fake display, 1-based
@@ -45,6 +47,10 @@ final class Spaces {
     private var pending: DispatchWorkItem?
     private var pendingDisplays = Set<String>()
     private var kickItem: DispatchWorkItem?
+    // goto stepping in flight: the arrow keys still scheduled, and the position (index into `all`) the
+    // keys delivered so far have reached on that display. A goto during the slide starts from there.
+    private var stepItems: [DispatchWorkItem] = []
+    private var stepPos: (display: String, pos: Int, until: Date)?
     private var lastPermission: Bool
     /// State changed (index, count, active display, a thumbnail, toggle, permission): broadcast to subscribers.
     var onChange: (() -> Void)?
@@ -197,6 +203,18 @@ final class Spaces {
         kick()
     }
 
+    /// Test-only (`--stdin-control` `displays N,M,...`): a simulated display hot-plug to a new fake layout.
+    func fakeReplug(_ spec: String) {
+        guard fake != nil else { log("spaces: displays needs --fake-spaces"); return }
+        let ns = spec.split(separator: ",").compactMap { Int($0) }.prefix(Spaces.maxDisplays).map { min(max($0, 1), Spaces.maxDesktops) }
+        guard !ns.isEmpty else { log("spaces: bad displays '\(spec)'"); return }
+        fakeCurrent = ns.indices.map { k in min(k < fakeCurrent.count ? fakeCurrent[k] : 1, ns[k]) }
+        fakeActive = min(fakeActive, ns.count - 1)
+        fake = Array(ns)
+        log("spaces: fake displays \(ns.map(String.init).joined(separator: ","))")
+        kick()
+    }
+
     /// `spaces.thumb` reply for desktop `i` (1-based) of `display` (default: the active one), or nil if none is cached.
     func thumbMessage(_ i: Int, display: String? = nil) -> [String: Any]? {
         guard let d = display.map({ id in displays.first { $0.id == id } }) ?? active,
@@ -339,7 +357,9 @@ final class Spaces {
     /// shortcut if enabled (numbered across displays in macOS order), else ⌃←/⌃→ steps on that display,
     /// after moving the cursor onto it (steps act on the display under the cursor).
     func goto(_ i: Int, display: String? = nil) throws {
-        refresh()
+        // update, not a bare refresh: a Space change this read picks up must still reach subscribers
+        // (a silent refresh here swallowed it, and the carousel kept showing the old desktop).
+        update(captureAfter: Spaces.captureDelay)
         var target = active
         if let display {
             guard let d = displays.first(where: { $0.id == display }) else { throw ProtoError("notfound", "no display \(display)") }
@@ -357,9 +377,15 @@ final class Spaces {
             try injector.key(usage: hk.usage, mods: hk.mods, action: "tap")
             return
         }
-        guard let d = target, d.current != 0, let from = d.all.firstIndex(of: d.current) else {
+        guard let d = target, d.current != 0, var from = d.all.firstIndex(of: d.current) else {
             throw ProtoError("unsupported", "current Space unknown; enable Switch to Desktop \(offset + i) in Keyboard Shortcuts")
         }
+        // A goto while the previous one is still stepping (keys queued, or the slide not settled):
+        // macOS hasn't reported the new Space yet, so start from where the keys sent so far lead,
+        // and drop the keys the old goto hasn't sent. Otherwise both key runs land and overshoot.
+        if let p = stepPos, p.display == d.id, Date() < p.until { from = p.pos }
+        for w in stepItems { w.cancel() }
+        stepItems = []
         let to = d.all.firstIndex(of: d.desktops[i - 1]) ?? from
         let steps = to - from
         if dryRun { log("DRY spaces goto=\(i) from=\(d.index) via=step\(tag)") } else { log("spaces: goto \(i) via \(abs(steps)) steps\(tag)") }
@@ -367,10 +393,16 @@ final class Spaces {
         if warp { warpCursor(to: d) }
         let lead = warp ? 100 : 0
         let usage = steps > 0 ? 79 : 80   // HID Right / Left arrow
+        let dir = steps > 0 ? 1 : -1
+        stepPos = (d.id, from, Date().addingTimeInterval(Double(lead + 80 * abs(steps)) / 1000 + Spaces.settle))
         for k in 0..<abs(steps) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(lead + 80 * k)) { [weak self] in
-                try? self?.injector.key(usage: usage, mods: 1, action: "tap")
+            let w = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                try? self.injector.key(usage: usage, mods: 1, action: "tap")
+                if let p = self.stepPos, p.display == d.id { self.stepPos = (p.display, p.pos + dir, p.until) }
             }
+            stepItems.append(w)
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(lead + 80 * k), execute: w)
         }
         if fake != nil, let k = displays.firstIndex(of: d) {
             // Simulate the Space change the real keys would cause (and the focus the warp would move).
