@@ -16,7 +16,7 @@ Open bugs that this plan must turn into visible reasons and failing tests first:
 | B1 | Setup window shows Screen Recording "Grant" after granting it and relaunching | 2026-11-10 |
 | B2 | Setup window shows Local Network "Open Settings" although it is allowed | 2026-11-10 |
 | B3 | Labs on in Mote Dev and the helper, YouTube playing: no change in the phone UI | 2026-11-10 |
-| B4 | No Android media notification while the Mac plays. Decided: build it (phase 1b), tested at every level | 2026-11-10 |
+| B4 | No Android media notification while the Mac plays. Decided: build it (phase 1b), tested at every level. Now core, not Labs: foreground service while playing, plus a Bluetooth-only variant (transport buttons as HID consumer keys, no metadata); see [UNDEFINED.md](../journeys/UNDEFINED.md) U1-U3 | 2026-11-10 |
 
 ## Goals
 
@@ -200,4 +200,11 @@ everything that happens (the event log).
 ## Owner decisions still open
 
 Decided 2026-11-10: the `motetest` account is OK; B4 is built and tested; `diag` is protocol 1.5; instrumentation
-comes before any testing phase. Still open: the UNDEFINED items that phase 2 lists.
+comes before any testing phase. All 22 UNDEFINED items are decided.
+
+Decisions 2026-11-10: see [docs/journeys/UNDEFINED.md](../journeys/UNDEFINED.md) (Decision column); the spec rows
+that were UNDEFINED now carry the decided Expected value and status `untested`.
+
+In flight: three fix branches (`fix-vault`, `fix-helper-ux`, `fix-android-ux`) implement these decisions; they are
+merged into `next-0.7` after review.
+

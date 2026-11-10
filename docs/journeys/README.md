@@ -27,23 +27,23 @@ Each journey file: title, sources, `## UNDEFINED` (ids into UNDEFINED.md), Goal,
 - Detected by: event `area/name{fields}` (helper catalog in `docs/protocol.md`, app `Events.log`) or `diag.<path>` field.
 - Level: L0 unit; L1 OS adapter against recorded fixtures; L2 `--dry-run` helper + emulator / e2e harness; L3 real macOS in the clean user `motetest` (owner clicks dialogs); L4 real phone, Bluetooth and home network.
 - Test: `android:Class#method`, `helper:Class#method` (Swift), `node:path`, `e2e:file "title"`, `TODO-<row id>` (to write), or `MANUAL-n` (L3/L4 checklist item; the row is its definition).
-- Status: `pass` (a cited test asserts Expected; not re-run for this doc, no CI runs on next-0.7 yet), `fail` (code does not meet Expected, incl. known bugs; a cited test may pin today's behaviour), `untested`, `UNDEFINED` (Expected needs an owner answer).
+- Status: `pass` (a cited test asserts Expected; not re-run for this doc, no CI runs on next-0.7 yet), `fail` (code does not meet Expected, incl. known bugs; a cited test may pin today's behaviour), `untested`, `UNDEFINED` (Expected needs an owner answer; none left, all 22 questions decided 2026-11-10, see [UNDEFINED.md](UNDEFINED.md)).
 
 Known bugs: B1 SM-14, B2 SM-11, B3 DU-13, B4 DU-14.
 
 ## Coverage
 | Journey | L0 | L1 | L2 | L3 | L4 | pass | fail | untested | UNDEFINED |
 |---|---|---|---|---|---|---|---|---|---|
-| J1 install-helper | 1 | 1 | 9 | 6 | 1 | 10 | 2 | 4 | 2 |
-| J2 setup-mac | 11 | 2 | 3 | 10 | 0 | 10 | 3 | 10 | 3 |
+| J1 install-helper | 1 | 1 | 9 | 6 | 1 | 10 | 2 | 6 | 0 |
+| J2 setup-mac | 11 | 2 | 3 | 10 | 0 | 10 | 3 | 13 | 0 |
 | J3 setup-phone | 4 | 0 | 13 | 0 | 3 | 15 | 2 | 3 | 0 |
 | J4 first-connect | 0 | 0 | 16 | 2 | 2 | 14 | 4 | 2 | 0 |
 | J5 reconnect | 3 | 0 | 12 | 1 | 1 | 11 | 4 | 2 | 0 |
-| J6 daily | 3 | 0 | 15 | 2 | 2 | 10 | 4 | 5 | 3 |
-| J7 update | 1 | 1 | 6 | 5 | 3 | 5 | 3 | 5 | 3 |
-| Total (139) | 23 | 4 | 74 | 26 | 12 | 75 | 22 | 31 | 11 |
+| J6 daily | 3 | 0 | 15 | 2 | 2 | 10 | 4 | 8 | 0 |
+| J7 update | 1 | 1 | 6 | 5 | 3 | 8 | 0 | 5 | 3 |
+| Total (139) | 23 | 4 | 74 | 26 | 12 | 75 | 22 | 42 | 0 |
 
-Gaps: L1 is nearly empty (no recorded TCC/Keychain/NetService fixtures); Mac-side failure paths (Accessibility denied, Keychain unreadable) are L3-only because `--dry-run` forces `inputReady` and there is no fake for either (U16).
+Gaps: L1 is nearly empty (no recorded TCC/Keychain/NetService fixtures); Mac-side failure paths (Accessibility denied, Keychain unreadable) are L3-only because `--dry-run` forces `inputReady` and there is no fake for either (U16, decided: `--fake-ax-denied`, dry-run only, not yet built).
 
 ## Cross-cutting defects (top)
 1. Keychain partition change (every Mote Helper Local build; any identity switch) makes `secrets.v3` unreadable with no prompt and no UI; the helper mints a new identity each launch, trusted and blocked lists are lost; `docs/signing.md` promises one prompt (D-UP-1, D-RC-1, D-FC-3, D-FC-4, D-SM-1).
