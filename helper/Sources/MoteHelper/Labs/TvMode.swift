@@ -79,6 +79,7 @@ final class TvMode: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessag
             guard enabled != oldValue else { return }
             defaults?.set(enabled, forKey: "labs.tvMode")
             log("labs: TV mode \(enabled ? "enabled" : "disabled")")
+            ev(.labs, "toggle", ["lab": "tvMode", "on": enabled])
             if !enabled && on { exit() } else { onChange?() }
         }
     }

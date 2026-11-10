@@ -132,6 +132,7 @@ final class LiveScreen {
         adaptTimer?.invalidate()
         adaptTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.adapt() }
         if !restart { log("screen: streaming to \(s.deviceName) via \(s.transport)") }
+        ev(.labs, "stream", ["lab": "liveScreen", "action": "start", "transport": s.transport, "w": width, "fps": fps])
         onChange?()
         var r: [String: Any] = ["t": "labs.screen.started", "fps": fps, "w": width, "credits": maxCreditsReq,
                                 "encrypted": s.transport == "Tailscale", "fake": fake]
@@ -148,6 +149,7 @@ final class LiveScreen {
         capture.stop()
         latest = nil; inflight = [:]; geometries = [:]; current = nil
         if reason != "gone" { v.send(["t": "labs.screen.stopped", "reason": reason]) }
+        ev(.labs, "stream", ["lab": "liveScreen", "action": "stop", "reason": reason, "frames": sent, "bytes": bytes, "dropped": dropped])
         log("screen: stopped (\(reason)) after \(sent) frames, \(bytes / 1024) KiB, \(dropped) dropped")
         onChange?()
     }

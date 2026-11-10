@@ -2,10 +2,23 @@ import AppKit
 import ApplicationServices
 
 let config = Config.parse(CommandLine.arguments)
+if let f = config.eventsFile { Events.shared.openFile(f) }
+ev(.lifecycle, "start", ["dryRun": config.dryRun, "headless": config.headless, "memoryStore": config.memoryStore, "ble": config.ble,
+                         "port": Int(config.port), "diag": config.diag])
+// --diag: one JSON snapshot on stdout, then exit. Only no-UI calls: preflight permission checks, a no-UI Keychain attribute
+// query, code-signing info. Never creates the Hub, the listener, Bluetooth or any window.
+if config.diag {
+    ev(.lifecycle, "diag.cli")
+    print(Diag.json(Diag.cliSnapshot(config: config)))
+    exit(0)
+}
+let signing = SigningInfo.current()
+ev(.signing, signing.error == nil ? "identity" : "error", signing.json)
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)   // menu-bar only (also LSUIElement in Info.plist)
 
 let hub = Hub(config: config)
+var diagnostics: DiagnosticsWindow?
 let labsContext = LabsContext(hub: hub)
 hub.labs.append(labsContext)
 log("Mote Helper starting\(config.dryRun ? " (dry run)" : "") on \(Host.localName).local:\(config.port)")
@@ -29,11 +42,16 @@ func startBLE() {
     ble = BLEServer(hub: hub)
         menu?.ble = ble
 }
-if PermProbe.bluetooth == .granted { startBLE() }
+hub.snapshotProvider = { Diag.snapshot(hub: hub, web: web, ble: ble, source: $0) }
+if PermProbe.check(.bluetooth, force: true).state == .granted { startBLE() }
 
 if !config.headless {
     menu = MenuBar(hub: hub, web: web, ble: ble)
+    diagnostics = DiagnosticsWindow()
+    diagnostics?.provider = { hub.snapshot(source: "menu") }
+    menu?.openDiagnostics = { diagnostics?.show() }
     setup = SetupWindow(actions: SetupActions(
+        snapshot: { hub.snapshot(source: "setup") },
         startBluetooth: { startBLE() },
         isEnabled: { p in
             switch p {
@@ -106,6 +124,8 @@ if config.stdinControl {
     }
 }
 
-signal(SIGTERM) { _ in exit(0) }
-signal(SIGINT) { _ in exit(0) }
+ev(.lifecycle, "ready", ["wifi": web != nil, "hostId": hub.settings.hostId])
+Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in Events.shared.flushInput() }
+signal(SIGTERM) { _ in ev(.lifecycle, "terminate", ["signal": "TERM"]); exit(0) }
+signal(SIGINT) { _ in ev(.lifecycle, "terminate", ["signal": "INT"]); exit(0) }
 app.run()

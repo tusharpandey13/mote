@@ -14,6 +14,16 @@ final class WebServer {
     private var conns: [ObjectIdentifier: HTTPConnection] = [:]
     private(set) var status = "starting"
     private(set) var port: UInt16?   // bound port, once listening (differs from config with --port 0)
+    /// Diagnostics: the NWListener state and the Bonjour registration, as macOS reported them.
+    private(set) var listenerState = "none"           // none | setup | waiting | ready | failed | cancelled
+    private(set) var listenerError: String?
+    private(set) var bonjour = "off"                  // off | attempting | registered | failed
+    private(set) var bonjourErrorCode: Int?           // DNSServiceErrorType, e.g. -65570 PolicyDenied
+    private(set) var accepted = 0, refused = 0
+
+    /// -65570 is kDNSServiceErr_PolicyDenied: macOS Local Network privacy refused the Bonjour registration.
+    static let policyDenied = -65570
+    static func dnsCode(_ e: NWError) -> Int? { if case .dns(let c) = e { return Int(c) } else { return nil } }
     var onChange: (() -> Void)?
 
     init(hub: Hub, root: URL) { self.hub = hub; self.root = root.standardizedFileURL }
@@ -26,17 +36,48 @@ final class WebServer {
         // TXT: id = stable hostId (match saved hosts without connecting), v = protocol major.
         if hub.config.noBonjour && hub.config.dryRun {
             log("wifi: bonjour off (--no-bonjour)")   // chaos: stands in for a network that blocks multicast
+            bonjour = "off"
+            ev(.discovery, "bonjour.attempt", ["skipped": "no-bonjour"])
         } else {
+            bonjour = "attempting"
+            ev(.discovery, "bonjour.attempt", ["type": "_mote._tcp"])
             l.service = NWListener.Service(name: Host.computerName, type: "_mote._tcp", domain: nil,
                                            txtRecord: NWTXTRecord(["id": hub.settings.hostId, "v": "1"]))
         }
+        l.serviceRegistrationUpdateHandler = { [weak self] change in
+            guard let self else { return }
+            if case .add = change {
+                self.bonjour = "registered"; self.bonjourErrorCode = nil
+                ev(.discovery, "bonjour.registered", ["type": "_mote._tcp"])
+                self.onChange?()
+            }
+        }
         l.stateUpdateHandler = { [weak self, weak l] st in
             guard let self else { return }
+            var fields: [String: Any] = [:]
             switch st {
-            case .ready: self.port = l?.port?.rawValue; self.status = "listening on :\(l?.port?.rawValue ?? self.hub.config.port)"   // real port with --port 0
-            case .failed(let e): self.status = "failed: \(e)"
-            default: break
+            case .ready:
+                self.port = l?.port?.rawValue; self.status = "listening on :\(l?.port?.rawValue ?? self.hub.config.port)"   // real port with --port 0
+                self.listenerState = "ready"; self.listenerError = nil
+                fields["port"] = Int(self.port ?? 0)
+            case .failed(let e), .waiting(let e):
+                // .waiting(.dns(-65570)) is how macOS reports a denied Local Network permission for the Bonjour service.
+                let failed: Bool; if case .failed = st { failed = true } else { failed = false }
+                if failed { self.status = "failed: \(e)" }
+                self.listenerState = failed ? "failed" : "waiting"; self.listenerError = "\(e)"
+                fields["error"] = "\(e)"
+                if let c = WebServer.dnsCode(e) {
+                    fields["dnsCode"] = c
+                    if self.bonjour != "off" {
+                        self.bonjour = "failed"; self.bonjourErrorCode = c
+                        ev(.discovery, "bonjour.failed", ["dnsCode": c, "policyDenied": c == WebServer.policyDenied, "listener": self.listenerState])
+                    }
+                }
+            case .cancelled: self.listenerState = "cancelled"
+            default: self.listenerState = "setup"
             }
+            fields["state"] = self.listenerState
+            ev(.transport, "listen.state", fields)
             log("wifi: \(self.status)")
             self.onChange?()
         }
@@ -48,17 +89,21 @@ final class WebServer {
     private func accept(_ c: NWConnection) {
         guard case .hostPort(let host, _) = c.endpoint, isLocalAddress(host, tailnet: hub.settings.allowTailscale) else {
             log("wifi: refused non-LAN peer \(c.endpoint)")
+            refused += 1; ev(.transport, "conn.refused", coalesce: "nonlan", ["reason": "non-lan"])
             c.cancel(); return
         }
         let peer = "\(host)".components(separatedBy: "%").first ?? "\(host)"
         let fromPeer = conns.values.filter { $0.peer == peer }.count
         guard conns.count < WebServer.maxConnections, fromPeer < WebServer.maxPerPeer else {
             log("wifi: connection limit, refusing \(peer)")
+            refused += 1; ev(.transport, "conn.refused", coalesce: "limit", ["reason": "limit", "open": conns.count])
             c.cancel(); return
         }
         let h = HTTPConnection(conn: c, peer: peer, server: self)
         h.tailnet = !isLocalAddress(host, tailnet: false)
         conns[ObjectIdentifier(h)] = h
+        accepted += 1
+        ev(.transport, "conn.accepted", coalesce: "acc", ["tailnet": h.tailnet, "open": conns.count])
         h.start()
     }
 
@@ -67,7 +112,11 @@ final class WebServer {
         for h in conns.values where h.tailnet { h.conn.cancel() }
     }
 
-    fileprivate func finished(_ h: HTTPConnection) { conns[ObjectIdentifier(h)] = nil }
+    fileprivate func finished(_ h: HTTPConnection) {
+        conns[ObjectIdentifier(h)] = nil
+        ev(.transport, "conn.closed", coalesce: "closed", ["open": conns.count])
+    }
+    var openConnections: Int { conns.count }
     fileprivate var hubRef: Hub { hub }
 
     /// Maps a URL path to a file under the web root; nil for anything outside it.
@@ -177,6 +226,7 @@ private final class HTTPConnection {
             h += "connect-src 'self' ws://\(host); script-src 'self'; frame-ancestors 'none'\r\n"
         }
         h += "Connection: close\r\n\r\n"
+        ev(.transport, "http.response", coalesce: "\(code)", ["status": code])
         conn.send(content: Data(h.utf8) + b, completion: .contentProcessed { [weak self] _ in self?.conn.cancel() })
     }
 
@@ -203,11 +253,13 @@ private final class HTTPConnection {
         // Cross-site WebSocket hijacking guard: a browser page must be our own origin. Native clients send no Origin.
         if let origin = headers["origin"], origin.lowercased() != "http://\(host.lowercased())" {
             log("wifi: refused WebSocket from origin \(origin)")
+            ev(.transport, "ws.refused", ["reason": "origin"])
             respond(403, "Forbidden"); return
         }
         let accept = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
         let resp = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: \(accept)\r\n\r\n"
         conn.send(content: Data(resp.utf8), completion: .contentProcessed { _ in })
+        ev(.transport, "ws.upgrade", ["tailnet": tailnet])
         let s = Session(hub: server.hubRef, transport: tailnet ? "Tailscale" : "Wi-Fi", peer: peer,
                         send: { [weak self] d in self?.sendFrame(opcode: 1, payload: d) },
                         close: { [weak self] in self?.sendFrame(opcode: 8, payload: Data([0x03, 0xE8])); self?.cancelAfterFlush() })
@@ -248,6 +300,7 @@ private final class HTTPConnection {
     }
 
     private func protocolClose() {
+        ev(.protocolMsg, "bad", ["reason": "websocket-frame", "transport": "ws"])
         sendFrame(opcode: 8, payload: Data([0x03, 0xEA]))
         conn.cancel()
     }

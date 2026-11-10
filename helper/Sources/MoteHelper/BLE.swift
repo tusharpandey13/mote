@@ -24,7 +24,12 @@ final class BLEServer: NSObject, CBPeripheralManagerDelegate {
         pm = CBPeripheralManager(delegate: self, queue: .main)
     }
 
-    private func setStatus(_ s: String) { status = s; log("ble: \(s)"); onChange?() }
+    private func setStatus(_ s: String) {
+        status = s; log("ble: \(s)")
+        ev(.discovery, s == "advertising" ? "ble.advertising" : s.contains("failed") ? "ble.failed" : "ble.state", ["status": s])
+        onChange?()
+    }
+    var isAdvertising: Bool { status == "advertising" }
 
     func peripheralManagerDidUpdateState(_ p: CBPeripheralManager) {
         switch p.state {
@@ -83,6 +88,7 @@ final class BLEServer: NSObject, CBPeripheralManagerDelegate {
         drop(central.identifier)
         let id = central.identifier
         centrals[id] = central
+        ev(.transport, "ble.central", ["action": "subscribed"])
         let s = Session(hub: hub, transport: "BLE", peer: "ble:\(id.uuidString)",
                         send: { [weak self] d in self?.send(d, to: id) },
                         close: { [weak self] in self?.forget(id) })
@@ -91,6 +97,7 @@ final class BLEServer: NSObject, CBPeripheralManagerDelegate {
     }
 
     private func drop(_ id: UUID) {
+        if sessions[id] != nil { ev(.transport, "ble.central", ["action": "dropped"]) }
         sessions[id]?.ended()
         forget(id)
     }

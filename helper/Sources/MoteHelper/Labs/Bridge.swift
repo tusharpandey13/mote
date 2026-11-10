@@ -63,6 +63,7 @@ final class Bridge {
             enabledValue = newValue
             defaults?.set(newValue, forKey: "labsBridge")
             log("bridge: \(newValue ? "on" : "off")")
+            ev(.labs, "toggle", ["lab": "bridge", "on": newValue])
             newValue ? start() : stop()
             changed()
         }
@@ -202,8 +203,9 @@ final class Bridge {
         switch t {
         case "labs.video.sub":
             let id = ObjectIdentifier(s)
-            guard (m["on"] as? Bool) ?? true else { subs[id] = nil; return }
+            guard (m["on"] as? Bool) ?? true else { subs[id] = nil; ev(.labs, "subscribe", ["lab": "bridge", "on": false]); return }
             subs[id] = { [weak s] in s }
+            ev(.labs, "subscribe", ["lab": "bridge", "on": true])
             s.send(stateMessage())
         case "labs.video.cmd":
             guard enabled else { throw ProtoError("unsupported", "Browser extension bridge is off on the Mac") }
@@ -236,6 +238,8 @@ final class Bridge {
         }
     }
 
+    func isSubscribed(_ s: Session) -> Bool { subs[ObjectIdentifier(s)]?() != nil }
+
     private func subscribers() -> [Session] {
         var out: [Session] = []
         for (k, get) in subs { if let s = get(), s.authed { out.append(s) } else { subs[k] = nil } }
@@ -252,6 +256,7 @@ final class Bridge {
         let subs = subscribers()
         guard !subs.isEmpty else { return }
         let m = stateMessage()
+        ev(.labs, "push", coalesce: "bridge", ["lab": "bridge", "sessions": subs.count])
         for s in subs { s.send(m) }
     }
 

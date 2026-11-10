@@ -107,6 +107,22 @@ enum PermissionModel {
     }
 }
 
+/// One permission check: the API called, its raw answer, and when. Nothing here can show a macOS prompt.
+struct PermCheck: Equatable {
+    let perm: Perm
+    let state: PermState
+    let api: String
+    let raw: String
+    let at: Int64          // Unix ms
+    let ms: Double         // how long the call took
+    var detail: [String: String] = [:]   // extra raw signals (per-browser Automation, secondary Screen Recording signal)
+
+    var json: [String: Any] {
+        ["perm": perm.rawValue, "state": PermProbe.name(state), "api": api, "raw": raw, "checkedAt": at,
+         "ms": (ms * 100).rounded() / 100, "detail": detail]
+    }
+}
+
 /// Reads the live state. Every probe here is silent: none can show a macOS prompt.
 enum PermProbe {
     static var accessibility: PermState { AXIsProcessTrusted() ? .granted : .notDetermined }
@@ -125,17 +141,70 @@ enum PermProbe {
     static var hasLocalNetworkPrivacy: Bool { ProcessInfo.processInfo.isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 15, minorVersion: 0, patchVersion: 0)) }
 
     /// Automation is per target app: granted if any running scriptable browser allows it.
-    static func automation() -> PermState {
-        let running = NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier).filter(Browsers.scriptable)
-        let states = Set(running.map { Browsers.automation($0, ask: false) })
-        if states.contains("granted") { return .granted }
-        if states.contains("denied") { return .denied }
-        if states.contains("ask") { return .notDetermined }
-        return .unknown
+    static func automation() -> PermState { automationCheck().state }
+
+    private static func automationCheck() -> (state: PermState, raw: String) {
+        let running = NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier).filter(Browsers.scriptable).sorted()
+        let results = running.map { ($0, Browsers.automation($0, ask: false)) }
+        let raw = results.isEmpty ? "no scriptable browser running" : results.map { "\($0.0)=\($0.1)" }.joined(separator: ",")
+        let states = Set(results.map(\.1))
+        if states.contains("granted") { return (.granted, raw) }
+        if states.contains("denied") { return (.denied, raw) }
+        if states.contains("ask") { return (.notDetermined, raw) }
+        return (.unknown, raw)
     }
 
-    static func all() -> [Perm: PermState] {
-        [.accessibility: accessibility, .bluetooth: bluetooth, .localNetwork: .unknown,
-         .screenRecording: screenRecording, .automation: automation()]
+    static func name(_ s: PermState) -> String {
+        switch s { case .granted: return "granted"; case .denied: return "denied"; case .notDetermined: return "notDetermined"; case .unknown: return "unknown" }
+    }
+
+    /// Windows of other apps whose title macOS shows us. Without Screen Recording the titles are hidden, so 0 with
+    /// other apps' windows on screen means "not granted to this build" even when System Settings shows the switch on.
+    static func windowTitlesVisible() -> (visible: Int, others: Int) {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return (0, 0) }
+        let me = Int(getpid())
+        let others = list.filter { ($0[kCGWindowOwnerPID as String] as? Int) != me && ($0[kCGWindowLayer as String] as? Int) == 0 }
+        return (others.filter { !(($0[kCGWindowName as String] as? String) ?? "").isEmpty }.count, others.count)
+    }
+
+    private static var lastEmit: [Perm: (raw: String, at: Date)] = [:]
+    private(set) static var last: [Perm: PermCheck] = [:]
+
+    /// The check, with its raw answer. Emits `permission.check` when the answer changed or 30 s passed (or [force]).
+    @discardableResult
+    static func check(_ p: Perm, force: Bool = false) -> PermCheck {
+        let t0 = Date()
+        var api = "", raw = "", state = PermState.unknown, detail: [String: String] = [:]
+        switch p {
+        case .accessibility:
+            api = "AXIsProcessTrusted"; let v = AXIsProcessTrusted(); raw = "\(v)"; state = v ? .granted : .notDetermined
+        case .bluetooth:
+            api = "CBManager.authorization"
+            let a = CBManager.authorization
+            raw = ["notDetermined", "restricted", "denied", "allowedAlways"][min(max(a.rawValue, 0), 3)]
+            state = bluetooth
+        case .screenRecording:
+            api = "CGPreflightScreenCaptureAccess"; let v = CGPreflightScreenCaptureAccess(); raw = "\(v)"; state = v ? .granted : .notDetermined
+            let w = windowTitlesVisible()
+            detail["otherAppWindows"] = "\(w.others)"; detail["otherAppWindowTitlesVisible"] = "\(w.visible)"
+        case .localNetwork:
+            api = "none"; raw = hasLocalNetworkPrivacy ? "no API; inferred from the Bonjour listener" : "not applicable before macOS 15"
+        case .automation:
+            api = "AEDeterminePermissionToAutomateTarget(ask: false)"; let a = automationCheck(); raw = a.raw; state = a.state
+        }
+        let c = PermCheck(perm: p, state: state, api: api, raw: raw, at: Int64(Date().timeIntervalSince1970 * 1000),
+                          ms: Date().timeIntervalSince(t0) * 1000, detail: detail)
+        let prev = last[p]
+        last[p] = c
+        if let prev, prev.state != state { ev(.permission, "change", ["perm": p.rawValue, "from": name(prev.state), "to": name(state), "raw": raw]) }
+        if force || lastEmit[p]?.raw != raw || Date().timeIntervalSince(lastEmit[p]?.at ?? .distantPast) > 30 {
+            lastEmit[p] = (raw, Date())
+            ev(.permission, "check", ["perm": p.rawValue, "api": api, "raw": raw, "state": name(state), "ms": (c.ms * 100).rounded() / 100])
+        }
+        return c
+    }
+
+    static func all(force: Bool = false) -> [Perm: PermState] {
+        Dictionary(uniqueKeysWithValues: Perm.allCases.map { ($0, check($0, force: force).state) })
     }
 }

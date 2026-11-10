@@ -22,6 +22,9 @@ final class Hub {
     private var macroGen = 0
     private(set) var macroRunning = false
     var onChange: (() -> Void)?
+    /// Builds the `diag` snapshot with the transports main.swift owns (WebServer, BLEServer).
+    var snapshotProvider: ((String) -> [String: Any])?
+    func snapshot(source: String = "ws") -> [String: Any] { snapshotProvider?(source) ?? Diag.snapshot(hub: self, web: nil, ble: nil, source: source) }
 
     var paused = false {
         didSet {
@@ -45,7 +48,7 @@ final class Hub {
         self.liveScreen = LiveScreen(config: config, settings: settings, injector: injector)
         self.tv = TvMode(config: config, injector: injector)
         tv.activeDisplay = { [weak self] in self?.spaces.active?.cgID }
-        tv.onChange = { [weak self] in guard let self else { return }; let st = self.tv.state(); for s in self.authedSessions { s.send(st) }; self.onChange?() }
+        tv.onChange = { [weak self] in guard let self else { return }; let st = self.tv.state(); ev(.labs, "push", coalesce: "tv", ["lab": "tvMode", "sessions": self.authedSessions.count]); for s in self.authedSessions { s.send(st) }; self.onChange?() }
         spaces.onChange = { [weak self] in self?.broadcastSpaces(); self?.onChange?() }
         spaces.isSubscribed = { [weak self] in self?.sessions.contains(where: { $0.spacesSub }) ?? false }
         liveScreen.onChange = { [weak self] in self?.onChange?() }
@@ -53,7 +56,7 @@ final class Hub {
         // Accessibility can be granted at any time in System Settings; poll and tell clients.
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self else { return }
-            let now = AXIsProcessTrusted()
+            let now = PermProbe.check(.accessibility).state == .granted
             if now != self.axTrusted { self.axTrusted = now; self.broadcastState(); self.onChange?() }
         }
         instantPairing = InstantPairing(hub: self)
@@ -82,7 +85,9 @@ final class Hub {
     /// Sends the `spaces` state to every subscribed session (protocol 1.3).
     func broadcastSpaces() {
         let st = spaces.state()
-        for s in authedSessions where s.spacesSub { s.send(st) }
+        let subs = authedSessions.filter { $0.spacesSub }
+        if !subs.isEmpty { ev(.labs, "push", coalesce: "spaces", ["lab": "spaces", "sessions": subs.count]) }
+        for s in subs { s.send(st) }
     }
 
     func revokeAll() {
@@ -92,14 +97,16 @@ final class Hub {
         labsBridge?.forget()
         for s in sessions where s.authed { s.revoke() }
         log("all devices revoked")
+        ev(.session, "revoked", ["scope": "all"])
         onChange?()
     }
 
     // MARK: input
 
     func input(_ m: [String: Any], from s: Session) throws {
-        guard !paused else { throw ProtoError("paused", "input is paused on the Mac") }
-        guard inputReady else { throw ProtoError("ax", "Accessibility permission not granted to Mote Helper") }
+        guard !paused else { ev(.input, "blocked", coalesce: "paused", ["reason": "paused"]); throw ProtoError("paused", "input is paused on the Mac") }
+        guard inputReady else { ev(.input, "blocked", coalesce: "ax", ["reason": "accessibility"]); throw ProtoError("ax", "Accessibility permission not granted to Mote Helper") }
+        Events.shared.countInput(m["t"] as? String ?? "?")   // counts per kind; never the keys or text
         switch m["t"] as? String {
         case "macro": try runMacro(m["steps"])
         case "cancel": cancelMacro()
@@ -129,6 +136,7 @@ final class Hub {
         macroRunning = true
         let gen = macroGen
         log("macro: \(steps.count) steps")
+        ev(.input, "macro", ["steps": steps.count, "state": "start"])
         func run(_ i: Int) {
             guard gen == macroGen, !paused, i < steps.count else { if gen == macroGen { macroRunning = false }; return }
             var delay = 10
@@ -142,7 +150,7 @@ final class Hub {
     }
 
     func cancelMacro() {
-        if macroRunning { log("macro: cancelled") }
+        if macroRunning { log("macro: cancelled"); ev(.input, "macro", ["state": "cancel"]) }
         macroGen += 1; macroRunning = false
     }
 }
@@ -168,6 +176,18 @@ final class Session {
     private(set) var deviceId = ""       // paired device id, or `k:<fp>` for instant pairing
     private(set) var spacesSub = false   // subscribed to `spaces` state (protocol 1.3)
     private var unauthStrikes = 0
+    // Diagnostics (protocol 1.5)
+    let openedAt = Date()
+    private(set) var clientProto: String?, clientApp: String?   // optional `client` object sent with auth / diag
+    private var handlingCorr: String?                            // `corr` of the message being handled; echoed on its replies
+    private var diagToken: UUID?
+    private var diagBuf: [Event] = []
+    private var diagFloor = 0, diagDropped = 0, diagFlushScheduled = false
+    var diagSubscribed: Bool { diagToken != nil }
+    /// Every message type this session handles (the event-coverage unit test feeds each one through `handle`).
+    static let handledTypes = ["ping", "pong", "pair", "auth", "diag", "diag.subscribe", "spaces.sub", "spaces.thumb", "bt.pair", "bt.info",
+                               "labs.tv.get", "labs.screen.start", "labs.screen.stop", "labs.screen.ack", "labs.screen.click", "labs.video.sub",
+                               "labs.video.cmd", "labs.ctx.sub", "labs.np.sub", "labs.np.seek"]
     private var closed = false
     private var authDeadline: Timer?
     var isOpen: Bool { !closed }
@@ -181,6 +201,7 @@ final class Session {
 
     func start() {
         hub.add(self)
+        ev(.session, "open", ["transport": transport])
         send(["t": "hello", "v": 1, "app": "mote-helper", "host": Host.computerName, "hostId": hub.settings.hostId, "local": Host.localName,
                    "nonce": nonce, "pairing": hub.pairing.isOpen])
         // Unauthenticated connections get the pairing window's length to finish, then are dropped.
@@ -192,7 +213,11 @@ final class Session {
 
     func send(_ m: [String: Any]) {
         // isValidJSONObject first: writing NaN/inf raises an ObjC exception that `try?` can't catch.
+        var m = m
+        if let handlingCorr, m["corr"] == nil { m["corr"] = handlingCorr }   // replies to a message carry its corr
         guard !closed, JSONSerialization.isValidJSONObject(m), let d = try? JSONSerialization.data(withJSONObject: m) else { return }
+        // diag.events is not logged: logging it would feed the stream forever.
+        if let t = m["t"] as? String, t != "diag.events" { ev(.protocolMsg, "out", coalesce: "out.\(t).\(handlingCorr ?? "")", ["t": t, "size": d.count, "transport": transport]) }
         sendRaw(d)
     }
 
@@ -200,6 +225,8 @@ final class Session {
         guard !closed else { return }
         closed = true
         authDeadline?.invalidate()
+        diagUnsubscribe()
+        logClosed("closed-by-helper")
         hub.remove(self)
         closeRaw()
     }
@@ -209,11 +236,18 @@ final class Session {
         guard !closed else { return }
         closed = true
         authDeadline?.invalidate()
+        diagUnsubscribe()
+        logClosed("peer-gone")
         hub.remove(self)
+    }
+
+    private func logClosed(_ why: String) {
+        ev(.session, "closed", ["transport": transport, "authed": authed, "reason": why, "durationMs": Int(Date().timeIntervalSince(openedAt) * 1000)])
     }
 
     func revoke() {
         authed = false
+        ev(.session, "revoked", ["scope": "device"])
         send(["t": "err", "code": "revoked", "msg": "This device was revoked on the Mac"])
         close()
     }
@@ -222,13 +256,21 @@ final class Session {
         var m: [String: Any] = ["t": "err", "code": code, "msg": msg]
         if let ref { m["ref"] = ref }
         if let retryAfter { m["retryAfter"] = retryAfter }
+        ev(.protocolMsg, "error", coalesce: "err.\(code)", ["code": code, "ref": ref ?? NSNull()])
         send(m)
     }
 
     func handle(_ data: Data) {
         guard !closed else { return }
         guard data.count <= 65536, let m = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let t = m["t"] as? String else { err("bad", "malformed message"); return }
+              let t = m["t"] as? String else {
+            ev(.protocolMsg, "bad", coalesce: "malformed", ["reason": "malformed", "size": data.count, "transport": transport])
+            err("bad", "malformed message"); return
+        }
+        // Envelope (protocol 1.5): optional `corr` and `step`; events emitted while handling this message carry them.
+        handlingCorr = Session.envelope(m["corr"]); Events.shared.currentCorr = handlingCorr; Events.shared.currentStep = Session.envelope(m["step"])
+        defer { handlingCorr = nil; Events.shared.currentCorr = nil; Events.shared.currentStep = nil }
+        ev(.protocolMsg, "in", coalesce: "in.\(t).\(handlingCorr ?? "")", ["t": t, "size": data.count, "authed": authed, "transport": transport])
         switch t {
         case "ping":
             // Echo `n` only if it can be written back (e.g. -1e400 parses to -inf).
@@ -245,6 +287,8 @@ final class Session {
                 if unauthStrikes > 20 { close() }
                 return
             }
+            if t == "diag" { noteClient(m["client"]); send(hub.snapshot().merging(["t": "diag"]) { a, _ in a }); return }
+            if t == "diag.subscribe" { noteClient(m["client"]); diagSubscribe(on: (m["on"] as? Bool) ?? true, since: m["since"] as? Int); return }
             if t == "spaces.sub" || t == "spaces.thumb" { spaces(t, m); return }
             if t == "bt.pair" || t == "bt.info" { hub.bt.handle(t, m, from: self); return }   // Bluetooth HID setup, not input
             if t.hasPrefix("labs.screen.") { labsScreen(t, m); return }
@@ -261,8 +305,9 @@ final class Session {
     /// Spaces state and thumbnails (protocol 1.3): reads, not input, so pause and Accessibility don't apply.
     private func spaces(_ t: String, _ m: [String: Any]) {
         if t == "spaces.sub" {
-            guard (m["on"] as? Bool) ?? true else { spacesSub = false; return }
+            guard (m["on"] as? Bool) ?? true else { spacesSub = false; ev(.labs, "subscribe", ["lab": "spaces", "on": false]); return }
             spacesSub = true
+            ev(.labs, "subscribe", ["lab": "spaces", "on": true])
             hub.spaces.subscribed()
             send(hub.spaces.state())
             return
@@ -292,16 +337,19 @@ final class Session {
         let code = (m["code"] as? String) ?? ""
         switch hub.pairing.check(code) {
         case .closed:
+            ev(.session, "pair.failed", ["reason": "closed", "transport": transport])
             err("pairing-closed", "Open “Pair new device” in the Mote Helper menu on the Mac", ref: "pair")
         case .wrong:
             hub.limiter.fail(peer)
             log("pairing: wrong code from \(peer)")
+            ev(.session, "pair.failed", ["reason": "wrong-code", "transport": transport])
             err("code", "Wrong code", ref: "pair")
         case .ok:
             let name = String(((m["name"] as? String) ?? "Device").prefix(64))
             let d = hub.store.add(name: name.isEmpty ? "Device" : name)
             hub.pairing.close()   // one device per window; the next pairing gets a new code
             log("paired \(d.name) (\(transport))")
+            ev(.session, "paired", ["transport": transport])
             send(["t": "paired", "id": d.id, "token": d.token])
             hub.onChange?()
         }
@@ -314,15 +362,73 @@ final class Session {
               let d = hub.store.verify(id: id, nonce: nonce, macHex: mac) else {
             hub.limiter.fail(peer)
             log("auth failed from \(peer)")
+            ev(.session, "auth.failed", ["transport": transport])
             err("auth", "Unknown device or bad credentials", ref: "auth")
             return
         }
         hub.store.touch(d.id)
+        noteClient(m["client"])
         markAuthed(id: d.id, name: d.name)
     }
 
     /// The instant-pairing handshake (InstantPairing.swift) authenticated this session.
     func labsAuthed(id: String, name: String) { guard !authed else { return }; markAuthed(id: id, name: name) }
+
+    /// `corr` / `step`: a short printable string, else ignored.
+    static func envelope(_ v: Any?) -> String? {
+        guard let s = v as? String, !s.isEmpty, s.count <= 64, s.unicodeScalars.allSatisfy({ $0.value >= 0x20 && $0.value < 0x7f }) else { return nil }
+        return s
+    }
+
+    private func noteClient(_ v: Any?) {
+        guard let c = v as? [String: Any] else { return }
+        if let p = c["proto"] as? String, p.count <= 16 { clientProto = p }
+        if let a = c["app"] as? String, a.count <= 64 { clientApp = String(a.unicodeScalars.filter { $0.value >= 0x20 && $0.value < 0x7f }) }
+    }
+
+    // MARK: diag.subscribe / diag.events (protocol 1.5)
+
+    private func diagSubscribe(on: Bool, since: Int?) {
+        ev(.protocolMsg, "diag.subscribe", ["on": on, "since": since ?? NSNull()])
+        diagUnsubscribe()
+        guard on else { send(["t": "diag.events", "events": [], "subscribed": false, "head": Events.shared.head]); return }
+        diagToken = Events.shared.addListener { [weak self] e in
+            DispatchQueue.main.async { self?.diagEnqueue(e) }
+        }
+        let head = Events.shared.head
+        diagFloor = since.map { min($0, head) } ?? head
+        let replay = since == nil ? [] : Events.shared.recent(since: diagFloor, limit: 1000)
+        if let last = replay.last { diagFloor = last.seq }
+        // The first reply is the acknowledgement (and the replay, if asked for).
+        send(["t": "diag.events", "events": replay.map(\.json), "subscribed": true, "head": head, "capacity": Events.capacity])
+    }
+
+    private func diagUnsubscribe() {
+        if let id = diagToken { Events.shared.removeListener(id) }
+        diagToken = nil; diagBuf = []
+    }
+
+    private func diagEnqueue(_ e: Event) {
+        guard diagToken != nil, !closed, e.seq > diagFloor else { return }
+        diagBuf.append(e)
+        if diagBuf.count > 1000 { diagDropped += diagBuf.count - 1000; diagBuf.removeFirst(diagBuf.count - 1000) }
+        guard !diagFlushScheduled else { return }
+        diagFlushScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.diagFlush() }
+    }
+
+    private func diagFlush() {
+        diagFlushScheduled = false
+        guard diagToken != nil, !closed, !diagBuf.isEmpty else { return }
+        let batch = diagBuf.sorted { $0.seq < $1.seq }
+        diagBuf = []
+        diagFloor = max(diagFloor, batch.last?.seq ?? 0)
+        for chunk in stride(from: 0, to: batch.count, by: 100) {
+            var m: [String: Any] = ["t": "diag.events", "events": batch[chunk..<min(chunk + 100, batch.count)].map(\.json), "head": Events.shared.head]
+            if diagDropped > 0 { m["dropped"] = diagDropped; diagDropped = 0 }
+            send(m)
+        }
+    }
 
     private func markAuthed(id: String, name: String) {
         authed = true
@@ -330,6 +436,7 @@ final class Session {
         deviceName = name
         deviceId = id
         log("authed \(name) via \(transport) from \(peer)")
+        ev(.session, "authed", ["transport": transport, "durationMs": Int(Date().timeIntervalSince(openedAt) * 1000)])
         send(["t": "authed", "id": id, "name": name, "paused": hub.paused, "ax": hub.inputReady])
         hub.onChange?()
     }

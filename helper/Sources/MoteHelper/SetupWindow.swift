@@ -5,6 +5,8 @@ import SwiftUI
 
 /// What the Setup window can do to the rest of the helper (wired in main.swift).
 struct SetupActions {
+    /// The diagnostics snapshot the rows are drawn from (nil in tests: rows then use the raw probes).
+    var snapshot: (() -> [String: Any])? = nil
     var startBluetooth: () -> Void = {}
     var isEnabled: (Perm) -> Bool = { _ in false }
     var enable: (Perm) -> Void = { _ in }
@@ -26,7 +28,7 @@ final class SetupModel: ObservableObject {
     var perms: [Perm] { Perm.allCases.filter { $0 != .localNetwork || PermProbe.hasLocalNetworkPrivacy } }
 
     func refresh() {
-        let st = PermProbe.all()
+        let st: [Perm: PermState] = actions.snapshot.map { Diag.states(fromSnapshot: $0()) } ?? PermProbe.all()
         let enabled = Set(Perm.allCases.filter(actions.isEnabled))
         let new = PermissionModel.rows(states: st, enabled: enabled, requested: requested, perms: perms)
         if new != rows { rows = new; onChange?() }
@@ -37,6 +39,7 @@ final class SetupModel: ObservableObject {
     /// The row's button. Every macOS prompt the helper shows starts here (or at a feature toggle).
     func act(_ r: PermRow) {
         requested.insert(r.perm)
+        ev(.ui, "setup.button", ["perm": r.perm.rawValue, "status": "\(r.status)", "state": PermProbe.name(r.state)])
         switch (r.perm, r.status) {
         case (.accessibility, _):
             // The prompt also adds Mote Helper to the Accessibility list, so the user only flips the switch.
@@ -152,7 +155,9 @@ struct SetupView: View {
         case .optional:
             Button("Enable") { model.act(r) }
         case .check:
-            Button("Open Settings") { model.act(r) }
+            // macOS has no API for this permission: say so instead of offering a button that can't change anything.
+            Text("Can't check: macOS doesn't report this").font(.system(size: 11)).foregroundColor(Tok.muted)
+                .multilineTextAlignment(.trailing).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 150, alignment: .trailing)
         }
     }
 }
@@ -192,6 +197,7 @@ final class SetupWindow: NSObject, NSWindowDelegate {
             window = w
         }
         model.refresh()
+        ev(.ui, "setup.shown", ["rows": model.rows.map { "\($0.perm.rawValue)=\($0.status)" }])
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.model.refresh() }
         NSApp.activate(ignoringOtherApps: true)
@@ -200,6 +206,7 @@ final class SetupWindow: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ n: Notification) {
+        ev(.ui, "setup.closed")
         timer?.invalidate(); timer = nil
         window = nil
     }

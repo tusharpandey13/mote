@@ -41,6 +41,9 @@ protocol SecretBackend {
 struct KeychainError: Error { let status: OSStatus }
 
 struct KeychainBackend: SecretBackend {
+    /// OSStatus of the last write (diagnostics).
+    static var lastWriteStatus: OSStatus?
+
     private func query(_ s: String, _ a: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: s, kSecAttrAccount as String: a]
     }
@@ -52,7 +55,9 @@ struct KeychainBackend: SecretBackend {
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
+        let t0 = Date()
         let st = SecItemCopyMatching(q as CFDictionary, &out)
+        ev(.keychain, "read", ["account": account, "status": Int(st), "ms": Int(Date().timeIntervalSince(t0) * 1000)])
         if st == errSecItemNotFound { return nil }
         guard st == errSecSuccess else { throw KeychainError(status: st) }
         return out as? Data
@@ -68,6 +73,8 @@ struct KeychainBackend: SecretBackend {
             st = SecItemAdd(add as CFDictionary, nil)
         }
         if st != errSecSuccess { log("keychain write failed: \(st)") }
+        KeychainBackend.lastWriteStatus = st
+        ev(.keychain, "write", ["account": account, "status": Int(st), "ok": st == errSecSuccess])
         return st == errSecSuccess
     }
 }
@@ -76,6 +83,10 @@ struct KeychainBackend: SecretBackend {
 final class Vault {
     static let account = "secrets.v3"
     private(set) var secrets = Secrets()
+    /// Diagnostics: what the one launch-time read of `secrets.v3` returned. nil = memory store (never touches the Keychain).
+    private(set) var readStatus: Int32?
+    private(set) var readResult = "memory"   // memory | found | notfound | error | unreadable
+    static let partitionKey = "keychain.partitionAtWrite"
     private let service: String
     private let backend: SecretBackend?
 
@@ -92,11 +103,14 @@ final class Vault {
         guard let b = backend else { return }
         do {
             if let d = try b.read(service: service, account: Vault.account) {
-                if let s = try? Vault.decoder.decode(Secrets.self, from: d) { secrets = s } else { log("keychain: unreadable secrets, starting empty") }
+                readStatus = 0; readResult = "found"
+                if let s = try? Vault.decoder.decode(Secrets.self, from: d) { secrets = s } else { readResult = "unreadable"; log("keychain: unreadable secrets, starting empty") }
             } else {
+                readStatus = errSecItemNotFound; readResult = "notfound"
                 save()
             }
         } catch let e as KeychainError {
+            readStatus = e.status; readResult = "error"
             log("keychain: \(Vault.account) not readable without UI (\(e.status)); pairings are kept in memory until the next launch")
         } catch { log("keychain: read failed: \(error)") }
     }
@@ -110,7 +124,13 @@ final class Vault {
     @discardableResult
     private func save() -> Bool {
         guard let b = backend, let d = try? Vault.encoder.encode(secrets) else { return backend == nil }
-        return b.write(service: service, account: Vault.account, data: d, label: "Mote Helper")
+        let ok = b.write(service: service, account: Vault.account, data: d, label: "Mote Helper")
+        if ok, readResult == "notfound", b is KeychainBackend, let p = SigningInfo.current().expectedPartition {
+            // Only when we created the item: its partition is the identity that created it (we can't read the partition without UI).
+            UserDefaults.standard.set(p, forKey: Vault.partitionKey)
+            ev(.keychain, "partition", ["partition": p])
+        }
+        return ok
     }
 
     static var decoder: JSONDecoder { let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d }

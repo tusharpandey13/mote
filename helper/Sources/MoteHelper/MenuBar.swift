@@ -9,6 +9,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     private let web: WebServer?
     var ble: BLEServer? { didSet { refresh() } }
     var openSetup: (() -> Void)?
+    var openDiagnostics: (() -> Void)?
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var pairWindow: NSWindow?
 
@@ -22,7 +23,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         refreshTailnet()
     }
 
-    func menuWillOpen(_ menu: NSMenu) { refreshTailnet() }
+    func menuWillOpen(_ menu: NSMenu) { ev(.ui, "menu.opened"); refreshTailnet() }
 
     var port: UInt16 { hub.config.port }
     var mdnsURL: String { "http://\(Host.localName).local:\(port)" }
@@ -123,6 +124,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
 
         _ = add("Pause input", #selector(togglePause), key: "p", state: hub.paused)
         _ = add("Setup…", #selector(showSetup), key: ",")
+        _ = add("Diagnostics…", #selector(showDiagnostics))
 
         let adv = NSMenu()   // off the default path
         sub(adv, "Wi-Fi remote: \(mdnsURL)", #selector(copyURL(_:)), obj: mdnsURL)
@@ -169,7 +171,8 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
 
     // MARK: actions
 
-    @objc func showSetup() { openSetup?() }
+    @objc func showSetup() { ev(.ui, "menu.item", ["item": "setup"]); openSetup?() }
+    @objc func showDiagnostics() { ev(.ui, "menu.item", ["item": "diagnostics"]); openDiagnostics?() }
 
     @objc func copyURL(_ sender: NSMenuItem) {
         guard let s = sender.representedObject as? String else { return }
@@ -177,39 +180,39 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         NSPasteboard.general.setString(s, forType: .string)
     }
 
-    @objc func startPairing() { hub.pairing.open(); showPairing() }
-    @objc func stopPairing() { hub.pairing.close() }
-    @objc func togglePause() { hub.paused.toggle() }
-    @objc func blockDevice(_ sender: NSMenuItem) { if let fp = sender.representedObject as? String { hub.instantPairing.block(fp) } }
-    @objc func unblockDevice(_ sender: NSMenuItem) { if let fp = sender.representedObject as? String { hub.instantPairing.unblock(fp) } }
-    @objc func toggleRequireApproval() { hub.instantPairing.requireApproval.toggle() }
-    @objc func toggleTvLab() { hub.tv.enabled.toggle() }
-    @objc func exitTv() { hub.tv.exit() }
-    @objc func toggleShareThumbs() { setShareThumbnails(!hub.settings.shareSpaceThumbnails) }
+    @objc func startPairing() { ev(.ui, "menu.item", ["item": "startPairing"]); hub.pairing.open(); showPairing() }
+    @objc func stopPairing() { ev(.ui, "menu.item", ["item": "stopPairing"]); hub.pairing.close() }
+    @objc func togglePause() { ev(.ui, "menu.item", ["item": "togglePause"]); hub.paused.toggle() }
+    @objc func blockDevice(_ sender: NSMenuItem) { ev(.ui, "menu.item", ["item": "blockDevice"]); if let fp = sender.representedObject as? String { hub.instantPairing.block(fp) } }
+    @objc func unblockDevice(_ sender: NSMenuItem) { ev(.ui, "menu.item", ["item": "unblockDevice"]); if let fp = sender.representedObject as? String { hub.instantPairing.unblock(fp) } }
+    @objc func toggleRequireApproval() { ev(.ui, "menu.item", ["item": "toggleRequireApproval"]); hub.instantPairing.requireApproval.toggle() }
+    @objc func toggleTvLab() { ev(.ui, "menu.item", ["item": "toggleTvLab"]); hub.tv.enabled.toggle() }
+    @objc func exitTv() { ev(.ui, "menu.item", ["item": "exitTv"]); hub.tv.exit() }
+    @objc func toggleShareThumbs() { ev(.ui, "menu.item", ["item": "toggleShareThumbs"]); setShareThumbnails(!hub.settings.shareSpaceThumbnails) }
 
     /// A click (menu or Setup window): turning thumbnails on is where Screen Recording is asked for.
     func setShareThumbnails(_ on: Bool) {
         hub.settings.shareSpaceThumbnails = on
         if on { hub.spaces.requestPermission() }
     }
-    @objc func clearThumbs() { hub.spaces.clear() }
-    @objc func toggleLiveScreen() {
+    @objc func clearThumbs() { ev(.ui, "menu.item", ["item": "clearThumbs"]); hub.spaces.clear() }
+    @objc func toggleLiveScreen() { ev(.ui, "menu.item", ["item": "toggleLiveScreen"]);
         hub.settings.labsLiveScreen.toggle()
         if hub.settings.labsLiveScreen, !hub.config.dryRun, !CGPreflightScreenCaptureAccess() { _ = CGRequestScreenCaptureAccess() }
     }
-    @objc func toggleScreenPause() { hub.liveScreen.paused.toggle() }
-    @objc func stopScreen() { hub.liveScreen.stop("stop") }
-    @objc func grantScreenRecording() { NSWorkspace.shared.open(Perm.screenRecording.settingsURL) }
-    @objc func toggleTailscale() { hub.settings.allowTailscale.toggle(); refreshTailnet() }
+    @objc func toggleScreenPause() { ev(.ui, "menu.item", ["item": "toggleScreenPause"]); hub.liveScreen.paused.toggle() }
+    @objc func stopScreen() { ev(.ui, "menu.item", ["item": "stopScreen"]); hub.liveScreen.stop("stop") }
+    @objc func grantScreenRecording() { ev(.ui, "menu.item", ["item": "grantScreenRecording"]); NSWorkspace.shared.open(Perm.screenRecording.settingsURL) }
+    @objc func toggleTailscale() { ev(.ui, "menu.item", ["item": "toggleTailscale"]); hub.settings.allowTailscale.toggle(); refreshTailnet() }
 
     /// Re-reads the MagicDNS name in the background (Tailscale may start after the helper).
     func refreshTailnet() {
         guard hub.settings.allowTailscale else { return }
         Tailnet.refresh { [weak self] in self?.refresh() }
     }
-    @objc func quit() { NSApp.terminate(nil) }
+    @objc func quit() { ev(.ui, "menu.item", ["item": "quit"]); NSApp.terminate(nil) }
 
-    @objc func revokeAll() {
+    @objc func revokeAll() { ev(.ui, "menu.item", ["item": "revokeAll"]);
         NSApp.activate(ignoringOtherApps: true)
         let a = NSAlert()
         a.messageText = "Revoke all devices?"
@@ -220,7 +223,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         if a.runModal() == .alertFirstButtonReturn { hub.revokeAll() }
     }
 
-    @objc func toggleLogin() {
+    @objc func toggleLogin() { ev(.ui, "menu.item", ["item": "toggleLogin"]);
         do {
             if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() }
             else { try SMAppService.mainApp.register() }
@@ -238,6 +241,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
 
     /// Non-modal, non-activating notice for a newly trusted phone, top right, gone after 15 s. One Block button.
     func showNewDevice(name: String, via: String, fp: String) {
+        ev(.ui, "newdevice.shown", ["via": via])
         notice?.close()
         let how = via == "nearby" ? "via Bluetooth proximity" : via == "tailscale" ? "via Tailscale" : "approved on this Mac"
         let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 320, height: 76),
@@ -283,14 +287,14 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         }
     }
 
-    @objc func blockNotice() {
+    @objc func blockNotice() { ev(.ui, "menu.item", ["item": "blockNotice"]);
         if let fp = noticeFp { hub.instantPairing.block(fp) }
         notice?.close(); notice = nil; noticeFp = nil
     }
 
     // MARK: pairing window
 
-    @objc func showPairing() {
+    @objc func showPairing() { ev(.ui, "menu.item", ["item": "showPairing"]);
         guard let code = hub.pairing.code else { return }
         pairWindow?.close()
         let url = ipURL ?? mdnsURL

@@ -27,6 +27,8 @@ struct Config {
     var fakeContext: String? = nil // Labs tests: read the frontmost-app context from this JSON file (needs --dry-run)
     var fakeNowPlaying = false     // Labs tests: a synthetic now-playing session (needs --dry-run)
     var fakeScreen = false    // tests: Labs live screen streams synthetic frames of a fake display (needs --dry-run; turns the lab on)
+    var diag = false          // --diag: print the diagnostics snapshot (JSON) and exit; no prompts, no UI, no writes
+    var eventsFile: String? = nil // --events FILE: append every event as one JSON line
     var noBonjour = false     // chaos: don't advertise _mote._tcp (stands in for blocked multicast; needs --dry-run)
     var fakeNowPlayingReader: String? = nil // chaos: run this executable as the now-playing reader instead of perl (needs --dry-run)
 
@@ -62,14 +64,17 @@ struct Config {
             case "--fake-context": c.fakeContext = it.next()
             case "--fake-nowplaying": c.fakeNowPlaying = true
             case "--no-bonjour": c.noBonjour = true
+            case "--diag": c.diag = true
+            case "--events": c.eventsFile = it.next()
             case "--fake-nowplaying-reader": c.fakeNowPlayingReader = it.next()
             case "--port": if let v = it.next(), let p = UInt16(v) { c.port = p }
             case "--keychain-service": if let v = it.next() { c.keychainService = v }
             case "--web-root": if let v = it.next() { c.webRoot = URL(fileURLWithPath: v) }
             case "-h", "--help":
                 print("""
+                MoteHelper --diag [--events FILE]   (print the diagnostics snapshot as JSON and exit; never prompts)
                 MoteHelper [--setup] [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
-                           [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
+                           [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale] [--events FILE]
                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
                           [--no-instant-pairing | --labs-pairing] [--require-approval]   (instant pairing: off / force on; approval prompts)
                           [--fake-proximity] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID|timeout]   (instant pairing tests, need --dry-run)
@@ -101,6 +106,7 @@ final class Settings {
             guard allowTailscale != oldValue else { return }
             defaults?.set(allowTailscale, forKey: "allowTailscale")
             log("tailscale connections \(allowTailscale ? "allowed" : "refused")")
+            ev(.lifecycle, "setting", ["key": "allowTailscale", "on": allowTailscale])
             onChange?()
         }
     }
@@ -113,6 +119,7 @@ final class Settings {
             guard shareSpaceThumbnails != oldValue else { return }
             defaults?.set(shareSpaceThumbnails, forKey: "shareSpaceThumbnails")
             log("space thumbnails \(shareSpaceThumbnails ? "shared" : "not shared")")
+            ev(.lifecycle, "setting", ["key": "shareSpaceThumbnails", "on": shareSpaceThumbnails])
             onChange?()
         }
     }
@@ -123,6 +130,7 @@ final class Settings {
             guard labsLiveScreen != oldValue else { return }
             defaults?.set(labsLiveScreen, forKey: "labsLiveScreen")
             log("labs: live screen \(labsLiveScreen ? "on" : "off")")
+            ev(.labs, "toggle", ["lab": "liveScreen", "on": labsLiveScreen])
             onChange?()
         }
     }

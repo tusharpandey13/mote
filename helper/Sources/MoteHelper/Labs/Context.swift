@@ -172,11 +172,13 @@ final class LabsContext: NSObject, LabsModule {
         case "labs.ctx.sub":
             let on = (m["on"] as? Bool) ?? true
             if on { ctxSubs[ObjectIdentifier(s)] = WeakSession(s) } else { ctxSubs[ObjectIdentifier(s)] = nil }
+            ev(.labs, "subscribe", ["lab": "context", "on": on])
             updateRunning()
             if on { s.send(ctxState()) }
         case "labs.np.sub":
             let on = (m["on"] as? Bool) ?? true
             if on { npSubs[ObjectIdentifier(s)] = WeakSession(s) } else { npSubs[ObjectIdentifier(s)] = nil }
+            ev(.labs, "subscribe", ["lab": "nowPlaying", "on": on])
             updateRunning()
             if on { s.send(npState()) }
         case "labs.np.seek": seek(m, from: s)
@@ -213,8 +215,10 @@ final class LabsContext: NSObject, LabsModule {
         return subs.values.compactMap(\.s)
     }
 
-    private func broadcastCtx() { let st = ctxState(); for s in live(&ctxSubs) { s.send(st) } }
-    private func broadcastNp() { let st = npState(); for s in live(&npSubs) { s.send(st) } }
+    /// Diagnostics: is [s] subscribed to context / now playing.
+    func subscription(_ s: Session) -> (ctx: Bool, np: Bool) { (ctxSubs[ObjectIdentifier(s)]?.s != nil, npSubs[ObjectIdentifier(s)]?.s != nil) }
+    private func broadcastCtx() { let st = ctxState(); let ss = live(&ctxSubs); ev(.labs, "push", coalesce: "ctx", ["lab": "context", "sessions": ss.count]); for s in ss { s.send(st) } }
+    private func broadcastNp() { let st = npState(); let ss = live(&npSubs); ev(.labs, "push", coalesce: "np", ["lab": "nowPlaying", "sessions": ss.count]); for s in ss { s.send(st) } }
 
     private func prune() {
         let before = ctxSubs.count + npSubs.count
@@ -436,6 +440,7 @@ final class LabsContext: NSObject, LabsModule {
     @objc private func toggleEnabled() { setEnabled(!settings.enabled) }
 
     var enabled: Bool { settings.enabled }
+    var nowPlayingStatus: String { nowPlaying.status }
 
     /// A click (menu or Setup window): turning it on asks the running browsers for Automation, in context.
     func setEnabled(_ on: Bool) {
@@ -443,6 +448,7 @@ final class LabsContext: NSObject, LabsModule {
         settings.enabled = on
         if on && !hub.config.dryRun { askAutomation() }
         log("labs: context & now playing \(settings.enabled ? "on" : "off")")
+        ev(.labs, "toggle", ["lab": "context", "on": settings.enabled])
         if !settings.enabled { last = nil; pending = nil }
         updateRunning()
         broadcastCtx(); broadcastNp()
