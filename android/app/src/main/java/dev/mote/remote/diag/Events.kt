@@ -32,6 +32,7 @@ object Events {
         "protocol" to setOf("out", "in", "error", "bad"),
         "input" to setOf("summary", "dropped"),
         "labs" to setOf("toggle", "subscribe", "push", "blocked"),
+        "notification" to setOf("show", "update", "hide", "blocked", "action"),
         "ui" to setOf("screen", "banner", "tap"),
     )
 

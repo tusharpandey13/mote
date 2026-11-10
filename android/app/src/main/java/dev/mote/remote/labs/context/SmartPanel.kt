@@ -181,6 +181,7 @@ fun SmartPanel() {
             Text(hint, style = T.body.copy(fontSize = 13.sp, lineHeight = 18.sp), color = c.muted, modifier = Modifier.padding(vertical = 4.dp))
         }
         if (info != null) NowPlayingCard(np, info)
+        if (info != null) NotificationAsk()
         np.note?.let { Text(it, style = T.small, color = c.muted, maxLines = 2, modifier = Modifier.padding(top = 4.dp)) }
         if (profile != null) {
             Spacer(Modifier.height(8.dp))
@@ -192,6 +193,38 @@ fun SmartPanel() {
                     }
                 }
             }
+        }
+    }
+}
+
+/** Explains and asks for the notification permission (Android 13+) the first time something plays; denied = a Diagnostics row says why. */
+@Composable
+private fun NotificationAsk() {
+    val ctx = LocalContext.current
+    val c = LocalMote.current
+    val ok by NpNotifier.canNotify.collectAsState()
+    val denied by NpNotifier.askedAndDenied.collectAsState()
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+        dev.mote.remote.diag.Perms.result(ctx, "now-playing")
+        NpNotifier.refreshPermission()
+        NpNotifier.askedAndDenied.value = !granted
+    }
+    if (ok) return
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            if (denied) "Notifications are off for Mote, so there is no player on the lock screen." else "Show what is playing, with controls, in the notification shade and on the lock screen?",
+            style = T.small, color = c.muted, modifier = Modifier.weight(1f),
+        )
+        Cap(Modifier.height(40.dp).widthIn(min = 72.dp), RoundedCornerShape(14.dp), haptic = Haptic.CLICK, description = if (denied) "Open notification settings" else "Allow notifications",
+            onClick = {
+                if (denied || android.os.Build.VERSION.SDK_INT < 33) {
+                    ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                } else {
+                    dev.mote.remote.diag.Perms.requested(listOf(android.Manifest.permission.POST_NOTIFICATIONS), "now-playing")
+                    launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }) {
+            Text(if (denied) "Settings" else "Allow", style = T.label, color = c.ink, maxLines = 1, modifier = Modifier.padding(horizontal = 12.dp))
         }
     }
 }

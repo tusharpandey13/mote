@@ -80,6 +80,7 @@ fun DiagnosticsPage(onBack: () -> Unit) {
     val ws by Net.wsStatus.collectAsState()
     val helperUp by SmartRemote.helperUp.collectAsState()
     val labs = Labs.all.map { f -> f to remember(f) { Labs.flow(ctx, f) }.collectAsState(initial = false).value }
+    val npPlan by dev.mote.remote.labs.context.NpNotifier.plan.collectAsState()
     val perms = remember(diag) { Perms.state(ctx) }
     val active by Net.active.collectAsState()
     val protoHelper = diag.snapshot?.optJSONObject("helper")?.optString("protocol")?.ifEmpty { null }
@@ -97,7 +98,7 @@ fun DiagnosticsPage(onBack: () -> Unit) {
             if (labs.any { it.first == Labs.SMART_REMOTE && it.second } && helperUp) "smart remote" else null,
             if (diag.subscribed) "helper diagnostics" else null,
         ).ifEmpty { listOf("none") }.joinToString(", ")),
-    ) + perms.map { (k, v) -> DiagRow("Permission $k", if (v) "granted" else "not granted", bad = !v && k != "notifications") }
+    ) + (dev.mote.remote.labs.context.NpNotifPolicy.describe(npPlan).let { (t, bad) -> listOf(DiagRow("Now-playing notification", t, bad)) }) + perms.map { (k, v) -> DiagRow("Permission $k", if (v) "granted" else "not granted", bad = !v && k != "notifications") }
 
     PageScaffold("Diagnostics", onBack) {
         Text("Why isn't this working", style = T.body, color = LocalMote.current.muted, modifier = Modifier.padding(top = 4.dp))

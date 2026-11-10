@@ -17,6 +17,7 @@ class MainActivity : ComponentActivity() {
         Net.init(this)
         dev.mote.remote.diag.Events.log("lifecycle", "init", "activity" to "created", "restored" to (savedInstanceState != null))
         if (savedInstanceState == null) handleLink(intent)
+        dev.mote.remote.labs.context.NpNotifier.start(this)
         enableEdgeToEdge()
         setContent { MoteApp() }
     }
@@ -36,6 +37,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         dev.mote.remote.diag.Perms.check(this, "start")
+        dev.mote.remote.labs.context.NpNotifier.refreshPermission()
         Hid.foreground = true
         Net.foreground = true
         HidService.start(this)

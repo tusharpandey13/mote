@@ -80,6 +80,8 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+        <!-- Labs (Smart remote): the now-playing notification's buttons -->
+        <receiver android:name=".labs.context.NpActionReceiver" android:exported="false" />
         <service
             android:name=".service.HidService"
             android:exported="false"
