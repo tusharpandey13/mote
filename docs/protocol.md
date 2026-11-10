@@ -254,7 +254,7 @@ Areas and events (a unit test keeps this table equal to the code):
 | `labs` | `toggle`, `subscribe`, `push`, `stream` |
 | `ui` | `setup.shown`, `setup.closed`, `setup.button`, `menu.opened`, `menu.item`, `diagnostics.shown`, `diagnostics.copied`, `pairing.shown`, `newdevice.shown` |
 
-The Android app emits the same event shape with `side: "android"` into its own log (areas and names are its own); the shared `corr` joins both sides.
+The Android app emits the same event shape with `side: "app"` into its own log (areas and names are its own); the shared `corr` joins both sides.
 
 ## 3. BLE transport
 

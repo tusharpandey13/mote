@@ -202,7 +202,7 @@ class SmartRemoteJourney {
         setup(ctx = null, np = false)
         j.step("B1") {
             j.expect("SMART REMOTE", timeoutMs = 8_000); j.expect("PREVIEW")
-            j.expect("Turn on Labs › Context & now playing in the Mote Helper menu on the Mac.")
+            j.expect("Turn on Labs › Context & now playing in the Mote Helper menu on the Mac")
         }
     }
 
@@ -212,7 +212,7 @@ class SmartRemoteJourney {
         j.dlBluetoothOnly()
         j.step("B1", "faked: TestSeam.transport = FakeTransport (HID caps)") {
             j.expect("SMART REMOTE", timeoutMs = 8_000)
-            j.expect("Smart remote needs the Mote Helper over Wi-Fi or Tailscale.")
+            j.expect("Needs Wi-Fi or Tailscale; connected over Bluetooth")
         }
     }
 
@@ -222,7 +222,7 @@ class SmartRemoteJourney {
         j.expect("NETFLIX", timeoutMs = 8_000)
         j.step("B2") {
             mac.stop()
-            j.expect("Smart remote needs the Mote Helper over Wi-Fi or Tailscale.", timeoutMs = 60_000)
+            j.expectAny("Not connected to the Mac right now", "Needs Wi-Fi or Tailscale; not connected to a Mac", timeoutMs = 60_000)
             j.expect("SMART REMOTE")
         }
     }
@@ -230,7 +230,7 @@ class SmartRemoteJourney {
     @Test fun automationDenied() {
         j.path("smart-remote.automation-denied")
         setup(ctx = """{"app":"Safari","bundle":"com.apple.Safari","browser":true,"automation":"denied"}""")
-        j.step("B1", FILE) { j.expect("Allow Mote Helper to control Safari (System Settings › Privacy › Automation) to see the tab.", timeoutMs = 8_000) }
+        j.step("B1", FILE) { j.expect("Allow Mote Helper to control Safari (System Settings › Privacy › Automation) to see the tab", timeoutMs = 8_000) }
     }
 
     @Test fun automationAsk() {
@@ -239,7 +239,7 @@ class SmartRemoteJourney {
         j.step("B1", FILE) {
             j.expect("SAFARI", timeoutMs = 8_000); j.expect("Fake Song")
             j.expectNot("Allow Mote Helper to control Safari", substring = true)
-            j.expectNot("Allow Safari tabs", substring = true)
+            j.expect("Labs › Allow Safari tabs", substring = true)
         }
     }
 

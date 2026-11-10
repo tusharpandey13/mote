@@ -90,7 +90,8 @@ object Bt {
         awaitClose {
             fake?.cancel()
             c.unregisterReceiver(receiver)
-            lifecycle.removeObserver(resume)
+            // LifecycleRegistry insists on the main thread; this runs on whichever thread cancelled the collector.
+            android.os.Handler(android.os.Looper.getMainLooper()).post { lifecycle.removeObserver(resume) }
         }
     }.distinctUntilChanged()
 

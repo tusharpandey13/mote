@@ -113,7 +113,7 @@ data class AutoKeyboard(val lastText: Boolean = false, val opened: Boolean = fal
         return when {
             text && !lastText && allowed && !onKeys -> AutoKeyboard(true, opened = true) to Action.OPEN
             !text && lastText && opened -> AutoKeyboard(false, opened = false) to (if (onKeys) Action.CLOSE else Action.NONE)
-            else -> copy(lastText = text, opened = opened && text) to Action.NONE
+            else -> copy(lastText = text, opened = opened && text && allowed) to Action.NONE // turning auto-keyboard off ends the session (the chip goes)
         }
     }
 }
