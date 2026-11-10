@@ -48,7 +48,9 @@ client                                   helper
 | `err` | helper -> client | `code`, `msg`, optional `retryAfter` (seconds), optional `ref` (the `t` that failed) |
 | `ping` / `pong` | both | optional `n` (echoed) |
 
-Error codes: `auth` (bad/unknown token), `code` (wrong pairing code), `pairing-closed`, `rate` (too many attempts, see `retryAfter`), `unauth` (input before auth), `paused`, `ax` (Accessibility not granted), `bad` (malformed), `unknown` (unknown `t`), `revoked`, `unsupported` (e.g. no way to set brightness), `notfound` (1.3: no thumbnail for that Space).
+Error codes: `auth` (bad/unknown token), `code` (wrong pairing code), `pairing-closed`, `rate` (too many attempts, see `retryAfter`), `unauth` (input before auth), `paused`, `ax` (Accessibility not granted), `bad` (malformed), `unknown` (unknown `t`), `revoked`, `unsupported` (e.g. no way to set brightness), `notfound` (1.3: no thumbnail for that Space), `keychain-unavailable`.
+
+`keychain-unavailable` (with `ephemeral: true`) answers an `auth` while the helper cannot read its saved pairings (Keychain unreadable, docs/pairing.md section 7): the pairing may well exist. The client MUST keep its token, must not offer re-pairing as the fix, and retries later (the next connect, or once the Mac user chose "Try reading Keychain again"). It does not count towards the `rate` limit. A plain `auth` error still means the token is unknown.
 
 The client keeps `{id, token}` (web remote: `localStorage`, per origin; Android app: keyed by `hostId`, token in the Android Keystore). Reconnects use `auth` only; the token never crosses the wire again after `paired`.
 
@@ -200,7 +202,7 @@ Rules for reading it: every value is a fact the helper read without UI, or a con
   "keychain": { "service", "account", "memoryOnly", "readStatus": OSStatus|null, "readResult": "found"|"notfound"|"error"|"unreadable"|"memory",
                 "writeStatus": OSStatus|null, "itemCount": int|null, "partitionAtWrite": string|null, "expectedPartition": string|null,
                 "partitionMatchesSigning": bool|null,
-                "ephemeral": bool, "ephemeralReason": "denied"|"error"|"corrupt"|"rewrite-failed"|null,
+                "ephemeral": bool, "ephemeralReason": "reading"|"denied"|"error"|"corrupt"|"rewrite-failed"|"no-identity"|"dry-run"|null,
                 "interactiveRead": "none"|"skipped"|"n/a"|"ok"|"denied"|"error" },
   "transports": { "wifi": {"listening": bool|null, "state", "port", "error", "connections", "accepted", "refused"},
                   "bonjour": {"state", "errorCode", "type": "_mote._tcp", "disabled"},
@@ -247,7 +249,7 @@ Areas and events (a unit test keeps this table equal to the code):
 | `lifecycle` | `start`, `ready`, `terminate`, `setting`, `diag.cli` |
 | `signing` | `identity`, `error` |
 | `permission` | `check`, `change`, `request` |
-| `keychain` | `read`, `write`, `partition`, `interactive`, `rewrite`, `ephemeral.enter`, `ephemeral.leave`, `repair` |
+| `keychain` | `read`, `write`, `partition`, `interactive`, `rewrite`, `ephemeral.enter`, `ephemeral.leave`, `repair`, `pending`, `retry`, `reread` |
 | `discovery` | `bonjour.attempt`, `bonjour.registered`, `bonjour.failed`, `ble.state`, `ble.advertising`, `ble.failed`, `tailnet.detect` |
 | `transport` | `listen.state`, `conn.accepted`, `conn.refused`, `conn.closed`, `ws.upgrade`, `ws.refused`, `ble.central`, `http.response` |
 | `session` | `open`, `authed`, `auth.failed`, `paired`, `pair.failed`, `closed`, `revoked` |

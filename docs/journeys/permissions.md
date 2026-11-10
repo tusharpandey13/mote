@@ -106,11 +106,11 @@ stateDiagram-v2
 |---|---|---|---|
 | Absent | notfound | ok | blob created |
 | Found | found | ok | pairings, identity, blocked list loaded |
-| Unreadable, partition mismatch | error -25308 / -25293, then `interactiveRead=ok` | ok | one interactive read per identity, item rewritten, everything loaded (U5) |
+| Unreadable, partition mismatch | error -25308 / -25293, then `interactiveRead=ok` | unknown ("Reading Keychain…") until the read ends, then ok | starts ephemeral; one interactive read per identity after launch, off the main thread; backup `secrets.v3.pending`, in-place update, delete + add only if still unreadable; the Keychain wins over in-memory pairings (U5) |
 | Unreadable, denied or other failure | error, `ephemeral=true` | `keychain-unreadable`, `fix=repair-keychain` | ephemeral: memory only, never saves, no automatic trust, every phone needs Allow; leaves only via a successful read or Repair (U5, U6) |
 | Corrupt | unreadable, `ephemeral=true` | `keychain-corrupt`, `fix=repair-keychain` | same ephemeral mode; never overwritten until Repair |
 | Memory (`--memory-store`) | memory | ok | nothing persisted |
-Menu line "Pairings aren't being saved: Keychain unavailable", "Keychain: Repair…" and the Setup row show while ephemeral. Tests: helper:VaultUnreadableTests, helper/tests/keychain.mjs, helper:VaultTests#authErrorIsNotPresentAndNeverRetriedOrOverwritten, helper:VaultTests#tolerantDecode, helper:DiagTests#keychainStatusCodes (L0); MANUAL-23 (L3).
+Menu line "Pairings aren't being saved: Keychain unavailable", "Try reading Keychain again", "Keychain: Repair…" and the Setup row show while ephemeral ("Reading Keychain…" while the read runs). `--dry-run` never reads interactively; no signing identity gives `interactiveRead=n/a`, reason `no-identity`. Tests: helper:VaultUnreadableTests, helper/tests/keychain.mjs, helper:VaultTests#authErrorIsNotPresentAndNeverRetriedOrOverwritten, helper:VaultTests#tolerantDecode, helper:DiagTests#keychainStatusCodes (L0); MANUAL-23 (L3).
 
 ## Android: Nearby devices (BLUETOOTH_SCAN / CONNECT / ADVERTISE, API 31+)
 API 28-30: legacy BLUETOOTH/BLUETOOTH_ADMIN granted at install. Asked from the BT gate (all three + notifications) or the connect card NeedBluetooth (SCAN + CONNECT, ctx `connect`).
