@@ -14,7 +14,7 @@ enum EvArea: String, CaseIterable {
 /// Every event name, per area. docs/protocol.md lists the same table (a unit test compares them).
 enum EventCatalog {
     static let all: [EvArea: [String]] = [
-        .lifecycle: ["start", "ready", "terminate", "setting", "diag.cli"],
+        .lifecycle: ["start", "ready", "terminate", "setting", "diag.cli", "login.item", "update.check"],
         .signing: ["identity", "error"],
         .permission: ["check", "change", "request"],
         .keychain: ["read", "write", "partition"],

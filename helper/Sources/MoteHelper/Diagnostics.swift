@@ -45,8 +45,9 @@ struct DiagInput {
     var sessions: [DiagSession] = []
     var shareThumbnails = false
     var liveScreenLab = false, liveScreenStreaming = false, liveScreenViewer: String? = nil
-    var contextLab = false, nowPlayingStatus = "off", tvLab = false, tvOn = false, bridgeLab = false, bridgeStatus = "off", bridgeConnected = false
+    var contextLab = false, nowPlayingOn = true, nowPlayingStatus = "off", tvLab = false, tvOn = false, bridgeLab = false, bridgeStatus = "off", bridgeConnected = false
     var instantPairing = false
+    var update: [String: Any]? = nil
     var events = (head: 0, count: 0)
 }
 
@@ -99,7 +100,7 @@ enum Diag {
         let live = i.running
 
         // input
-        if i.dryRun { f["input"] = .ok("dry run: input is logged, never injected") }
+        if i.dryRun && !PermProbe.fakeAxDenied { f["input"] = .ok("dry run: input is logged, never injected") }
         else if st[.accessibility] != .granted { f["input"] = .blocked("accessibility-not-granted", fix: "grant-accessibility") }
         else if live && i.paused { f["input"] = .blocked("input-paused", fix: "resume-input") }
         else { f["input"] = .ok() }
@@ -164,7 +165,7 @@ enum Diag {
         // labs
         if !live { f["labs.context"] = .unknown("not the running helper"); f["labs.nowPlaying"] = f["labs.context"]; f["labs.tvMode"] = f["labs.context"]; f["labs.bridge"] = f["labs.context"] }
         else {
-            if !i.contextLab { f["labs.context"] = .off("Labs › Context & now playing is off", fix: "enable-lab") }
+            if !i.contextLab { f["labs.context"] = .off("Labs › Context is off", fix: "enable-lab") }
             else {
                 switch st[.automation] {
                 case .granted?: f["labs.context"] = .ok()
@@ -172,7 +173,7 @@ enum Diag {
                 default: f["labs.context"] = .blocked("automation-not-granted", fix: st[.automation] == .denied ? "open-automation-settings" : "grant-automation")
                 }
             }
-            f["labs.nowPlaying"] = i.contextLab ? (i.nowPlayingStatus == "off" ? .unknown("reader not running yet") : .ok("source: \(i.nowPlayingStatus)")) : .off("Labs › Context & now playing is off", fix: "enable-lab")
+            f["labs.nowPlaying"] = i.nowPlayingOn ? (i.nowPlayingStatus == "off" ? .unknown("reader not running yet") : .ok("source: \(i.nowPlayingStatus)")) : .off("Share now playing is off in the menu", fix: "enable-lab")
             f["labs.tvMode"] = i.tvLab ? .ok(i.tvOn ? "TV mode is showing" : "enabled, not showing") : .off("Labs › TV mode is off", fix: "enable-lab")
             f["labs.bridge"] = !i.bridgeLab ? .off("Labs › Browser extension bridge is off", fix: "enable-lab") : i.bridgeConnected ? .ok("extension connected") : .ok("waiting for the browser extension")
         }
@@ -216,7 +217,7 @@ enum Diag {
         let labs: [String: Any] = [
             "liveScreen": ["enabled": i.liveScreenLab, "streaming": i.liveScreenStreaming, "viewer": i.liveScreenViewer ?? NSNull()] as [String: Any],
             "context": ["enabled": i.contextLab] as [String: Any],
-            "nowPlaying": ["enabled": i.contextLab, "source": i.nowPlayingStatus] as [String: Any],
+            "nowPlaying": ["enabled": i.nowPlayingOn, "source": i.nowPlayingStatus] as [String: Any],
             "tvMode": ["enabled": i.tvLab, "showing": i.tvOn] as [String: Any],
             "bridge": ["enabled": i.bridgeLab, "status": i.bridgeStatus, "connected": i.bridgeConnected] as [String: Any],
             "spaceThumbnails": ["enabled": i.shareThumbnails] as [String: Any],
@@ -227,6 +228,7 @@ enum Diag {
             "t": "diag", "v": snapshotVersion, "at": i.at, "source": i.source, "running": live,
             "helper": ["version": i.version, "protocol": protocolVersion, "pid": i.pid, "uptimeS": i.uptimeS, "dryRun": i.dryRun, "headless": i.headless,
                        "memoryStore": i.memoryStore, "port": i.port, "hostId": i.hostId, "macOS": i.macOS, "arch": i.arch] as [String: Any],
+            "update": i.update ?? NSNull(),
             "features": f.mapValues(\.json),
             "signing": i.signing.json,
             "permissions": perms,
@@ -297,10 +299,11 @@ enum Diag {
         var i = baseInput(config: config, source: "cli")
         i.running = false
         i.hostId = UserDefaults.standard.string(forKey: "hostId") ?? ""
-        i.tailscaleAllowed = UserDefaults.standard.object(forKey: "allowTailscale") as? Bool ?? true
+        i.tailscaleAllowed = UserDefaults.standard.object(forKey: "allowTailscale") as? Bool ?? false
         i.shareThumbnails = UserDefaults.standard.bool(forKey: "shareSpaceThumbnails")
         i.liveScreenLab = UserDefaults.standard.bool(forKey: "labsLiveScreen")
         i.contextLab = UserDefaults.standard.bool(forKey: "labs.context.enabled")
+        i.nowPlayingOn = (UserDefaults.standard.object(forKey: "nowPlaying.enabled") as? Bool) ?? true
         i.tvLab = UserDefaults.standard.bool(forKey: "labs.tvMode")
         i.bridgeLab = UserDefaults.standard.bool(forKey: "labsBridge")
         if !config.memoryStore {
@@ -355,10 +358,11 @@ enum Diag {
         }
         i.shareThumbnails = hub.settings.shareSpaceThumbnails
         i.liveScreenLab = hub.settings.labsLiveScreen; i.liveScreenStreaming = hub.liveScreen.streaming; i.liveScreenViewer = hub.liveScreen.streaming ? hub.liveScreen.viewerName : nil
-        i.contextLab = ctx?.enabled ?? false; i.nowPlayingStatus = ctx?.nowPlayingStatus ?? "off"
+        i.contextLab = ctx?.enabled ?? false; i.nowPlayingOn = ctx?.nowPlayingEnabled ?? false; i.nowPlayingStatus = ctx?.nowPlayingStatus ?? "off"
         i.tvLab = hub.tv.enabled; i.tvOn = hub.tv.on
         if let b = labsBridge { i.bridgeLab = b.enabled; i.bridgeStatus = b.status; i.bridgeConnected = b.connected }
         i.instantPairing = hub.instantPairing.enabled
+        i.update = updater?.json
         i.events = (Events.shared.head, Events.shared.count)
         return build(i)
     }

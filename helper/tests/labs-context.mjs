@@ -141,7 +141,7 @@ const isNp = (m) => m.t === 'labs.np';
   } finally { h.kill(); }
 }
 
-// --- run 3: no fake flags: the lab is off by default
+// --- run 3: no fake flags: context lab off by default, now playing on by default
 {
   const port = basePort + 2;
   const h = startHelper(port, []);
@@ -150,9 +150,23 @@ const isNp = (m) => m.t === 'labs.np';
     const c = await ws.req({ t: 'labs.ctx.sub' }, isCtx);
     ok(c && c.enabled === false && c.bundle === undefined, 'lab off by default: labs.ctx says disabled, no context');
     const n = await ws.req({ t: 'labs.np.sub' }, isNp);
-    ok(n && n.enabled === false, 'lab off by default: labs.np says disabled');
+    ok(n && n.enabled === true, 'now playing is on by default (not a lab)');
+    ws.close();
+  } finally { h.kill(); }
+}
+
+// --- run 4: "Share now playing" switched off (stdin `nowplaying off`): labs.np disabled, seek refused
+{
+  const port = basePort + 3;
+  const h = startHelper(port, ['--stdin-control']);
+  try {
+    const ws = await session(port, await h.code);
+    h.stdin.write('nowplaying off\n');
+    await new Promise((r) => setTimeout(r, 300));
+    const n = await ws.req({ t: 'labs.np.sub' }, isNp);
+    ok(n && n.enabled === false, 'nowplaying off: labs.np says disabled');
     const s = await ws.req({ t: 'labs.np.seek', by: 10 }, (m) => m.t === 'err');
-    ok(s && s.code === 'unsupported', 'seek refused while the lab is off');
+    ok(s && s.code === 'unsupported', 'seek refused while Share now playing is off');
     ws.close();
   } finally { h.kill(); }
 }

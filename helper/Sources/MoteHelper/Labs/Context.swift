@@ -2,19 +2,23 @@ import AppKit
 import ApplicationServices
 import Foundation
 
-// Mote Labs: "Context & now playing" (preview). Off by default (menu: Labs > Context & now playing).
+// Context (frontmost app / browser tab; Labs, off by default) and now playing (core, ON by default; menu: "Share now playing").
 // Messages `labs.ctx.*` and `labs.np.*`, documented in docs/labs/context.md (not part of protocol.md).
 
 /// Persisted Labs toggles. With --memory-store nothing is read or written (tests get the defaults).
 final class LabsContextSettings {
     private let d: UserDefaults?
     var enabled: Bool { didSet { d?.set(enabled, forKey: "labs.context.enabled") } }
+    /// Now playing (title/artist/position of what plays on the Mac) is a core feature: on unless the user turned it off
+    /// (menu "Share now playing"). Independent of the context lab above.
+    var npEnabled: Bool { didSet { d?.set(npEnabled, forKey: "nowPlaying.enabled") } }
     /// Privacy: off (default) sends only the host of a browser tab and no window titles.
     var fullDetails: Bool { didSet { d?.set(fullDetails, forKey: "labs.context.fullDetails") } }
 
     init(config: Config) {
         d = config.memoryStore ? nil : UserDefaults.standard
         enabled = d?.bool(forKey: "labs.context.enabled") ?? false
+        npEnabled = (d?.object(forKey: "nowPlaying.enabled") as? Bool) ?? true
         fullDetails = d?.bool(forKey: "labs.context.fullDetails") ?? false
     }
 }
@@ -158,7 +162,7 @@ final class LabsContext: NSObject, LabsModule {
         nowPlaying = NowPlaying(fake: fakeNp, dryRun: hub.config.dryRun, reader: hub.config.dryRun ? hub.config.fakeNowPlayingReader : nil)
         super.init()
         if (hub.config.fakeContext != nil || hub.config.fakeNowPlaying) && !hub.config.dryRun { log("labs: --fake-context / --fake-nowplaying need --dry-run; ignoring them") }
-        if fakeCtx || fakeNp { settings.enabled = true; log("labs: context & now playing on (fake\(fakeCtx ? " context" : "")\(fakeNp ? " now-playing" : ""))") }
+        if fakeCtx || fakeNp { if fakeCtx { settings.enabled = true }; if fakeNp { settings.npEnabled = true }; log("labs: context & now playing on (fake\(fakeCtx ? " context" : "")\(fakeNp ? " now-playing" : ""))") }
         nowPlaying.onUpdate = { [weak self] in self?.broadcastNp() }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appActivated), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         // Housekeeping: drop closed sessions, stop work nobody listens to.
@@ -192,7 +196,7 @@ final class LabsContext: NSObject, LabsModule {
     }
 
     private func npState() -> [String: Any] {
-        guard settings.enabled else { return ["t": "labs.np", "enabled": false] }
+        guard settings.npEnabled else { return ["t": "labs.np", "enabled": false] }
         // `now` (Mac clock, ms) lets clients extrapolate from `np.at` without trusting the phone's clock.
         var m: [String: Any] = ["t": "labs.np", "enabled": true, "source": nowPlaying.status, "seek": seekPaths(),
                                 "now": Int64(Date().timeIntervalSince1970 * 1000)]
@@ -236,7 +240,7 @@ final class LabsContext: NSObject, LabsModule {
             t.invalidate(); pollTimer = nil
         }
         // Context drives the seek fallbacks, so now playing also keeps the context fresh.
-        if settings.enabled && !npSubs.isEmpty { nowPlaying.start() } else { nowPlaying.stop() }
+        if settings.npEnabled && !npSubs.isEmpty { nowPlaying.start() } else { nowPlaying.stop() }
     }
 
     // MARK: context
@@ -333,7 +337,7 @@ final class LabsContext: NSObject, LabsModule {
 
     private func seek(_ m: [String: Any], from s: Session) {
         func err(_ code: String, _ msg: String) { s.send(["t": "err", "code": code, "msg": msg, "ref": "labs.np.seek"]) }
-        guard settings.enabled else { err("unsupported", "Turn on Labs > Context & now playing in the Mote Helper menu"); return }
+        guard settings.npEnabled else { err("unsupported", "Turn on Share now playing in the Mote Helper menu"); return }
         guard !hub.paused else { err("paused", "input is paused on the Mac"); return }
         guard hub.inputReady else { err("ax", "Accessibility permission not granted to Mote Helper"); return }
         let to = (m["to"] as? NSNumber)?.doubleValue
@@ -413,18 +417,9 @@ final class LabsContext: NSObject, LabsModule {
             if let state { i.state = state ? .on : .off }
             return i
         }
-        var out = [item("Context & now playing (preview)", #selector(toggleEnabled), state: settings.enabled)]
+        var out = [item("Context (frontmost app, preview)", #selector(toggleEnabled), state: settings.enabled)]
         guard settings.enabled else { return out }
         out.append(item("    Share full URLs and window titles", #selector(toggleFull), state: settings.fullDetails))
-        let np: String
-        switch nowPlaying.status {
-        case "mediaremote": np = "reading (MediaRemote via /usr/bin/perl)"
-        case "fake": np = "fake (dry run)"
-        case "unavailable": np = "unavailable on this macOS"
-        case "starting": np = "starting…"
-        default: np = "idle (no phone listening)"
-        }
-        out.append(item("    Now playing: \(np)", nil))
         if let b = menuBrowser {
             switch b.state {
             case "granted": out.append(item("    \(b.name) tabs: allowed", nil))
@@ -437,9 +432,35 @@ final class LabsContext: NSObject, LabsModule {
         return out
     }
 
+    /// Core (not Labs): Advanced › "Share now playing" and its status line.
+    func nowPlayingMenuItems() -> [NSMenuItem] {
+        let sw = NSMenuItem(title: "Share now playing", action: #selector(toggleNowPlaying), keyEquivalent: "")
+        sw.target = self
+        sw.state = settings.npEnabled ? .on : .off
+        guard settings.npEnabled else { return [sw] }
+        let st = NSMenuItem(title: "     \(nowPlayingMenuLine)", action: nil, keyEquivalent: "")
+        st.isEnabled = false
+        return [sw, st]
+    }
+
+    private var nowPlayingMenuLine: String {
+        let np: String
+        switch nowPlaying.status {
+        case "mediaremote": np = "reading (MediaRemote via /usr/bin/perl)"
+        case "fake": np = "fake (dry run)"
+        case "unavailable": np = "unavailable on this macOS"
+        case "starting": np = "starting…"
+        default: np = "idle (no phone listening)"
+        }
+        return "Now playing: \(np)"
+    }
+
+    @objc private func toggleNowPlaying() { setNowPlayingEnabled(!settings.npEnabled) }
+
     @objc private func toggleEnabled() { setEnabled(!settings.enabled) }
 
     var enabled: Bool { settings.enabled }
+    var nowPlayingEnabled: Bool { settings.npEnabled }
     var nowPlayingStatus: String { nowPlaying.status }
 
     /// A click (menu or Setup window): turning it on asks the running browsers for Automation, in context.
@@ -447,11 +468,21 @@ final class LabsContext: NSObject, LabsModule {
         guard on != settings.enabled else { return }
         settings.enabled = on
         if on && !hub.config.dryRun { askAutomation() }
-        log("labs: context & now playing \(settings.enabled ? "on" : "off")")
+        log("labs: context \(settings.enabled ? "on" : "off")")
         ev(.labs, "toggle", ["lab": "context", "on": settings.enabled])
         if !settings.enabled { last = nil; pending = nil }
         updateRunning()
         broadcastCtx(); broadcastNp()
+        hub.onChange?()
+    }
+
+    func setNowPlayingEnabled(_ on: Bool) {
+        guard on != settings.npEnabled else { return }
+        settings.npEnabled = on
+        log("now playing \(on ? "shared" : "not shared")")
+        ev(.lifecycle, "setting", ["key": "nowPlaying", "on": on])
+        updateRunning()
+        broadcastNp()
         hub.onChange?()
     }
 

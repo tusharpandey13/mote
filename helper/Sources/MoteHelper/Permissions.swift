@@ -94,6 +94,10 @@ enum PermissionModel {
         }
     }
 
+    /// Local Network has no macOS API; the row is inferred from Bonjour, so it never says "Allowed" (U7).
+    static func localNetworkLabel(_ s: PermRow.Status) -> String { s == .ok ? "Probably allowed" : "Unknown" }
+    static let localNetworkNote = "macOS doesn't let apps check this permission"
+
     /// Required permissions missing: the Setup window opens by itself.
     static func needsSetup(_ states: [Perm: PermState]) -> Bool {
         Perm.allCases.contains { $0.tier == .required && states[$0] != .granted }
@@ -125,7 +129,10 @@ struct PermCheck: Equatable {
 
 /// Reads the live state. Every probe here is silent: none can show a macOS prompt.
 enum PermProbe {
-    static var accessibility: PermState { AXIsProcessTrusted() ? .granted : .notDetermined }
+    /// Tests (--fake-ax-denied, dry-run only): Accessibility reads as not granted whatever macOS says.
+    static var fakeAxDenied = false
+    static var axTrusted: Bool { !fakeAxDenied && AXIsProcessTrusted() }
+    static var accessibility: PermState { axTrusted ? .granted : .notDetermined }
 
     static var bluetooth: PermState {
         switch CBManager.authorization {
@@ -177,7 +184,7 @@ enum PermProbe {
         var api = "", raw = "", state = PermState.unknown, detail: [String: String] = [:]
         switch p {
         case .accessibility:
-            api = "AXIsProcessTrusted"; let v = AXIsProcessTrusted(); raw = "\(v)"; state = v ? .granted : .notDetermined
+            api = "AXIsProcessTrusted"; let v = axTrusted; raw = "\(v)"; state = v ? .granted : .notDetermined
         case .bluetooth:
             api = "CBManager.authorization"
             let a = CBManager.authorization
