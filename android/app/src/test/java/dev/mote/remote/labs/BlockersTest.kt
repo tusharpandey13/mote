@@ -19,6 +19,18 @@ class BlockersTest {
         assertEquals("helper-too-old", Blockers.link(Blockers.Link(true, true, helperProtoTooOld = true))?.code)
     }
 
+    @Test fun disabledLabNamesTheSwitch() {  // B7
+        assertEquals("Turn on TV mode in Mote Helper › Labs", Blockers.helperLabDisabled("labs.tv.open").text)
+        assertEquals("Turn on Live screen in Mote Helper › Labs", Blockers.helperLabDisabled("labs.screen.start").text)
+        assertEquals("Turn on this lab in Mote Helper › Labs", Blockers.helperLabDisabled("labs.zzz").text)
+        assertEquals("Turn on TV mode in Mote Helper › Labs", Blockers.helperLabDisabled(null, "TV mode").text)
+        val o = org.json.JSONObject("""{"t":"err","code":"disabled","ref":"labs.tv.open"}""")
+        assertEquals("Turn on TV mode in Mote Helper › Labs", dev.mote.remote.labs.open.OpenTvProto.errorText(o))
+        // no ref at all: still explained, not dropped
+        assertEquals("Turn on TV mode in Mote Helper › Labs",
+            dev.mote.remote.labs.open.OpenTvProto.errorText(org.json.JSONObject("""{"t":"err","code":"disabled"}""")))
+    }
+
     @Test fun helperLabOffSaysWhere() {
         val b = Blockers.smartRemote(up, MacContext(), NpState(), false)
         assertEquals("helper-lab-off", b?.code)

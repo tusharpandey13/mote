@@ -29,6 +29,23 @@ object Blockers {
     fun helperSwitchOff(lab: String) = Blocker("helper-lab-off", "Turn on $lab in the Mote Helper menu on the Mac")
 
     /**
+     * B7: the helper answered a `labs.*` request with err `disabled` (its Labs switch is off). [ref] is the
+     * request that failed (`labs.tv.open`); without one the caller's own lab is meant ([default]).
+     */
+    fun helperLabDisabled(ref: String?, default: String = "this lab"): Blocker {
+        val lab = when {
+            ref == null -> default
+            ref.startsWith("labs.tv") -> "TV mode"
+            ref.startsWith("labs.open") -> "Open links"
+            ref.startsWith("labs.screen") -> "Live screen"
+            ref.startsWith("labs.video") -> "Browser extension bridge"
+            ref.startsWith("labs.ctx") || ref.startsWith("labs.np") -> "Context & now playing"
+            else -> default
+        }
+        return Blocker("helper-lab-off", "Turn on $lab in Mote Helper › Labs")
+    }
+
+    /**
      * Smart remote. Null = nothing blocks it (it may still have nothing to show, which is not an error).
      * [ctx] / [np] are the last `labs.ctx` / `labs.np`; [profileShown] = a profile or now-playing card is displayed.
      */

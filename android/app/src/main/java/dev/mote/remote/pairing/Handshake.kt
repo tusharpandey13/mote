@@ -30,7 +30,7 @@ sealed interface PairState {
     data class Accepted(val helper: HelperKey, val via: String, val id: String) : PairState
     data class Done(val helper: HelperKey, val via: String, val authed: Msg.Authed) : PairState
     data class Denied(val reason: String, val retryAfter: Int?) : PairState
-    data class Failed(val code: String, val msg: String) : PairState
+    data class Failed(val code: String, val msg: String, val retryAfter: Int? = null) : PairState
 
     val terminal get() = this is Done || this is Denied || this is Failed
 }
@@ -53,7 +53,7 @@ class PairMachine(
         state = if (s is PairState.Accepted && a.id == s.id) PairState.Done(s.helper, s.via, a) else fail("bad", "Unexpected authed")
         return state
     }
-    fun onErr(code: String, msg: String): PairState { if (!state.terminal) state = PairState.Failed(code, msg); return state }
+    fun onErr(code: String, msg: String, retryAfter: Int? = null): PairState { if (!state.terminal) state = PairState.Failed(code, msg, retryAfter); return state }
 
     private fun fail(code: String, msg: String) = PairState.Failed(code, msg)
 
@@ -109,7 +109,7 @@ suspend fun labsHandshake(
         val st = when (m) {
             is Msg.Other -> m.raw.takeIf { it.isNotEmpty() }?.let { org.json.JSONObject(it) }?.let(PairProto::parse)?.let(machine::onPair) ?: continue
             is Msg.Authed -> machine.onAuthed(m)
-            is Msg.Err -> machine.onErr(m.code, m.msg)
+            is Msg.Err -> machine.onErr(m.code, m.msg, m.retryAfter)
             else -> continue
         }
         onState(st)
@@ -117,7 +117,7 @@ suspend fun labsHandshake(
     return when (val st = machine.state) {
         is PairState.Done -> st
         is PairState.Denied -> throw HelperError(st.reason, st.reason, st.retryAfter)
-        is PairState.Failed -> throw HelperError(st.code, st.msg)
+        is PairState.Failed -> throw HelperError(st.code, st.msg, st.retryAfter)
         else -> throw HelperError("bad", "handshake ended in $st")
     }
 }

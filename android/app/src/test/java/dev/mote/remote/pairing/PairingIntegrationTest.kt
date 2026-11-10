@@ -159,6 +159,26 @@ class PairingIntegrationTest {
         assertEquals("replay is stale", "stale", code(runCatching { handshake("127.0.0.1", info.fp, "jvm b", prox = token, me = other) }.exceptionOrNull()))
     }
 
+    @Test fun deniedPhoneShowsDeniedStatusAndBacksOffInsteadOfLooping() = runBlocking {  // B6
+        val info = fakeBle(spawn())
+        val paths = selectPaths(info, null)
+        val t = WsTransport(http, scope, info.hostId, {
+            object : WsTarget(helperCandidates(paths), port, "unknown", { "" }) {
+                override val authenticate: suspend (WsSession) -> Msg.Authed = { s ->
+                    labsHandshake(s, phone, "jvm phone", info.fp, allowPrompt = false).authed // no token: the Mac says "far"
+                }
+            }
+        })
+        t.start()
+        assertEquals(WsStatus.Denied("far"), withTimeout(10_000) { t.status.first { it is WsStatus.Denied || it is WsStatus.Failed || it is WsStatus.Ready } })
+        val hellos = { log.count { "labs.pair.hello" in it || "pair hello" in it } }
+        val n = hellos()
+        kotlinx.coroutines.delay(3000) // the old loop retried every ~0.5-8 s
+        assertEquals(WsStatus.Denied("far"), t.status.value)
+        assertEquals("no tight retry loop", n, hellos())
+        t.stop()
+    }
+
     @Test fun sameTailscaleOwnerIsTrustedWithoutAToken() = runBlocking {
         val info = fakeBle(spawn("--fake-tailscale-owner", "self"))
         val done = handshake("127.0.0.1", info.fp, "jvm tailnet")

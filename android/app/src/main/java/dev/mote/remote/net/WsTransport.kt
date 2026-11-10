@@ -37,6 +37,10 @@ sealed interface WsStatus {
     data class Ready(val address: String, val paused: Boolean, val ax: Boolean) : WsStatus
     /** Needs the user: re-pair (`auth`, `revoked`), update the helper (`version`), or no credential. */
     data class Failed(val code: String, val msg: String) : WsStatus
+    /** The Mac answered `labs.pair.denied` / `err far...` with [reason]; the link retries slowly, the user can act (B6). */
+    data class Denied(val reason: String) : WsStatus
+    /** The Mac is reading its Keychain (`keychain-reading`); nothing is wrong, retrying after `retryAfter`. */
+    data object Reading : WsStatus
 }
 
 /**
@@ -91,12 +95,14 @@ class WsTransport(
 
     private suspend fun run() {
         var backoff = MIN_BACKOFF
+        var deniedBackoff = DENIED_MIN_BACKOFF
+        var keepStatus = false
         while (true) {
             val t = target() ?: run {
                 Events.log("transport", "connect.failed", "host" to hostId.take(12), "code" to "unpaired")
                 _status.value = WsStatus.Failed("unpaired", "Pair this Mac again"); return
             }
-            if (_status.value !is WsStatus.Ready) _status.value = WsStatus.Connecting
+            if (_status.value.let { it !is WsStatus.Ready && it !is WsStatus.Denied && it !is WsStatus.Reading }) _status.value = WsStatus.Connecting
             var s: WsSession? = null
             for (addr in t.candidates) {
                 Events.log("transport", "connect.try", "address" to addr, "port" to t.port, "candidates" to t.candidates.size)
@@ -124,6 +130,7 @@ class WsTransport(
                     val a = t.authenticate?.invoke(s) ?: s.auth(t.deviceId, t.sign)
                     session = s
                     backoff = MIN_BACKOFF
+                    deniedBackoff = DENIED_MIN_BACKOFF
                     _status.value = WsStatus.Ready(s.address, a.paused, a.ax)
                     Events.log("transport", "connect.ready", "address" to s.address, "paused" to a.paused, "ax" to a.ax)
                     onReady(s.address, s.hello)
@@ -138,7 +145,7 @@ class WsTransport(
                         // `spaces*` errors (old helper: `unknown`; `notfound`, `unsupported`) leave the link up.
                         is Msg.Err -> if (m.code == "revoked") throw HelperError(m.code, m.msg)
                             else if (m.ref == "diag" || m.ref == "diag.subscribe") HelperDiag.onErr(m.code, m.ref)
-                            else if (LabsBus.isLabs(m.ref)) LabsBus.deliver(org.json.JSONObject().put("t", "err").put("code", m.code).put("msg", m.msg).put("ref", m.ref).toString())
+                            else if (LabsBus.isLabs(m.ref) || m.code == "disabled") LabsBus.deliver(org.json.JSONObject().put("t", "err").put("code", m.code).put("msg", m.msg).put("ref", m.ref).toString())
                         is Msg.Other -> if (LabsBus.isLabs(m.t)) {
                             Events.coalesced("push.${m.t}", "labs", "push", null, mapOf("type" to m.t, "bytes" to m.raw.length))
                             LabsBus.deliver(m.raw)
@@ -152,6 +159,13 @@ class WsTransport(
                     when (e.code) {
                         "auth", "revoked", "keychain-unavailable" -> { session = null; s.close(); _status.value = WsStatus.Failed(e.code, e.message ?: ""); return }
                         "rate" -> backoff = (e.retryAfter ?: 60) * 1000L
+                        KEYCHAIN_READING -> { _status.value = WsStatus.Reading; backoff = (e.retryAfter ?: 2) * 1000L; keepStatus = true }
+                        in DENIAL_CODES -> {
+                            Events.log("pairing", "denied", "reason" to e.code)
+                            _status.value = WsStatus.Denied(e.code)
+                            backoff = deniedBackoff; deniedBackoff = (deniedBackoff * 2).coerceAtMost(DENIED_MAX_BACKOFF)
+                            keepStatus = true
+                        }
                     }
                 } catch (e: Exception) {
                     // socket dropped: fall through to backoff
@@ -163,7 +177,8 @@ class WsTransport(
                     s.close()
                 }
             }
-            _status.value = WsStatus.Connecting
+            if (!keepStatus) _status.value = WsStatus.Connecting
+            keepStatus = false
             Events.log("transport", "connect.backoff", "ms" to backoff, "candidates" to t.candidates.size)
             withTimeoutOrNull(backoff + Random.nextLong(backoff / 4 + 1)) { wake.receive() }
             backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF)
@@ -324,6 +339,8 @@ class WsTransport(
         const val MAX_QUEUED = 4096L
         const val MIN_BACKOFF = 500L
         const val MAX_BACKOFF = 8000L
+        const val DENIED_MIN_BACKOFF = 30_000L // B6: a denial is not a transient fault; no tight loop
+        const val DENIED_MAX_BACKOFF = 300_000L
         const val REPEAT_DELAY_MS = 400L
         const val REPEAT_MS = 60L
         const val SCROLL_PX = 24f

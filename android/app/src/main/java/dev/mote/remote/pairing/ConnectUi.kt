@@ -210,6 +210,7 @@ fun pairFailure(e: Throwable, mac: String): String = when ((e as? HelperError)?.
     "blocked" -> "$mac blocked this phone. Unblock it with Revoke all devices in the Mote Helper menu."
     "denied" -> "$mac didn't allow this phone."
     "busy" -> "$mac is answering another phone. Try again in a moment."
+    "keychain-reading" -> "$mac is reading its Keychain; try again in a few seconds."
     "rate" -> "Too many requests. Try again in ${(e as HelperError).retryAfter ?: 60} s."
     "unauth" -> "Mote Helper on $mac is too old or has instant pairing turned off. Update it, or use Pair with code."
     "helper-key" -> "That isn't the Mac it claims to be (its key doesn't match)."

@@ -126,4 +126,6 @@ private fun wsText(s: WsStatus): String = when (s) {
     WsStatus.Connecting -> "connecting"
     is WsStatus.Ready -> "connected"
     is WsStatus.Failed -> "failed: ${s.code}"
+    is WsStatus.Denied -> "denied: ${s.reason}"
+    WsStatus.Reading -> "mac reading keychain"
 }

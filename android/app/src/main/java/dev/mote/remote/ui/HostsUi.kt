@@ -46,11 +46,13 @@ import androidx.compose.ui.unit.dp
 import dev.mote.remote.hid.BtEnv
 import dev.mote.remote.hid.BtGate
 import dev.mote.remote.hid.Hid
+import dev.mote.remote.hid.hidBlockedText
 import dev.mote.remote.hid.HidState
 import dev.mote.remote.hid.Host
 import dev.mote.remote.hid.Phase
 import dev.mote.remote.net.Found
 import dev.mote.remote.net.HelperError
+import dev.mote.remote.net.KEYCHAIN_READING
 import dev.mote.remote.net.HostRow
 import dev.mote.remote.net.Msg
 import dev.mote.remote.net.Net
@@ -103,10 +105,10 @@ fun HostPill(onClick: () -> Unit) {
         led = when {
             st is WsStatus.Ready && (st.paused || !st.ax) -> c.linkWait
             st is WsStatus.Ready -> c.linkOk
-            st is WsStatus.Failed -> c.linkBad
+            st is WsStatus.Failed || st is WsStatus.Denied -> c.linkBad
             else -> c.linkWait
         }
-        pulse = st is WsStatus.Connecting
+        pulse = st is WsStatus.Connecting || st is WsStatus.Reading
     } else {
         val searching = !s.isConnected && s.selected != null && !s.unpaired && s.phase == Phase.READY
         led = when {
@@ -256,8 +258,10 @@ fun HostSheet(
                 Text("Devices", style = T.title, color = c.ink)
                 val note = when {
                     ws is WsStatus.Failed -> failedText(ws as WsStatus.Failed)
+                    ws is WsStatus.Denied -> denialText((ws as WsStatus.Denied).reason)
+                    ws is WsStatus.Reading -> KEYCHAIN_READING_TEXT
                     s.phase == Phase.UNSUPPORTED -> "This phone can't be a Bluetooth keyboard. Add a Mac with Mote Helper."
-                    s.phase == Phase.BLOCKED -> "Bluetooth HID is unavailable. Another app may be registered as a keyboard; close it and reopen Mote."
+                    s.phase == Phase.BLOCKED -> hidBlockedText(ctx.packageName) { pkg -> runCatching { ctx.packageManager.getPackageInfo(pkg, 0) }.isSuccess }
                     else -> "Mote reconnects to the selected device while the app is open."
                 }
                 Text(note, style = T.body, color = c.muted)
@@ -428,6 +432,8 @@ private fun HostRowCap(
             else -> "Connected · ${routeOf(ws.address).badge}"
         }
         viaHelper && ws is WsStatus.Failed -> failedText(ws)
+        viaHelper && ws is WsStatus.Denied -> DENIED_TITLE
+        viaHelper && ws is WsStatus.Reading -> KEYCHAIN_READING_TEXT
         viaHelper -> "Connecting…"
         selected && r.bt != null && s.connected?.address == r.bt.address -> "Connected · BT"
         selected && r.bt != null && s.unpaired -> "Not paired: pair again"
@@ -496,6 +502,7 @@ private fun friendly(e: Throwable, address: String): String = when (e) {
         "code" -> "Wrong code. Check the code in the Mote Helper window."
         "pairing-closed" -> "Pairing isn't open. On the Mac choose Pair new device in the Mote Helper menu."
         "rate" -> "Too many attempts. Try again in ${e.retryAfter ?: 60} s."
+        KEYCHAIN_READING -> KEYCHAIN_READING_TEXT
         "timeout" -> "The Mac didn't answer. Is Mote Helper running?"
         else -> e.message ?: "Mote Helper refused the connection."
     }
