@@ -80,6 +80,26 @@ class HelperIntegrationTest {
 
     private fun dry(prefix: String) = synchronized(log) { log.filter { "DRY $prefix" in it } }
 
+    /** Protocol 1.5: auth carries `client`, the helper answers `diag` and echoes our `corr`. */
+    @Test fun diagSnapshotAndCorrOverWebSocket() = runBlocking {
+        val p = pairWith(http, "127.0.0.1", port, code, "jvm diag")
+        val token = p.token.copyOf()
+        dev.mote.remote.diag.HelperDiag.clear()
+        val t = WsTransport(http, scope, p.hostId, {
+            WsTarget(listOf("127.0.0.1"), port, p.deviceId) { Proto.hmacHex(token, it) }
+        })
+        t.start()
+        withTimeout(10_000) { t.status.first { it is WsStatus.Ready } }
+        assertTrue(t.sendLabs(Proto.diag()))
+        val s = withTimeout(10_000) {
+            dev.mote.remote.diag.HelperDiag.state.first { it.snapshot != null }
+        }
+        assertEquals(dev.mote.remote.diag.HelperDiag.Status.OK, s.status)
+        assertEquals("1.5", s.snapshot!!.optJSONObject("helper")?.optString("protocol"))
+        assertTrue("snapshot echoes our corr", s.snapshot!!.optString("corr").isNotEmpty())
+        dev.mote.remote.diag.HelperDiag.clear()
+    }
+
     @Test fun pairAuthAndSendInputOverWebSocket() = runBlocking {
         val p = pairWith(http, "127.0.0.1", port, code, "jvm test")
         assertTrue(p.hello.hostId!!.matches(Regex("[0-9a-f]{16}")))
