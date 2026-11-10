@@ -21,8 +21,8 @@ const BIN = process.env.MOTE_HELPER_BIN ||
   path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../helper/build/MoteHelper.app/Contents/MacOS/MoteHelper');
 const FORCED = ['--dry-run', '--headless', '--memory-store', '--no-ble', '--no-bonjour', '--stdin-control'];
 // Journey flags only: anything that could reach real state (Keychain service, web root) is refused.
-const ALLOWED = /^--(fake-[a-z-]+|require-approval|no-instant-pairing|labs-pairing|labs-tv|allow-tailscale|open-pairing)$/;
-const WITH_VALUE = new Set(['--fake-spaces', '--fake-context', '--fake-tailscale-owner', '--fake-bt-pair-fail']);
+const ALLOWED = /^--(fake-[a-z-]+|require-approval|no-instant-pairing|labs-pairing|labs-tv|allow-tailscale|open-pairing|store-file|host-id)$/;
+const WITH_VALUE = new Set(['--fake-spaces', '--fake-context', '--fake-tailscale-owner', '--fake-bt-pair-fail', '--store-file', '--host-id']);
 
 fs.mkdirSync(OUT, { recursive: true });
 const helpers = new Map(); // name -> {proc, port, lines: [], args}
@@ -41,7 +41,13 @@ function validate(args) {
     const a = String(args[i]);
     if (!ALLOWED.test(a)) throw new Error(`flag not allowed: ${a}`);
     out.push(a);
-    if (WITH_VALUE.has(a)) { if (i + 1 >= args.length) throw new Error(`${a} needs a value`); out.push(String(args[++i])); }
+    if (WITH_VALUE.has(a)) {
+      if (i + 1 >= args.length) throw new Error(`${a} needs a value`);
+      let v = String(args[++i]);
+      // --store-file: a file-backed vault (never the Keychain), confined to <out>/files/<name>
+      if (a === '--store-file') { fs.mkdirSync(path.join(OUT, 'files'), { recursive: true }); v = path.join(OUT, 'files', safe(path.basename(v))); }
+      out.push(v);
+    }
   }
   return out;
 }
@@ -106,6 +112,7 @@ const server = http.createServer(async (req, res) => {
     switch (u.pathname) {
       case '/ping': return send(200, { ok: true });
       case '/helper/start': return send(200, await start(j.name || 'mac', j.args, Number(j.port) || 0));
+      case '/helper/info': if (!h || h.exited) return send(404, { error: 'no helper' }); return send(200, { port: h.port, args: h.args });
       case '/helper/stop': return send(200, { ok: await stop(j.name || 'mac') });
       case '/helper/stopall': for (const n of [...helpers.keys()]) await stop(n); return send(200, { ok: true });
       case '/helper/stdin': if (!h) return send(404, { error: 'no helper' }); h.proc.stdin.write(String(j.line) + '\n'); return send(200, { ok: true });

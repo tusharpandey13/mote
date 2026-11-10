@@ -70,15 +70,23 @@ if ! curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/ping" >/dev/null 2>&1; then
 fi
 
 # ---- which tests ----
+# Ordered journeys keep app data between their tests (each test is still a fresh process), so a
+# later test gets a real cold start after an earlier one paired: they run in their own Gradle
+# invocation with clearPackageData=false (Gradle reinstalls the app, so they start from a clean install).
+ORDERED="core-connect"
 pascal() { echo "$1" | awk -F- '{for(i=1;i<=NF;i++) printf "%s%s", toupper(substr($i,1,1)), substr($i,2)}'; }
-ARGS=()
+P=-Pandroid.testInstrumentationRunnerArguments
+RUNS=()   # one entry per gradle invocation: space-separated -P args
 if [ "$TARGET" = all ]; then
-  ARGS+=("-Pandroid.testInstrumentationRunnerArguments.package=dev.mote.remote.journeys")
+  not=""; for o in $ORDERED; do not="${not:+$not,}dev.mote.remote.journeys.$(pascal "$o")Journey"; done
+  RUNS+=("$P.package=dev.mote.remote.journeys $P.notClass=$not")
+  for o in $ORDERED; do RUNS+=("$P.class=dev.mote.remote.journeys.$(pascal "$o")Journey $P.clearPackageData=false"); done
   : >"$OUT/results.jsonl"
 else
   id="${TARGET%%#*}"; method=""; [[ "$TARGET" == *"#"* ]] && method="#${TARGET#*#}"
   [ -f "$ROOT/docs/journeys/$id.md" ] || die "no spec docs/journeys/$id.md"
-  ARGS+=("-Pandroid.testInstrumentationRunnerArguments.class=dev.mote.remote.journeys.$(pascal "$id")Journey$method")
+  extra=""; [[ " $ORDERED " == *" $id "* ]] && extra=" $P.clearPackageData=false"
+  RUNS+=("$P.class=dev.mote.remote.journeys.$(pascal "$id")Journey$method$extra")
   # drop this journey's previous results (all paths, or the one path)
   [ -f "$OUT/results.jsonl" ] && node -e '
     const fs=require("fs"),[f,id,m]=process.argv.slice(1);
@@ -88,12 +96,18 @@ fi
 
 # ---- build + run ----
 cd "$ROOT/android"
-set +e
-./gradlew --max-workers=2 -q -PmoteJourneys :app:connectedDevAndroidTest "${ARGS[@]}" \
-  -Pandroid.testInstrumentationRunnerArguments.mjController="http://10.0.2.2:$CTL_PORT" 2>&1 | tee "$OUT/gradle.log" | grep -v '^$' | tail -40
-RC=${PIPESTATUS[0]}
-set -e
-cp -R "$ROOT/android/app/build/outputs/androidTest-results/connected" "$OUT/junit" 2>/dev/null || true
+RC=0; : >"$OUT/gradle.log"
+for run in "${RUNS[@]}"; do
+  set +e
+  # shellcheck disable=SC2086 # $run is a list of -P args
+  ./gradlew --max-workers=2 -q -PmoteJourneys :app:connectedDevAndroidTest $run \
+    "$P.mjController=http://10.0.2.2:$CTL_PORT" 2>&1 | tee -a "$OUT/gradle.log" | grep -v '^$' | tail -40
+  rc=${PIPESTATUS[0]}
+  set -e
+  [ "$rc" = 0 ] || RC=$rc
+  mkdir -p "$OUT/junit"; cp -R "$ROOT/android/app/build/outputs/androidTest-results/connected/." "$OUT/junit/" 2>/dev/null || true
+  curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/helper/stopall" >/dev/null 2>&1 || true   # kept helpers of ordered journeys
+done
 
 # ---- report ----
 node "$HERE/report.mjs" --out "$OUT" --specs "$ROOT/docs/journeys" --write "$HERE/REPORT.md" || true
