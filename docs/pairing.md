@@ -8,7 +8,7 @@ Kill switch: helper `--no-instant-pairing` or `defaults write dev.mote.helper in
 
 ## 1. Keys and fingerprints
 
-- Both sides hold one long-lived **Ed25519** key pair. Helper: private key in the login Keychain, inside the helper's one secrets item (generic password, service `<keychain service>`, account `secrets`, a JSON blob with every helper secret; see helper/README.md; `--memory-store`: a fresh key per run). Phone: Android Keystore Ed25519 key (API 33+, where the Keystore supports it), else a 32-byte seed AES-256-GCM-wrapped by a Keystore key in an app-private pref.
+- Both sides hold one long-lived **Ed25519** key pair. Helper: private key in the login Keychain, inside the helper's one secrets item (generic password, service `<keychain service>`, account `secrets.v3`, a JSON blob with every helper secret; see helper/README.md; `--memory-store`: a fresh key per run). Phone: Android Keystore Ed25519 key (API 33+, where the Keystore supports it), else a 32-byte seed AES-256-GCM-wrapped by a Keystore key in an app-private pref.
 - `pub`: the 32-byte raw public key, lower-case hex (64 chars). `sig`: the 64-byte Ed25519 signature, hex (128 chars).
 - `fp` (fingerprint): first 16 bytes of SHA-256(raw public key), hex (32 chars).
 - Device id of a trusted phone on the helper: `k:` + its `fp`.
@@ -146,6 +146,8 @@ Proximity ≈ Bluetooth range (typically 10-30 m indoors, through walls). Instan
 | Lost phone | Block (when it reconnects), or "Revoke all devices" in the helper menu. | Until revoked it keeps working on the LAN / tailnet. |
 
 ## 7. Compatibility
+
+- Upgrading the helper to the `secrets.v3` build: earlier Keychain items (`secrets.v2`, `secrets`, `devices`, `dev.mote.helper.bridge`, `dev.mote.helper.labs`) are stale and never read, so phones re-pair once (one tap). Remove the stale items in Keychain Access (search "dev.mote.helper"); the helper does not delete them because that can prompt.
 
 - 0.6 phone + 0.5 helper with Labs on: the handshake works, but without a proximity characteristic the 0.5 helper falls back to its Allow alert. With Labs off (or older helpers): `unauth` → "Update Mote Helper, or use Pair with code".
 - 0.5 phone + 0.6 helper: the phone sends no `prox`, so it is trusted only via Tailscale or with Require approval.

@@ -9,10 +9,16 @@ Protocol: `docs/protocol.md`; pairing: `docs/pairing.md`.
 helper/build.sh                 # build/MoteHelper.app + build/MoteHelper-macos-<arch>.zip(.sha256)
 ARCHS=arm64 helper/build.sh     # one arch
 MOTE_ADHOC=1 helper/build.sh    # ad-hoc signature (CI, agents): no keychain access, permissions don't stick
-helper/tests/unit.sh            # Swift unit tests (permission model, Keychain blob migration, screen math)
+helper/tests/unit.sh            # Swift unit tests (permission model, Keychain blob, screen math); `helper/tests/signing.sh` tests identity selection and notarize.sh with stubs
 ```
 
 ## Signing: one-time setup
+
+See [docs/signing.md](../docs/signing.md) for the full picture. `build.sh` signs with the first of: `MOTE_SIGN_IDENTITY`,
+Developer ID Application, Apple Development (free, Xcode; has a Team ID so the Keychain stays silent on rebuilds), "Mote Helper Local"
+(below; the Keychain prompts after every rebuild), ad-hoc. **Release zips must be Developer-ID signed and notarized:**
+`MOTE_RELEASE=1 helper/build.sh` (calls `helper/notarize.sh`; needs `xcrun notarytool store-credentials mote-notary ...` once).
+The self-signed section below is the fallback for dev builds without an Apple identity.
 
 macOS ties Accessibility, Bluetooth, Screen Recording and Automation grants, and the Keychain
 "Always Allow", to the app's *designated requirement*. An ad-hoc signature changes on every build,
@@ -65,13 +71,13 @@ the Setup window then offers **Relaunch helper**.
 
 ## Keychain
 
-Every secret is in **one** generic-password item, service `dev.mote.helper`, account `secrets`: a JSON
+Every secret is in **one** generic-password item, service `dev.mote.helper`, account `secrets.v3`: a JSON
 blob with the code-paired devices, the Labs bridge pairings, the trusted and blocked phone keys and the
-Mac's Ed25519 identity (`Vault.swift`). It is read once at launch and cached, so there is at most one
-Keychain prompt, and none after "Always Allow" with the stable signature. Builds before 0.6 used five
-items (`dev.mote.helper/devices`, `dev.mote.helper.bridge/devices`, `dev.mote.helper.labs/{trusted,blocked,identity}`);
-they are migrated into the blob on first launch and deleted. The proximity secret is per process and
-never stored. Tests use `--memory-store` (no Keychain at all) or `--keychain-service NAME`.
+Mac's Ed25519 identity (`Vault.swift`). It is read once at launch, without Keychain UI (an interaction-required or auth error counts as "not
+present", is logged and never retried), and written once on the first launch. With a Team ID signature the item's partition is
+`teamid:<TEAM>`, so updates read it silently (docs/signing.md). Older items (`secrets.v2`, `secrets`, `devices`, ...) are never read or
+deleted; pairings do not carry over (re-pair once). The proximity secret is per process and never stored. Tests use `--memory-store`
+(no Keychain at all) or `--keychain-service NAME`.
 
 ## Menu
 
