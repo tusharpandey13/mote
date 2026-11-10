@@ -151,6 +151,24 @@ class SmartRemoteJourney {
         }
     }
 
+    /** B3 (Labs on both sides, YouTube in Chrome, nothing on the phone): a browser whose tabs the helper may not read says why. */
+    @Test fun browserAutomationAsk() {
+        j.path("smart-remote.blocked")
+        setup(ctx = """{"app":"Google Chrome","bundle":"com.google.Chrome","browser":true,"automation":"ask"}""", np = false)
+        j.step("K1", FILE) {
+            mac.from = 0; mac.await("labs: now-playing reader off in dry run", 8_000)
+            j.expect("Mote Helper hasn't been allowed to read Google Chrome tabs yet", timeoutMs = 8_000, substring = true)
+        }
+    }
+
+    @Test fun browserNoSignal() {
+        j.path("smart-remote.blocked")
+        setup(ctx = """{"app":"Google Chrome","bundle":"com.google.Chrome","browser":true,"automation":"granted"}""", np = false)
+        j.step("K2", FILE) {
+            j.expect("Can't tell what Google Chrome is showing", timeoutMs = 8_000, substring = true)
+        }
+    }
+
     @Test fun noNowPlaying() {
         j.path("smart-remote.no-nowplaying")
         setup(np = false)

@@ -100,6 +100,37 @@ class HelperIntegrationTest {
         dev.mote.remote.diag.HelperDiag.clear()
     }
 
+    /**
+     * B3 (Labs on both sides, YouTube in Chrome, nothing on the phone), against the real helper: a browser
+     * whose tabs the helper may not read (`automation:"ask"`) and no now-playing has no profile and no card;
+     * the app must say why instead of showing nothing.
+     */
+    @Test fun smartRemoteBrowserAskedAutomationExplainsItself() = runBlocking {
+        proc.destroy(); log.clear()
+        val ctx = File.createTempFile("ctx", ".json").apply { deleteOnExit(); writeText("""{"app":"Google Chrome","bundle":"com.google.Chrome","browser":true,"automation":"ask"}""") }
+        spawn("--fake-context", ctx.path, "--labs-tv")
+        val p = pairWith(http, "127.0.0.1", port, code, "jvm b3")
+        val token = p.token.copyOf()
+        val got = Collections.synchronizedList(ArrayList<org.json.JSONObject>())
+        scope.launch { dev.mote.remote.labs.LabsBus.incoming.collect { got += it } }
+        val t = WsTransport(http, scope, p.hostId, { WsTarget(listOf("127.0.0.1"), port, p.deviceId) { Proto.hmacHex(token, it) } })
+        t.start()
+        withTimeout(10_000) { t.status.first { it is WsStatus.Ready } }
+        assertTrue(t.sendLabs("""{"t":"labs.ctx.sub","on":true}"""))
+        assertTrue(t.sendLabs("""{"t":"labs.np.sub","on":true}"""))
+        withTimeout(10_000) { while (got.none { it.optString("t") == "labs.ctx" }) kotlinx.coroutines.delay(50) }
+        Thread.sleep(500)
+        val frames = synchronized(got) { got.map { it.toString() } }
+        println("B3 frames from the helper: " + frames.joinToString(" | ").take(1500))
+        val last = synchronized(got) { got.toList() }
+        val ctxState = dev.mote.remote.labs.context.SmartRemote.parseContext(last.last { it.optString("t") == "labs.ctx" })
+        val npFrame = last.last { it.optString("t") == "labs.np" }
+        val np = dev.mote.remote.labs.context.NpState(enabled = npFrame.optBoolean("enabled"), source = npFrame.optString("source"))
+        val b = dev.mote.remote.labs.Blockers.smartRemote(dev.mote.remote.labs.Blockers.Link(true, true), ctxState, np, profileShown = false)
+        println("B3 context=$ctxState np=$np blocker=$b")
+        assertTrue("a blocker explains the empty panel: $ctxState / $np", b != null)
+    }
+
     @Test fun pairAuthAndSendInputOverWebSocket() = runBlocking {
         val p = pairWith(http, "127.0.0.1", port, code, "jvm test")
         assertTrue(p.hello.hostId!!.matches(Regex("[0-9a-f]{16}")))
