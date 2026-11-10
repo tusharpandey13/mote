@@ -24,6 +24,10 @@ ok "developer id"             "$(pick STUB_DEVID=1 STUB_LOCAL=1)" "developer-id 
 ok "apple development beats local" "$(pick STUB_APPLE=1 STUB_LOCAL=1)" "apple-development DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
 ok "developer id beats apple dev" "$(pick STUB_APPLE=1 STUB_DEVID=1)" "developer-id AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 ok "local when no dev id"     "$(pick STUB_LOCAL=1)" "local CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+ok "release skips apple dev"  "$(pick STUB_APPLE=1 STUB_LOCAL=1 MOTE_RELEASE=1)" "local CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+ok "release prefers dev id"   "$(pick STUB_APPLE=1 STUB_DEVID=1 STUB_LOCAL=1 MOTE_RELEASE=1)" "developer-id AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+ok "explicit Local name"      "$(pick STUB_LOCAL=1 MOTE_SIGN_IDENTITY='Mote Helper Local')" "local CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+ok "release, only apple dev: adhoc (build.sh refuses)" "$(pick STUB_APPLE=1 MOTE_RELEASE=1 OPENSSL=x)" "adhoc -"
 ok "adhoc when MOTE_ADHOC"    "$(pick STUB_DEVID=1 MOTE_ADHOC=1)" "adhoc -"
 ok "adhoc on CI"              "$(pick STUB_DEVID=1 CI=1)" "adhoc -"
 # Last branch: nothing in the keychain and signing.sh cannot create one (openssl stubbed to fail).

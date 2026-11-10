@@ -16,8 +16,9 @@ helper/tests/unit.sh            # Swift unit tests (permission model, Keychain b
 
 See [docs/signing.md](../docs/signing.md) for the full picture. `build.sh` signs with the first of: `MOTE_SIGN_IDENTITY`,
 Developer ID Application, Apple Development (free, Xcode; has a Team ID so the Keychain stays silent on rebuilds), "Mote Helper Local"
-(below; the Keychain prompts after every rebuild), ad-hoc. **Release zips must be Developer-ID signed and notarized:**
-`MOTE_RELEASE=1 helper/build.sh` (calls `helper/notarize.sh`; needs `xcrun notarytool store-credentials mote-notary ...` once).
+(below; the Keychain prompts after every rebuild), ad-hoc. **Release zips** (`MOTE_RELEASE=1 helper/build.sh`) are signed with
+Developer ID (then notarized via `helper/notarize.sh`; needs `xcrun notarytool store-credentials mote-notary ...` once) or, until
+that exists, with "Mote Helper Local" (not notarized, warning; users get one Keychain prompt per update). Never ad-hoc or Apple Development.
 The self-signed section below is the fallback for dev builds without an Apple identity.
 
 macOS ties Accessibility, Bluetooth, Screen Recording and Automation grants, and the Keychain

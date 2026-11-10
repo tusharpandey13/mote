@@ -5,11 +5,11 @@
 #   ARCHS=arm64 ./build.sh
 # Signing identity (helper/sign-identity.sh), first match wins:
 #   MOTE_SIGN_IDENTITY=<sha1|name>  explicit
-#   Developer ID Application: ... (TEAMID) in the keychain  -> hardened runtime + timestamp; the only kind a release may use
-#   Apple Development: ... (TEAMID) (free Xcode personal team) -> local builds; Team ID, so the Keychain stays silent on rebuilds
-#   "Mote Helper Local" (helper/signing.sh)                 -> dev builds; Keychain prompts after every rebuild
+#   Developer ID Application: ... (TEAMID) in the keychain  -> hardened runtime + timestamp; a release may use it (notarized)
+#   Apple Development: ... (TEAMID) (free Xcode personal team) -> local builds only (skipped for MOTE_RELEASE=1); Team ID, so the Keychain stays silent on rebuilds
+#   "Mote Helper Local" (helper/signing.sh)                 -> dev builds and (un-notarized) releases; Keychain prompts after every rebuild/update
 #   ad-hoc (MOTE_ADHOC=1, or CI)
-#   MOTE_RELEASE=1  require Developer ID, then notarize + staple (helper/notarize.sh) and zip. See docs/signing.md.
+#   MOTE_RELEASE=1  Developer ID (notarize + staple, helper/notarize.sh) or "Mote Helper Local" (no notarization, warning); never ad-hoc/Apple Development. See docs/signing.md.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -25,11 +25,16 @@ case "$KIND" in
   developer-id) OPTS=(--options runtime --timestamp) ;;
   *) OPTS=(--options runtime) ;;
 esac
+NOTARIZE=""
+if [ -n "$RELEASE" ]; then
+  case "$KIND" in
+    developer-id) NOTARIZE=1 ;;
+    local) echo "!! WARNING: release signed with the self-signed 'Mote Helper Local', NOT notarized. Users get one Keychain prompt per helper update (docs/signing.md)." >&2 ;;
+    *) echo "!! MOTE_RELEASE=1 needs a Developer ID Application or 'Mote Helper Local' identity (got: $KIND). See docs/signing.md." >&2; exit 1 ;;
+  esac
+fi
 if [ "$KIND" != developer-id ]; then
-  if [ -n "$RELEASE" ]; then
-    echo "!! MOTE_RELEASE=1 needs a Developer ID Application identity (got: $KIND). See docs/signing.md." >&2; exit 1
-  fi
-  if [ "$KIND" = local ]; then
+  if [ "$KIND" = local ] && [ -z "$RELEASE" ]; then
     echo "!! WARNING: signing with the self-signed 'Mote Helper Local' (dev build). Its Keychain partition is this exact build," >&2
     echo "!! so macOS will ask for your login password after EVERY rebuild. Releases need Developer ID (docs/signing.md)." >&2
   elif [ "$KIND" = apple-development ]; then
@@ -73,7 +78,7 @@ for arch in $ARCHS; do
 
   ZIP="$OUT/MoteHelper-macos-$arch.zip"
   rm -f "$ZIP"
-  if [ -n "$RELEASE" ]; then "$HERE/notarize.sh" "$APP" "$ZIP"   # submit, staple, re-zip
+  if [ -n "$NOTARIZE" ]; then "$HERE/notarize.sh" "$APP" "$ZIP"   # submit, staple, re-zip
   else (cd "$OUT/$arch" && ditto -c -k --keepParent MoteHelper.app "$ZIP"); fi
   (cd "$OUT" && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256")
   echo "==> $ZIP"; cat "$ZIP.sha256"
