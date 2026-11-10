@@ -20,8 +20,9 @@ async function fixture(): Promise<Fixture> {
   fs.mkdirSync(home); fs.mkdirSync(stubs);
   const stub = (name: string, body: string) => fs.writeFileSync(path.join(stubs, name), `#!/bin/bash\n${body}\n`, { mode: 0o755 });
   stub('uname', `case "$1" in -s) echo "\${FAKE_UNAME_S:-Darwin}";; -m) echo "\${FAKE_UNAME_M:-arm64}";; *) /usr/bin/uname "$@";; esac`);
-  stub('pgrep', `echo "pgrep $*" >> "${log}"; exit 1`);
-  stub('pkill', `echo "pkill $*" >> "${log}"; exit 0`);
+  // A "running" helper is the file bin/running. pkill (TERM) ends it unless bin/stubborn exists; pkill -9 always ends it.
+  stub('pgrep', `echo "pgrep $*" >> "${log}"; [ -e "${stubs}/running" ]`);
+  stub('pkill', `echo "pkill $*" >> "${log}"; case "$1" in -9) rm -f "${stubs}/running";; *) [ -e "${stubs}/stubborn" ] || rm -f "${stubs}/running";; esac; exit 0`);
   stub('open', `echo "open $*" >> "${log}"; exit 0`);
   stub('tccutil', `echo "tccutil $*" >> "${log}"; exit 0`);   // never reset the real Mac's permissions
   // codesign -d -r- <app>: the unpacked new app lives under .../x/, the installed one doesn't.
@@ -55,10 +56,12 @@ function fakeZip(dir: string, marker: string, withApp = true): Buffer {
 
 const sha = (b: Buffer) => crypto.createHash('sha256').update(b).digest('hex');
 
-function run(fx: Fixture, env: Record<string, string> = {}): Promise<{ code: number; out: string }> {
+function run(fx: Fixture, env: Record<string, string> = {}, args: string[] = []): Promise<{ code: number; out: string }> {
   return new Promise((res) => {
-    const p = spawn('bash', [INSTALL], {
-      env: { HOME: fx.home, PATH: `${fx.stubs}:/usr/bin:/bin:/usr/sbin:/sbin`, MOTE_RELEASE_URL: fx.base, ...env },
+    const p = spawn('bash', [INSTALL, ...args], {
+      // MOTE_SYSTEM_APPLICATIONS points at an empty temp dir, so the real /Applications is never looked at.
+      env: { HOME: fx.home, PATH: `${fx.stubs}:/usr/bin:/bin:/usr/sbin:/sbin`, MOTE_RELEASE_URL: fx.base,
+             MOTE_SYSTEM_APPLICATIONS: path.join(fx.dir, 'sysapps'), ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let out = '';
@@ -117,12 +120,96 @@ test.describe('install.sh', () => {
     const signed = 'identifier "dev.mote.helper" and certificate leaf = H"bb"';
     let r = await run(fx, { FAKE_REQ_OLD: 'cdhash H"aa"', FAKE_REQ_NEW: signed });
     expect(r.code, r.out).toBe(0);
-    expect(stubLog(fx)).toContain('tccutil reset Accessibility dev.mote.helper');
+    for (const svc of ['Accessibility', 'ScreenCapture', 'BluetoothAlways', 'AppleEvents']) {
+      expect(stubLog(fx)).toContain(`tccutil reset ${svc} dev.mote.helper`);   // U9
+    }
     expect(stubLog(fx)).toContain(`open ${installed()} --args --setup`);
     fs.rmSync(fx.log, { force: true });
     r = await run(fx, { FAKE_REQ_OLD: signed, FAKE_REQ_NEW: signed });   // same stable signature: keep grants
     expect(r.code, r.out).toBe(0);
     expect(stubLog(fx)).not.toContain('tccutil');
+  });
+
+  function serve(marker: string) {
+    const zip = fakeZip(fx.dir, marker);
+    fx.files.set('/releases/latest/download/MoteHelper-macos-arm64.zip', zip);
+    fx.files.set('/releases/latest/download/MoteHelper-macos-arm64.zip.sha256', Buffer.from(`${sha(zip)}  MoteHelper-macos-arm64.zip\n`));
+  }
+  const sysApp = () => path.join(fx.dir, 'sysapps/MoteHelper.app');
+  const makeSys = (marker: string) => { fs.mkdirSync(path.join(sysApp(), 'Contents'), { recursive: true }); fs.writeFileSync(path.join(sysApp(), 'Contents/marker'), marker); };
+
+  test('INS-10 (U10): a second copy in /Applications -> warns, installs to ~/Applications, leaves the other alone', async () => {
+    serve('v4');
+    makeSys('sys-old');
+    fs.mkdirSync(path.join(installed(), 'Contents'), { recursive: true });
+    const r = await run(fx);
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain('there is also a copy at');
+    expect(fs.readFileSync(path.join(installed(), 'Contents/marker'), 'utf8')).toBe('v4');
+    expect(fs.readFileSync(path.join(sysApp(), 'Contents/marker'), 'utf8')).toBe('sys-old');
+  });
+
+  test('INS-10 (U10): the only copy is a writable /Applications one -> updated in place, nothing in ~/Applications', async () => {
+    serve('v5');
+    makeSys('sys-old');
+    const r = await run(fx);
+    expect(r.code, r.out).toBe(0);
+    expect(fs.readFileSync(path.join(sysApp(), 'Contents/marker'), 'utf8')).toBe('v5');
+    expect(fs.existsSync(installed())).toBe(false);
+    expect(stubLog(fx)).toContain(`open ${sysApp()} --args --setup`);
+  });
+
+  test('INS-10 (U10): MOTE_INSTALL_DIR is honoured even when /Applications has a copy', async () => {
+    serve('v6');
+    makeSys('sys-old');
+    const dir = path.join(fx.dir, 'custom');
+    const r = await run(fx, { MOTE_INSTALL_DIR: dir });
+    expect(r.code, r.out).toBe(0);
+    expect(fs.readFileSync(path.join(dir, 'MoteHelper.app/Contents/marker'), 'utf8')).toBe('v6');
+    expect(fs.readFileSync(path.join(sysApp(), 'Contents/marker'), 'utf8')).toBe('sys-old');
+  });
+
+  test('INS-7 (U14): a helper that quits within the wait -> installs without kill -9', async () => {
+    serve('v7');
+    fs.writeFileSync(path.join(fx.stubs, 'running'), '');
+    const r = await run(fx);
+    expect(r.code, r.out).toBe(0);
+    expect(stubLog(fx)).toContain('pkill -x MoteHelper');
+    expect(stubLog(fx)).not.toContain('pkill -9');
+    expect(fs.readFileSync(path.join(installed(), 'Contents/marker'), 'utf8')).toBe('v7');
+  });
+
+  test('INS-7 (U14): a helper that will not quit -> after 5 s aborts "Quit Mote Helper first", nothing replaced', async () => {
+    serve('v8');
+    fs.writeFileSync(path.join(fx.stubs, 'running'), '');
+    fs.writeFileSync(path.join(fx.stubs, 'stubborn'), '');
+    fs.mkdirSync(path.join(installed(), 'Contents'), { recursive: true });
+    fs.writeFileSync(path.join(installed(), 'Contents/marker'), 'old');
+    const t0 = Date.now();
+    const r = await run(fx);
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(4500);
+    expect(r.code).not.toBe(0);
+    expect(r.out).toContain('Quit Mote Helper first');
+    expect(stubLog(fx)).not.toContain('pkill -9');
+    expect(fs.readFileSync(path.join(installed(), 'Contents/marker'), 'utf8')).toBe('old');
+    expect(stubLog(fx)).not.toContain('open ');
+  });
+
+  test('INS-7 (U14): --force kills a stubborn helper and installs', async () => {
+    serve('v9');
+    fs.writeFileSync(path.join(fx.stubs, 'running'), '');
+    fs.writeFileSync(path.join(fx.stubs, 'stubborn'), '');
+    const r = await run(fx, {}, ['--force']);
+    expect(r.code, r.out).toBe(0);
+    expect(stubLog(fx)).toContain('pkill -9 -x MoteHelper');
+    expect(fs.readFileSync(path.join(installed(), 'Contents/marker'), 'utf8')).toBe('v9');
+  });
+
+  test('unknown option -> refuses before downloading', async () => {
+    const r = await run(fx, {}, ['--nope']);
+    expect(r.code).not.toBe(0);
+    expect(r.out).toContain('unknown option --nope');
+    expect(fx.requests).toEqual([]);
   });
 
   test('checksum mismatch -> aborts, nothing installed, nothing opened', async () => {
