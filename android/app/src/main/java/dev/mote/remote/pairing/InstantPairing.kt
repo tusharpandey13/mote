@@ -165,10 +165,31 @@ object InstantPairing {
         }
     }
 
+    /**
+     * U12: the user agreed to trust the Mac's new key. Drops the pinned key and runs the first-connect handshake again,
+     * which re-reads the BLE proximity token; if that fails the old record is put back and the error is thrown.
+     */
+    suspend fun trustNewKey(hostId: String) {
+        val old = _records.value[hostId] ?: throw HelperError("noroute", "This Mac isn't trusted here yet.")
+        val h = Net.saved.value.firstOrNull { it.hostId == hostId }
+        val found = FoundMac(hostId, h?.name ?: "this Mac", null, emptyList(), h?.port ?: dev.mote.remote.net.Proto.DEFAULT_PORT, setOf(Source.KNOWN))
+        _records.value = _records.value - hostId
+        try {
+            connect(found)
+        } catch (e: Exception) {
+            _records.value = _records.value + (hostId to old) // keep the old pin: nothing changed
+            throw e
+        }
+        Net.active.value.let { (it as? WsTransport)?.kick() }
+    }
+
     /** Silent re-auth: same helper key required, and no prompt (a prompt means the Mac dropped this phone). */
     private suspend fun reconnect(s: WsSession, r: TrustRecord) = try {
         labsHandshake(s, Identity.get(app), deviceName(), r.fp, allowPrompt = false).authed
     } catch (e: HelperError) {
+        if (HostKeyChange.isKeyMismatch(e.code, e.message)) {
+            HostKeyChange.report(r.hostId, Net.saved.value.firstOrNull { it.hostId == r.hostId }?.name ?: "This Mac")
+        }
         // WsTransport stops on `auth`: wrong key, revoked or denied need the user, not a retry loop.
         throw if (e.code in setOf("helper-key", "revoked", "denied", "unauth", "blocked", "far", "stale", "bad-proximity")) HelperError("auth", e.message ?: e.code) else e
     }
