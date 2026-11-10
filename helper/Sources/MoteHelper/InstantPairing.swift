@@ -170,6 +170,12 @@ final class InstantPairing: NSObject {
     private func hello(_ m: [String: Any], from s: Session) {
         guard !s.authed else { return }
         let ref = "labs.pair.hello"
+        // M2: while the Keychain is being read the trust list and this Mac's key are not loaded: no hi (a placeholder key would
+        // look like a changed Mac), no decision. The phone keeps its pairing and tries again.
+        if hub.vault.reading {
+            ev(.session, "pair.failed", ["reason": "keychain-reading", "transport": s.transport])
+            s.send(["t": "err", "code": "keychain-reading", "msg": "This Mac is still reading its Keychain; try again in a moment", "ref": ref, "retryAfter": 2, "ephemeral": true]); return
+        }
         if let wait = hub.limiter.retryAfter(s.peer) {
             s.send(["t": "err", "code": "rate", "msg": "too many attempts", "ref": ref, "retryAfter": wait]); return
         }

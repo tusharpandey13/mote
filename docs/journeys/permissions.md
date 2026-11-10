@@ -91,8 +91,8 @@ Tests: MANUAL-5, MANUAL-6 (L3).
 API `AEDeterminePermissionToAutomateTarget(ask:false)` for each running scriptable browser.
 States NotDetermined (`automation-ask` on phone) → Granted / Denied (`automation-denied`, `fix=open-automation-settings`). Stale after DR change: not reset by install.sh (U9). Tests: android:BlockersTest#browserWithoutAutomationIsNotSilent (L0), android:HelperIntegrationTest#smartRemoteBrowserAskedAutomationExplainsItself (L2).
 
-## Mac: Keychain item `secrets.v3`
-One read per launch with `kSecUseAuthenticationUIFail`; writes also UIFail.
+## Mac: Keychain account `secrets.v4.<partition>`
+An attributes-only list, then one read per launch with `kSecUseAuthenticationUIFail`; writes also UIFail.
 ```mermaid
 stateDiagram-v2
   [*] --> Absent
@@ -106,8 +106,8 @@ stateDiagram-v2
 |---|---|---|---|
 | Absent | notfound | ok | blob created |
 | Found | found | ok | pairings, identity, blocked list loaded |
-| Unreadable, partition mismatch | error -25308 / -25293, then `interactiveRead=ok` | unknown ("Reading Keychain…") until the read ends, then ok | starts ephemeral; one interactive read per identity after launch, off the main thread; backup `secrets.v3.pending`, in-place update, delete + add only if still unreadable; the Keychain wins over in-memory pairings (U5) |
-| Unreadable, denied or other failure | error, `ephemeral=true` | `keychain-unreadable`, `fix=repair-keychain` | ephemeral: memory only, never saves, no automatic trust, every phone needs Allow; leaves only via a successful read or Repair (U5, U6) |
+| Unreadable, partition mismatch | error -25308 / -25293, then `interactiveRead=ok` | unknown ("Reading Keychain…") until the read ends, then ok | starts ephemeral; new pairings refused (`keychain-reading`); one interactive read per (identity, item, modification date) after launch, off the main thread; the data is copied into this build's own account, the old item is never rewritten or deleted; the Keychain wins over in-memory pairings (U5) |
+| Unreadable, denied or other failure | error, `ephemeral=true` | `keychain-unreadable`, `fix=repair-keychain` | ephemeral: memory only, never saves, no automatic trust, every phone needs Allow; a denied read is not asked again until Try again, Repair or a changed item; leaves only via a successful read, a successful write or Repair (own account only) (U5, U6) |
 | Corrupt | unreadable, `ephemeral=true` | `keychain-corrupt`, `fix=repair-keychain` | same ephemeral mode; never overwritten until Repair |
 | Memory (`--memory-store`) | memory | ok | nothing persisted |
 Menu line "Pairings aren't being saved: Keychain unavailable", "Try reading Keychain again", "Keychain: Repair…" and the Setup row show while ephemeral ("Reading Keychain…" while the read runs). `--dry-run` never reads interactively; no signing identity gives `interactiveRead=n/a`, reason `no-identity`. Tests: helper:VaultUnreadableTests, helper/tests/keychain.mjs, helper:VaultTests#authErrorIsNotPresentAndNeverRetriedOrOverwritten, helper:VaultTests#tolerantDecode, helper:DiagTests#keychainStatusCodes (L0); MANUAL-23 (L3).

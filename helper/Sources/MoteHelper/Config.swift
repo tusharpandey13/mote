@@ -27,7 +27,7 @@ struct Config {
     var fakeContext: String? = nil // Labs tests: read the frontmost-app context from this JSON file (needs --dry-run)
     var fakeNowPlaying = false     // Labs tests: a synthetic now-playing session (needs --dry-run)
     var fakeScreen = false    // tests: Labs live screen streams synthetic frames of a fake display (needs --dry-run; turns the lab on)
-    var fakeKeychain: FakeKeychainState? = nil // tests: simulate the secrets.v3 read: found|notfound|partitionmismatch|denied|error (needs --dry-run)
+    var fakeKeychain: FakeKeychainState? = nil // tests: simulate the Keychain accounts: found|notfound|partitionmismatch|denied|error (needs --dry-run)
     var diag = false          // --diag: print the diagnostics snapshot (JSON) and exit; no prompts, no UI, no writes
     var dataDir: URL? = nil   // --data-dir DIR: where the running helper writes diag.json / diag-events.jsonl (default ~/Library/Application Support/dev.mote.helper; none with --memory-store)
     var eventsFile: String? = nil // --events FILE: append every event as one JSON line

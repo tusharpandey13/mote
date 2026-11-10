@@ -17,7 +17,7 @@ enum EventCatalog {
         .lifecycle: ["start", "ready", "terminate", "setting", "diag.cli"],
         .signing: ["identity", "error"],
         .permission: ["check", "change", "request"],
-        .keychain: ["read", "write", "partition", "interactive", "rewrite", "ephemeral.enter", "ephemeral.leave", "repair", "pending", "retry", "reread"],
+        .keychain: ["read", "write", "list", "accounts", "partition", "interactive", "copy", "ephemeral.enter", "ephemeral.leave", "repair", "reread"],
         .discovery: ["bonjour.attempt", "bonjour.registered", "bonjour.failed", "ble.state", "ble.advertising", "ble.failed", "tailnet.detect"],
         .transport: ["listen.state", "conn.accepted", "conn.refused", "conn.closed", "ws.upgrade", "ws.refused", "ble.central", "http.response"],
         .session: ["open", "authed", "auth.failed", "paired", "pair.failed", "closed", "revoked"],

@@ -51,7 +51,7 @@ struct DiagInput {
 }
 
 struct KeychainInfo {
-    var service = "dev.mote.helper", account = Vault.account, memoryOnly = false
+    var service = "dev.mote.helper", account = "", memoryOnly = false, otherAccounts: [String] = []
     var readStatus: Int? = nil, readResult = "memory", writeStatus: Int? = nil
     var itemCount: Int? = nil
     var partitionAtWrite: String? = nil
@@ -109,9 +109,10 @@ enum Diag {
         let k = i.keychain
         if k.memoryOnly { f["keychain"] = .off("memory store: nothing is kept between runs") }
         else if k.ephemeral && k.ephemeralReason == "reading" { f["keychain"] = .unknown("Reading Keychain…") }
-        else if k.readResult == "error" || (k.ephemeral && k.ephemeralReason != "corrupt") { f["keychain"] = .blocked("keychain-unreadable", fix: "repair-keychain", "Pairings aren't being saved: Keychain unavailable (secrets.v3 read returned \(k.readStatus ?? 0), interactive read \(k.interactiveRead)); nothing is trusted automatically this run") }
-        else if k.readResult == "unreadable" { f["keychain"] = .blocked("keychain-corrupt", fix: "repair-keychain", "Pairings aren't being saved: secrets.v3 is corrupt") }
-        else if k.readResult == "found" || k.readResult == "notfound" { f["keychain"] = .ok(k.readResult == "found" ? "secrets.v3 read" : "secrets.v3 created") }
+        else if k.ephemeral && k.ephemeralReason == "write-failed" { f["keychain"] = .blocked("keychain-write-failed", fix: "repair-keychain", "Pairings aren't being saved: writing \(k.account) failed (status \(k.writeStatus ?? 0)); nothing is trusted automatically this run") }
+        else if k.readResult == "unreadable" { f["keychain"] = .blocked("keychain-corrupt", fix: "repair-keychain", "Pairings aren't being saved: \(k.account) is corrupt") }
+        else if k.readResult == "error" || k.ephemeral { f["keychain"] = .blocked("keychain-unreadable", fix: "repair-keychain", "Pairings aren't being saved: Keychain unavailable (read returned \(k.readStatus ?? 0), interactive read \(k.interactiveRead)); nothing is trusted automatically this run") }
+        else if k.readResult == "found" || k.readResult == "notfound" { f["keychain"] = .ok(k.readResult == "found" ? "\(k.account) read" : "\(k.account) created") }
         else { f["keychain"] = .unknown("not read in this process") }
 
         // wifi / bonjour
@@ -193,7 +194,7 @@ enum Diag {
         }
 
         let kc: [String: Any] = [
-            "service": k.service, "account": k.account, "memoryOnly": k.memoryOnly,
+            "service": k.service, "account": k.account, "otherAccounts": k.otherAccounts, "memoryOnly": k.memoryOnly,
             "readStatus": k.readStatus.map { $0 as Any } ?? NSNull(), "readResult": k.readResult,
             "writeStatus": k.writeStatus.map { $0 as Any } ?? NSNull(), "itemCount": k.itemCount.map { $0 as Any } ?? NSNull(),
             "ephemeral": k.ephemeral, "ephemeralReason": k.ephemeralReason ?? NSNull(), "interactiveRead": k.interactiveRead,
@@ -294,8 +295,8 @@ enum Diag {
         return i
     }
 
-    /// `--diag`: nothing is running here, so runtime sections are unknown. Reads secrets.v3 with the no-UI flag (status only,
-    /// never the data, never a write) and counts our items by attributes (needs no authorization).
+    /// `--diag`: nothing is running here, so runtime sections are unknown. Lists the service's accounts by attributes only (no
+    /// data, no ACL, no prompt, never a write): is our own account there, which other accounts exist.
     static func cliSnapshot(config: Config) -> [String: Any] {
         var i = baseInput(config: config, source: "cli")
         i.running = false
@@ -307,15 +308,18 @@ enum Diag {
         i.tvLab = UserDefaults.standard.bool(forKey: "labs.tvMode")
         i.bridgeLab = UserDefaults.standard.bool(forKey: "labsBridge")
         if !config.memoryStore && !config.usesFakeKeychain {
-            var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: config.keychainService,
-                                    kSecAttrAccount as String: Vault.account, kSecMatchLimit as String: kSecMatchLimitOne]
-            q[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail   // attributes only (no kSecReturnData): never prompts
-            q[kSecReturnAttributes as String] = true
-            var out: CFTypeRef?
-            let st = SecItemCopyMatching(q as CFDictionary, &out)
-            i.keychain.readStatus = Int(st)
-            i.keychain.readResult = st == errSecSuccess ? "found" : st == errSecItemNotFound ? "notfound" : "error"
-            ev(.keychain, "read", ["account": Vault.account, "status": Int(st), "attributesOnly": true])
+            // Attributes only (the list call is ACL-free, never prompts): is OUR account there, and which others exist.
+            let own = Vault.account(for: i.signing.expectedPartition)
+            i.keychain.account = own ?? ""
+            do {
+                let es = try KeychainBackend().list(service: config.keychainService)
+                i.keychain.otherAccounts = es.map(\.account).filter { $0 != own }.sorted()
+                let found = es.contains { $0.account == own }
+                i.keychain.readStatus = found ? 0 : Int(errSecItemNotFound)
+                i.keychain.readResult = found ? "found" : "notfound"
+            } catch let e as KeychainError {
+                i.keychain.readStatus = Int(e.status); i.keychain.readResult = "error"
+            } catch { i.keychain.readResult = "error" }
         }
         i.events = (Events.shared.head, Events.shared.count)
         return build(i)
@@ -335,6 +339,8 @@ enum Diag {
         var i = baseInput(config: hub.config, source: source)
         i.hostId = hub.settings.hostId
         i.paused = hub.paused; i.inputReady = hub.inputReady
+        i.keychain.account = hub.vault.ownAccount ?? ""
+        i.keychain.otherAccounts = hub.vault.otherAccounts
         i.keychain.readStatus = hub.vault.readStatus.map(Int.init)
         i.keychain.readResult = hub.vault.readResult
         i.keychain.ephemeral = hub.vault.ephemeral

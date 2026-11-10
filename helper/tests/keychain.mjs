@@ -108,7 +108,9 @@ await scenario('partitionmismatch', [], async ({ p, kc }) => {
   const r = await attempt(p);
   ok(r.hi.fp === seedFp && r.hi.ephemeral === undefined && r.d.via === 'nearby', 'partitionmismatch: seed identity preserved (not re-minted), not ephemeral');
   ok(kc('read').filter((e) => e.fields.interactive === true).length === 1, 'partitionmismatch: exactly one interactive read');
-  ok(kc('rewrite').some((e) => e.fields.ok === true && e.fields.verified === true), 'partitionmismatch: item rewritten and verified');
+  const d0 = await diag(r.ws);
+  ok(kc('copy').some((e) => e.fields.ok === true) && kc('write').every((e) => e.fields.op !== 'delete' && e.fields.account === 'secrets.v4.fake-keychain'), 'partitionmismatch: copied into our own account, nothing deleted or written elsewhere');
+  ok(kc('list').length >= 1 && d0.keychain.otherAccounts.includes('secrets.v3'), 'partitionmismatch: accounts listed, the old secrets.v3 untouched and reported');
   const d = await diag(r.ws);
   ok(d.keychain.readResult === 'found' && d.keychain.interactiveRead === 'ok' && d.features.keychain.state === 'ok', 'partitionmismatch: diag found / interactiveRead ok');
   r.ws.close();

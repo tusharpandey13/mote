@@ -74,10 +74,9 @@ the Setup window then offers **Relaunch helper**.
 
 ## Keychain
 
-Every secret is in **one** generic-password item, service `dev.mote.helper`, account `secrets.v3`: a JSON
+Every secret is in **one** generic-password item, service `dev.mote.helper`, account `secrets.v4.<partition>` (one per signing identity; `<partition>` is `teamid:X` or `cdhash:H`): a JSON
 blob with the code-paired devices, the Labs bridge pairings, the trusted and blocked phone keys and the
-Mac's Ed25519 identity (`Vault.swift`). It is read once at launch, without Keychain UI (an interaction-required or auth error counts as "not
-present", is logged and never retried), and written once on the first launch. With a Team ID signature the item's partition is
+Mac's Ed25519 identity (`Vault.swift`). At launch the helper lists the service's accounts by attributes only, then reads its own account without UI when it is the newest; if another build's account (`secrets.v3`, another `secrets.v4.*`) is newer or its own is missing, it reads that one (at most one Keychain prompt, off the main thread) and copies it into its own account, never rewriting or deleting the old item. Any read error other than "not found" makes the vault ephemeral (memory only), never "empty" (docs/pairing.md section 7). A fresh install writes its account on the first launch. With a Team ID signature the item's partition is
 `teamid:<TEAM>`, so updates read it silently (docs/signing.md). Older items (`secrets.v2`, `secrets`, `devices`, ...) are never read or
 deleted; pairings do not carry over (re-pair once). The proximity secret is per process and never stored. Tests use `--memory-store`
 (no Keychain at all) or `--keychain-service NAME`.

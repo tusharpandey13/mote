@@ -122,9 +122,9 @@ if config.stdinControl {
                     case "screen-lab-on": hub.settings.labsLiveScreen = true
                     case let c where c.hasPrefix("display "): hub.spaces.fakeActivate(Int(c.dropFirst(8)) ?? 0)
                     case let c where c.hasPrefix("displays "): hub.spaces.fakeReplug(String(c.dropFirst(9)))
-                    // tests: the confirmed Repair / the retry; only against a simulated or non-default Keychain service
-                    case "repair-keychain" where config.usesFakeKeychain || config.keychainService != "dev.mote.helper": hub.repairKeychain()
-                    case "reread-keychain" where config.usesFakeKeychain || config.keychainService != "dev.mote.helper": hub.retryKeychainRead()
+                    // tests: the confirmed Repair / the retry; only against a simulated Keychain or with --memory-store
+                    case "repair-keychain" where config.usesFakeKeychain || config.memoryStore: hub.repairKeychain()
+                    case "reread-keychain" where config.usesFakeKeychain || config.memoryStore: hub.retryKeychainRead()
                     case "tailscale on": hub.settings.allowTailscale = true
                     case "tailscale off": hub.settings.allowTailscale = false
                     case let c: log("stdin-control: unknown command '\(c)'")
