@@ -20,6 +20,8 @@ object Remote {
     val mods: StateFlow<Hid.Mods> = Net.active.flatMapLatest { it.mods }.stateIn(Net.scope, SharingStarted.Eagerly, Hid.Mods())
     /** Mac Spaces with thumbnails from the active transport; null over Bluetooth or a pre-1.3 helper. */
     val spaces: StateFlow<SpacesState?> = Net.active.flatMapLatest { it.spaces }.stateIn(Net.scope, SharingStarted.Eagerly, null)
+    /** The active transport is the Mote Helper (Wi-Fi / Tailscale); false over Bluetooth. */
+    val overHelper: StateFlow<Boolean> = Net.active.map { it is WsTransport }.stateIn(Net.scope, SharingStarted.Eagerly, false)
     val caps: StateFlow<Caps> = Net.active.map { it.caps }.stateIn(Net.scope, SharingStarted.Eagerly, Caps.HID)
 
     fun setMods(m: Hid.Mods) = t.setMods(m)

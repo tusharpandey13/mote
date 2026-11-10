@@ -1,5 +1,6 @@
 package dev.mote.remote.pairing
 
+import dev.mote.remote.diag.Events
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
@@ -87,15 +88,18 @@ class BleScan(context: Context) {
     private val callback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) { main.post { seen(result) } }
         override fun onBatchScanResults(results: MutableList<ScanResult>) { main.post { results.forEach(::seen) } }
-        override fun onScanFailed(errorCode: Int) { Log.w(TAG, "scan failed: $errorCode"); main.post { scanning = false } }
+        override fun onScanFailed(errorCode: Int) { Log.w(TAG, "scan failed: $errorCode"); Events.log("discovery", "ble.failed", "code" to errorCode); main.post { scanning = false } }
     }
 
     fun start(durationMs: Long = 20_000) {
-        if (scanning || !permitted()) return
-        val scanner = runCatching { adapter?.takeIf { it.isEnabled }?.bluetoothLeScanner }.getOrNull() ?: return
+        if (scanning) return
+        if (!permitted()) { Events.log("discovery", "ble.failed", "reason" to "permission"); return }
+        val scanner = runCatching { adapter?.takeIf { it.isEnabled }?.bluetoothLeScanner }.getOrNull()
+            ?: run { Events.log("discovery", "ble.failed", "reason" to "bluetooth off"); return }
         val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(UUID.fromString(PairProto.SERVICE_UUID))).build()
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
         scanning = runCatching { scanner.startScan(listOf(filter), settings, callback) }.isSuccess
+        Events.log("discovery", "ble.start", "started" to scanning, "durationMs" to durationMs)
         main.removeCallbacks(stopRunnable)
         if (scanning) main.postDelayed(stopRunnable, durationMs)
     }
@@ -187,6 +191,7 @@ class BleScan(context: Context) {
     private fun publish(g: BluetoothGatt, info: BleInfo, prox: String?) {
         val addr = g.device.address
         bleIds[addr] = info.hostId
+        Events.log("discovery", "ble.found", "rssi" to (rssis[addr] ?: -100), "proximity" to (prox != null))
         devices[info.hostId] = g.device
         val now = System.currentTimeMillis()
         update(NearbyMac(info, rssis[addr] ?: -100, now, prox, if (prox != null) now else 0))

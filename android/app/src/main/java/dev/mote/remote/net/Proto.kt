@@ -13,7 +13,7 @@ sealed interface Msg {
     data class Paired(val id: String, val token: String) : Msg
     data class Authed(val id: String, val name: String, val paused: Boolean, val ax: Boolean) : Msg
     data class State(val paused: Boolean, val ax: Boolean) : Msg
-    data class Err(val code: String, val msg: String, val retryAfter: Int? = null, val ref: String? = null) : Msg
+    data class Err(val code: String, val msg: String, val retryAfter: Int? = null, val ref: String? = null, val corr: String? = null) : Msg
     data class Pong(val n: Int) : Msg
     data class Other(val t: String) : Msg {
         /** The raw JSON (Labs messages read their own fields); not part of equality. */
@@ -48,7 +48,17 @@ object Proto {
     private fun obj(t: String) = JSONObject().put("t", t)
 
     fun pair(code: String, name: String): String = obj("pair").put("code", code).put("name", name.take(64)).toString()
-    fun auth(id: String, mac: String): String = obj("auth").put("id", id).put("mac", mac).toString()
+    /** Protocol this app speaks (docs/protocol.md 2.1); sent in `client` so the helper's diagnostics show it. */
+    const val CLIENT_APP = "mote-android"
+    const val CLIENT_PROTO = "1.5"
+    private fun client() = JSONObject().put("app", CLIENT_APP).put("proto", CLIENT_PROTO)
+
+    fun auth(id: String, mac: String): String = obj("auth").put("id", id).put("mac", mac).put("client", client()).toString()
+    /** `diag` (1.5): the helper's diagnostics snapshot. Older helpers answer `err unknown`. */
+    fun diag(): String = obj("diag").put("client", client()).toString()
+    /** `diag.subscribe` (1.5): stream the helper's events; [since] replays buffered events with a higher seq. */
+    fun diagSubscribe(on: Boolean = true, since: Long? = null): String =
+        obj("diag.subscribe").put("on", on).apply { if (since != null) put("since", since) }.put("client", client()).toString()
     fun ping(n: Int): String = obj("ping").put("n", n).toString()
 
     /** [mods] uses the HID modifier byte layout, the same bits as [dev.mote.remote.hid.Mod]. */
@@ -138,6 +148,7 @@ object Proto {
             "err" -> Msg.Err(
                 o.optString("code"), o.optString("msg"),
                 if (o.has("retryAfter")) o.optInt("retryAfter") else null, o.optString("ref").ifEmpty { null },
+                o.optString("corr").ifEmpty { null },
             )
             "pong" -> Msg.Pong(o.optInt("n"))
             "spaces" -> {

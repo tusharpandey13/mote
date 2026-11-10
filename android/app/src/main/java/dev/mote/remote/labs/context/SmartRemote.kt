@@ -1,6 +1,7 @@
 package dev.mote.remote.labs.context
 
 import android.os.SystemClock
+import dev.mote.remote.diag.Events
 import dev.mote.remote.labs.LabsBus
 import dev.mote.remote.net.Remote
 import kotlinx.coroutines.coroutineScope
@@ -32,6 +33,9 @@ object SmartRemote {
     private val _helperUp = MutableStateFlow(false)
     /** A helper session took our subscription (false over Bluetooth or offline). */
     val helperUp: StateFlow<Boolean> = _helperUp.asStateFlow()
+    private val _tooOld = MutableStateFlow(false)
+    /** The helper answered `err unknown` to `labs.ctx.sub`: it predates this preview. */
+    val tooOld: StateFlow<Boolean> = _tooOld.asStateFlow()
     @Volatile private var active = false
 
     private fun send(o: JSONObject): Boolean = Remote.sendLabs(o.toString())
@@ -41,7 +45,9 @@ object SmartRemote {
         launch { LabsBus.incoming.collect { if (active) onMessage(it) } }
         combine(enabled, Remote.linked) { on, l -> on to l }.collect { (on, linked) ->
             val up = linked && send(JSONObject().put("t", "labs.ctx.sub").put("on", on))
+            Events.log("labs", "subscribe", "feature" to "smart_remote", "on" to on, "sent" to up, "linked" to linked)
             if (up) send(JSONObject().put("t", "labs.np.sub").put("on", on))
+            if (!linked) _tooOld.value = false
             _helperUp.value = up
             active = on && up
             if (!active) { _context.value = MacContext(); _nowPlaying.value = NpState() }
@@ -59,7 +65,10 @@ object SmartRemote {
             "labs.np.seek" -> reduce(
                 NpEvent.SeekReply(o.optString("via"), if (o.has("to")) o.optDouble("to") else null, o.optString("note").ifEmpty { null }, now()),
             )
-            "err" -> if (o.optString("ref") == "labs.np.seek") reduce(NpEvent.Error(o.optString("msg")))
+            "err" -> when (o.optString("ref")) {
+                "labs.np.seek" -> reduce(NpEvent.Error(o.optString("msg")))
+                "labs.ctx.sub" -> if (o.optString("code") == "unknown") _tooOld.value = true
+            }
         }
     }
 

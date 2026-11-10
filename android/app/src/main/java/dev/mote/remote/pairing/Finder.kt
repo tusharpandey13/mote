@@ -1,5 +1,6 @@
 package dev.mote.remote.pairing
 
+import dev.mote.remote.diag.Events
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
@@ -68,7 +69,8 @@ class Finder(context: Context, private val scope: CoroutineScope) {
     }
 
     private suspend fun sweep() {
-        val w = wifiAddr(app) ?: run { Log.w(TAG, "sweep: not on Wi-Fi"); return }
+        val w = wifiAddr(app) ?: run { Log.w(TAG, "sweep: not on Wi-Fi"); Events.log("discovery", "sweep.done", "result" to "no wifi", "opened" to 0); return }
+        Events.log("discovery", "sweep.start", "prefix" to w.prefix, "hosts" to sweepHosts(w.ip, w.prefix).size, "port" to (TestSeam.sweepPort ?: Proto.DEFAULT_PORT))
         Log.w(TAG, "sweep: ${w.ip}/${w.prefix}")
         val port = TestSeam.sweepPort ?: Proto.DEFAULT_PORT
         val sockets = WifiSocketFactory(w.network)
@@ -77,13 +79,18 @@ class Finder(context: Context, private val scope: CoroutineScope) {
         var opened = 0
         lanSweep(sweepHosts(w.ip, w.prefix), port) { h, p, t -> tcpOpen(h, p, t, sockets) }.collect { addr ->
             opened++
+            Events.log("discovery", "sweep.open", "afterMs" to System.currentTimeMillis() - t0)
             Log.w(TAG, "sweep: $addr:$port open after ${System.currentTimeMillis() - t0} ms")
             scope.launch {
-                val p = probeHelper(http, addr, port) ?: run { Log.w(TAG, "sweep: $addr is not a Mote Helper"); return@launch }
+                val p = probeHelper(http, addr, port) ?: run {
+                    Log.w(TAG, "sweep: $addr is not a Mote Helper"); Events.log("discovery", "sweep.probe", "helper" to false); return@launch
+                }
+                Events.log("discovery", "sweep.probe", "helper" to true, "afterMs" to System.currentTimeMillis() - t0)
                 Log.w(TAG, "sweep: ${p.name} at $addr in ${System.currentTimeMillis() - t0} ms")
                 scan.value = scan.value.filterNot { it.address == addr } + p
             }
         }
+        Events.log("discovery", "sweep.done", "result" to "finished", "opened" to opened, "ms" to System.currentTimeMillis() - t0, "error" to lastSweepError?.javaClass?.simpleName)
     }
 
     /** Saved hosts and trust records: cached LAN IP, MagicDNS name, tailnet IP. */
@@ -94,7 +101,9 @@ class Finder(context: Context, private val scope: CoroutineScope) {
         }.distinct()
         val jobs = targets.map { (addr, port) ->
             scope.launch {
-                val p = probeHelper(Net.http, addr, port) ?: return@launch
+                val p = probeHelper(Net.http, addr, port)
+                Events.log("discovery", "known.probe", "helper" to (p != null))
+                if (p == null) return@launch
                 known.value = known.value.filterNot { it.address == addr } + p
             }
         }

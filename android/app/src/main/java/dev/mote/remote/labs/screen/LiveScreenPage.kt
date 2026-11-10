@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import dev.mote.remote.data.Prefs
 import dev.mote.remote.data.typed
+import dev.mote.remote.labs.Blockers
 import dev.mote.remote.labs.Labs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -66,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.mote.remote.labs.LabsBus
+import dev.mote.remote.net.Remote
 import dev.mote.remote.net.Net
 import dev.mote.remote.net.Route
 import dev.mote.remote.net.WsStatus
@@ -109,6 +111,8 @@ fun LiveScreenPage(onBack: () -> Unit) {
     val ws = active as? WsTransport
     val status by (ws?.status ?: remember { kotlinx.coroutines.flow.MutableStateFlow<WsStatus>(WsStatus.Idle) }).collectAsState()
     val ready = status as? WsStatus.Ready
+    val btLinked by Remote.linked.collectAsState()
+    LaunchedEffect(ws == null) { Blockers.note("live_screen", if (ws == null) Blockers.link(Blockers.Link(false, btLinked)) else null) }
     val plainLan = ready != null && routeOf(ready.address) != Route.TAILNET
     val warned by remember { ScreenPrefs.warned(ctx) }.collectAsState(initial = true)
     val scope = rememberCoroutineScope()
@@ -176,7 +180,7 @@ fun LiveScreenPage(onBack: () -> Unit) {
         }
         Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
             when {
-                ws == null -> Notice("Live screen needs Mote Helper", "Connect to your Mac over Wi-Fi or Tailscale with Mote Helper. Bluetooth can't carry the picture.")
+                ws == null -> Notice("Live screen needs Mote Helper", "${Blockers.link(Blockers.Link(false, btLinked))?.text}. Bluetooth can't carry the picture.")
                 plainLan && !warned -> Notice(
                     "Your screen travels unencrypted",
                     "On plain Wi-Fi, anyone on this network who can capture traffic could see the Mac's screen. Tailscale encrypts it. Frames are never saved.",
@@ -192,6 +196,7 @@ fun LiveScreenPage(onBack: () -> Unit) {
 @Composable
 private fun Notice(title: String, body: String, action: String? = null, onAction: () -> Unit = {}) {
     val c = LocalMote.current
+    LaunchedEffect(title) { dev.mote.remote.diag.Events.log("ui", "banner", "banner" to "live-screen", "title" to title) }
     Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         MIcon("laptop", c.accent, size = 40.dp)
         Spacer(Modifier.height(16.dp))

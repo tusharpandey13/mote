@@ -1,5 +1,7 @@
 package dev.mote.remote.net
 
+import dev.mote.remote.diag.Events
+import dev.mote.remote.diag.HelperDiag
 import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.Key
 import dev.mote.remote.labs.LabsBus
@@ -90,54 +92,79 @@ class WsTransport(
     private suspend fun run() {
         var backoff = MIN_BACKOFF
         while (true) {
-            val t = target() ?: run { _status.value = WsStatus.Failed("unpaired", "Pair this Mac again"); return }
+            val t = target() ?: run {
+                Events.log("transport", "connect.failed", "host" to hostId.take(12), "code" to "unpaired")
+                _status.value = WsStatus.Failed("unpaired", "Pair this Mac again"); return
+            }
             if (_status.value !is WsStatus.Ready) _status.value = WsStatus.Connecting
             var s: WsSession? = null
             for (addr in t.candidates) {
+                Events.log("transport", "connect.try", "address" to addr, "port" to t.port, "candidates" to t.candidates.size)
                 s = runCatching { WsSession.open(http, addr, t.port) }.getOrElse { e ->
                     if (e is CancellationException) throw e
-                    if (e is HelperError && e.code == "version") { _status.value = WsStatus.Failed(e.code, e.message ?: ""); return }
+                    Events.log("transport", "connect.fail", "address" to addr, "reason" to (e.message ?: e.javaClass.simpleName).take(80))
+                    if (e is HelperError && e.code == "version") {
+                        Events.log("transport", "connect.failed", "code" to e.code)
+                        _status.value = WsStatus.Failed(e.code, e.message ?: ""); return
+                    }
                     null
                 }
+                if (s != null) Events.log("transport", "connect.hello", "address" to addr, "helperProto" to s.hello.v)
                 // A different Mac now answers at this address (DHCP reuse, another helper): never
                 // auth against it, that would burn its rate limit and look like a revoked pairing.
-                if (s != null && !isSameHost(s.hello)) { s.close(); s = null }
+                if (s != null && !isSameHost(s.hello)) {
+                    Events.log("transport", "connect.mismatch", "address" to addr)
+                    s.close(); s = null
+                }
                 if (s != null) break
             }
             if (s != null) {
                 try {
+                    Events.log("transport", "connect.auth", "address" to s.address, "instant" to (t.authenticate != null))
                     val a = t.authenticate?.invoke(s) ?: s.auth(t.deviceId, t.sign)
                     session = s
                     backoff = MIN_BACKOFF
                     _status.value = WsStatus.Ready(s.address, a.paused, a.ax)
+                    Events.log("transport", "connect.ready", "address" to s.address, "paused" to a.paused, "ax" to a.ax)
                     onReady(s.address, s.hello)
                     s.send(Proto.spacesSub())
                     for (m in s.inbox) when (m) {
-                        is Msg.State -> _status.value = WsStatus.Ready(s.address, m.paused, m.ax)
+                        is Msg.State -> {
+                            Events.log("session", "state", "paused" to m.paused, "ax" to m.ax)
+                            _status.value = WsStatus.Ready(s.address, m.paused, m.ax)
+                        }
                         is Msg.Spaces -> onSpaces(s, m)
                         is Msg.SpacesThumb -> onThumb(m)
                         // `spaces*` errors (old helper: `unknown`; `notfound`, `unsupported`) leave the link up.
                         is Msg.Err -> if (m.code == "revoked") throw HelperError(m.code, m.msg)
+                            else if (m.ref == "diag" || m.ref == "diag.subscribe") HelperDiag.onErr(m.code, m.ref)
                             else if (LabsBus.isLabs(m.ref)) LabsBus.deliver(org.json.JSONObject().put("t", "err").put("code", m.code).put("msg", m.msg).put("ref", m.ref).toString())
-                        is Msg.Other -> if (LabsBus.isLabs(m.t)) LabsBus.deliver(m.raw)
+                        is Msg.Other -> if (LabsBus.isLabs(m.t)) {
+                            Events.coalesced("push.${m.t}", "labs", "push", null, mapOf("type" to m.t, "bytes" to m.raw.length))
+                            LabsBus.deliver(m.raw)
+                        } else if (m.t == "diag" || m.t == "diag.events") HelperDiag.deliver(m.raw)
                         else -> Unit
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: HelperError) {
+                    Events.log("transport", "connect.failed", "code" to e.code, "address" to s.address)
                     when (e.code) {
                         "auth", "revoked" -> { session = null; s.close(); _status.value = WsStatus.Failed(e.code, e.message ?: ""); return }
                         "rate" -> backoff = (e.retryAfter ?: 60) * 1000L
                     }
-                } catch (_: Exception) {
+                } catch (e: Exception) {
                     // socket dropped: fall through to backoff
+                    Events.log("transport", "connect.dropped", "address" to s.address, "reason" to (e.message ?: e.javaClass.simpleName).take(80))
                 } finally {
                     session = null
+                    HelperDiag.reset()
                     _spaces.value = null // thumbnail versions are only meaningful within one helper run
                     s.close()
                 }
             }
             _status.value = WsStatus.Connecting
+            Events.log("transport", "connect.backoff", "ms" to backoff, "candidates" to t.candidates.size)
             withTimeoutOrNull(backoff + Random.nextLong(backoff / 4 + 1)) { wake.receive() }
             backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF)
         }
@@ -194,7 +221,14 @@ class WsTransport(
     private val flushScheduled = AtomicBoolean(false)
 
     /** Sends [json] after any pending motion, so a click lands where the pointer was moved to. */
-    private fun sendNow(json: String) { synchronized(sendLock) { flushMotionLocked(); session?.send(json) } }
+    private fun sendNow(json: String) {
+        synchronized(sendLock) {
+            flushMotionLocked()
+            val s = session
+            if (s == null) Events.coalesced("input.dropped", "input", "dropped", null, mapOf("reason" to "no session"))
+            s?.send(json)
+        }
+    }
 
     private fun scheduleFlush() {
         if (!flushScheduled.compareAndSet(false, true)) return

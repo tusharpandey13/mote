@@ -40,6 +40,7 @@ class HidService : Service() {
         val n = notification(Hid.state.value)
         if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         else startForeground(NOTIF_ID, n)
+        dev.mote.remote.diag.Events.log("lifecycle", "service", "state" to "created")
         Hid.start(this)
         scope.launch { Hid.state.collect { nm.notify(NOTIF_ID, notification(it)) } }
         scope.launch {
@@ -49,6 +50,7 @@ class HidService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        dev.mote.remote.diag.Events.log("lifecycle", "service", "state" to "command", "action" to (intent?.action?.substringAfterLast('.') ?: "start"))
         when (intent?.action) {
             ACTION_STOP -> { Hid.disconnect(); stopSelf() }
             ACTION_PLAY -> Hid.consumer(Consumer.PLAY_PAUSE)
@@ -58,6 +60,7 @@ class HidService : Service() {
     }
 
     override fun onDestroy() {
+        dev.mote.remote.diag.Events.log("lifecycle", "service", "state" to "destroyed")
         scope.cancel()
         Hid.stop()
         super.onDestroy()

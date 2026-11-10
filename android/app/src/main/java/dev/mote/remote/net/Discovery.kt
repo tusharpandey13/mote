@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
+import dev.mote.remote.diag.Events
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,21 +41,27 @@ class Discovery(context: Context) {
     private val timeout = Runnable { stop() }
 
     fun start(durationMs: Long = 30_000) {
-        if (listener != null || nsd == null) return
+        if (listener != null || nsd == null) {
+            if (nsd == null) Events.log("discovery", "nsd.failed", "reason" to "no NsdManager")
+            return
+        }
+        Events.log("discovery", "nsd.start", "durationMs" to durationMs)
         lock = wifi?.createMulticastLock("mote-nsd")?.apply { setReferenceCounted(false); runCatching { acquire() } }
         val l = object : NsdManager.DiscoveryListener {
             override fun onDiscoveryStarted(serviceType: String) {}
             override fun onDiscoveryStopped(serviceType: String) {}
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
-                Log.w(TAG, "discovery failed: $errorCode"); main.post { stop() }
+                Log.w(TAG, "discovery failed: $errorCode"); Events.log("discovery", "nsd.failed", "code" to errorCode); main.post { stop() }
             }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
-            override fun onServiceFound(info: NsdServiceInfo) { Log.i(TAG, "found ${info.serviceName}"); main.post { resolve(info) } }
+            override fun onServiceFound(info: NsdServiceInfo) { Log.i(TAG, "found ${info.serviceName}"); Events.log("discovery", "nsd.found"); main.post { resolve(info) } }
             override fun onServiceLost(info: NsdServiceInfo) { main.post { lost(info.serviceName) } }
         }
         listener = l
         _scanning.value = true
-        runCatching { nsd.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, l) }.onFailure { stop() }
+        runCatching { nsd.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, l) }.onFailure {
+            Events.log("discovery", "nsd.failed", "reason" to (it.message ?: it.javaClass.simpleName).take(80)); stop()
+        }
         main.postDelayed(timeout, durationMs)
     }
 
@@ -112,13 +119,17 @@ class Discovery(context: Context) {
         if (listener == null) return
         // Prefer IPv4: it survives in saved hosts and avoids link-local scope ids.
         Log.i(TAG, "resolved ${si.serviceName} ${addrs.size} addrs port ${si.port}")
-        val a = addrs.firstOrNull { it is Inet4Address } ?: addrs.firstOrNull() ?: return
+        val a = addrs.firstOrNull { it is Inet4Address } ?: addrs.firstOrNull() ?: run {
+            Events.log("discovery", "nsd.failed", "reason" to "no address", "port" to si.port); return
+        }
+        Events.log("discovery", "nsd.resolved", "addresses" to addrs.size, "port" to si.port, "hasId" to (si.attributes["id"] != null))
         val id = si.attributes["id"]?.toString(Charsets.UTF_8)?.takeIf { it.isNotBlank() }
         val f = Found(si.serviceName, id, a.hostAddress?.substringBefore('%') ?: return, si.port)
         _found.value = _found.value.filterNot { it.service == f.service } + f
     }
 
     private fun lost(service: String) {
+        Events.log("discovery", "nsd.lost")
         _found.value = _found.value.filterNot { it.service == service }
         if (Build.VERSION.SDK_INT >= 34) infoCallbacks.remove(service)?.let { unregister(it) }
     }

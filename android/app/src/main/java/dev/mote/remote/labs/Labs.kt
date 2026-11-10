@@ -34,10 +34,13 @@ object Labs {
     fun flow(c: Context, f: LabFlag): Flow<Boolean> = c.store.data.map { it.typed(booleanPreferencesKey(f.key)) ?: false }
 
     suspend fun set(c: Context, f: LabFlag, on: Boolean) {
+        dev.mote.remote.diag.Events.log("labs", "toggle", "lab" to f.key, "on" to on)
         c.store.edit { it[booleanPreferencesKey(f.key)] = on }
     }
 
     /** Extra per-lab booleans in the same store (a preview's own sub-option). */
     fun bool(c: Context, key: String, default: Boolean): Flow<Boolean> = c.store.data.map { it.typed(booleanPreferencesKey(key)) ?: default }
-    suspend fun setBool(c: Context, key: String, on: Boolean) { c.store.edit { it[booleanPreferencesKey(key)] = on } }
+    suspend fun setBool(c: Context, key: String, on: Boolean) {
+        dev.mote.remote.diag.Events.log("labs", "toggle", "lab" to key, "on" to on)
+        c.store.edit { it[booleanPreferencesKey(key)] = on } }
 }

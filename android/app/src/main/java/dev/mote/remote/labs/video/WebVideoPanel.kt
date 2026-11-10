@@ -69,6 +69,25 @@ private val SPEEDS = listOf(0.5, 1.0, 1.25, 1.5, 2.0)
 fun webVideoVisible(): Boolean =
     VideoBridge.state.collectAsState().value?.active == true && dev.mote.remote.net.Remote.caps.collectAsState().value.clickAt // helper transport only
 
+/** Labs: when Browser video control is on but its panel cannot show, one line saying why (else nothing). */
+@Composable
+fun VideoBridgeHint() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val on by remember { dev.mote.remote.labs.Labs.flow(ctx, dev.mote.remote.labs.Labs.VIDEO_BRIDGE) }.collectAsState(initial = false)
+    if (!on) return
+    val st by VideoBridge.state.collectAsState()
+    val overHelper by dev.mote.remote.net.Remote.overHelper.collectAsState()
+    val linked by dev.mote.remote.net.Remote.linked.collectAsState()
+    val b = dev.mote.remote.labs.Blockers.videoBridge(dev.mote.remote.labs.Blockers.Link(overHelper, linked), st?.bridge, st?.active == true)
+    LaunchedEffect(b?.code) { dev.mote.remote.labs.Blockers.note("video_bridge", b) }
+    if (b == null || st?.active == true) return
+    val c = LocalMote.current
+    Text(
+        "Browser video: ${b.text}", style = T.small, color = c.muted, maxLines = 2,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+    )
+}
+
 /**
  * Labs preview: the main video of the Mac's browser tab (docs/labs/video-bridge.md). Title and host,
  * a scrubber (seeks on release), ±10 s, play / pause, speed, captions, skip, fullscreen, prev / next.

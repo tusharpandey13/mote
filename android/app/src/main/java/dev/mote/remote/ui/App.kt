@@ -171,12 +171,14 @@ private fun Root(theme: ThemeChoice) {
     LaunchedEffect(bt) { Hid.envChanged() } // bond/ACL/adapter change or resume: fresh reconnect budget
     val settings = LocalSettings.current
     var page by rememberSaveable { mutableStateOf<MenuPage?>(null) }
+    LaunchedEffect(page) { dev.mote.remote.diag.Events.log("ui", "screen", "screen" to (page?.name?.lowercase() ?: "remote")) }
     val openTv = dev.mote.remote.labs.open.rememberOpenTv() // Labs: Open & TV mode (preview)
     val updateSettings: ((UiSettings) -> UiSettings) -> Unit = { f -> scope.launch { UiPrefs.update(ctx, f) } }
 
     val enableLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
     var openSettings by remember { mutableStateOf(false) } // permission permanently denied: only Settings can grant it
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        dev.mote.remote.diag.Perms.result(ctx, "gate")
         if (Bt.permitted(ctx)) {
             if (!Bt.snapshot(ctx).enabled) requestEnable(enableLauncher)
         } else {
@@ -190,7 +192,10 @@ private fun Root(theme: ThemeChoice) {
             openSettings -> runCatching {
                 ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null)))
             }
-            else -> permLauncher.launch(requestedPermissions())
+            else -> {
+                dev.mote.remote.diag.Perms.requested(requestedPermissions().toList(), "gate")
+                permLauncher.launch(requestedPermissions())
+            }
         }
     }
     val loaded by Net.loaded.collectAsState()
@@ -258,7 +263,8 @@ private fun Root(theme: ThemeChoice) {
           val p = page
           if (p != null) {
             when (p) {
-                MenuPage.SETTINGS -> SettingsPage(onBack = { page = null }, update = updateSettings)
+                MenuPage.SETTINGS -> SettingsPage(onBack = { page = null }, update = updateSettings, onDiagnostics = { page = MenuPage.DIAGNOSTICS })
+                MenuPage.DIAGNOSTICS -> DiagnosticsPage(onBack = { page = MenuPage.SETTINGS })
                 MenuPage.HAPTICS -> HapticsPage(onBack = { page = null }, update = updateSettings)
                 MenuPage.ABOUT -> AboutPage(onBack = { page = null })
                 MenuPage.SCREEN -> dev.mote.remote.labs.screen.LiveScreenPage(onBack = { page = null })
@@ -291,6 +297,7 @@ private fun Root(theme: ThemeChoice) {
                     Mode.MEDIA -> if (openTv.tvOn) dev.mote.remote.labs.open.TvRemotePanel(openTv) else Column(Modifier.fillMaxSize()) {
                         // Labs: one panel at a time; TV mode > web video (inside MediaScreen) > smart remote
                         if (!dev.mote.remote.labs.video.webVideoVisible()) SmartPanel() // renders nothing when off
+                        dev.mote.remote.labs.video.VideoBridgeHint() // says why the web video panel is absent
                         Box(Modifier.weight(1f)) { MediaScreen(macros.filter { it.star }, runMacro, onEditFavourites = { mode = Mode.MACROS }) }
                     }
                     Mode.MOUSE -> MouseScreen(

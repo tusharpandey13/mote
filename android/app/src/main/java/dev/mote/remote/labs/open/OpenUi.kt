@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mote.remote.hid.Consumer
+import dev.mote.remote.labs.Blockers
 import dev.mote.remote.labs.Labs
 import dev.mote.remote.net.Caps
 import dev.mote.remote.net.Remote
@@ -129,6 +130,8 @@ private fun OpenSheet(close: () -> Unit) {
     val err by OpenTv.error.collectAsState()
     val caps by Remote.caps.collectAsState()
     val helper = caps == Caps.HELPER
+    val linkedNow by Remote.linked.collectAsState()
+    LaunchedEffect(helper) { Blockers.note("open_tv", if (helper) null else Blockers.openTv(Blockers.Link(false, linkedNow))) }
     var text by remember { mutableStateOf(OpenTv.pendingShare.value ?: "") }
     var editing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { OpenTv.pendingShare.value = null; OpenTv.error.value = null }
@@ -189,7 +192,7 @@ private fun OpenSheet(close: () -> Unit) {
         }
         Text(
             if (helper) "Links open on the Mac; YouTube opens in TV mode. Tap the keyboard mic to speak."
-            else "Opening links needs Mote Helper over Wi-Fi or Tailscale. Quick actions work over Bluetooth too.",
+            else "${Blockers.openTv(Blockers.Link(false, linkedNow))?.text}. Quick actions work over Bluetooth too.",
             style = T.body.copy(fontSize = 13.sp, lineHeight = 18.sp), color = c.muted, modifier = Modifier.padding(start = 4.dp, top = 8.dp),
         )
         err?.let { Text(it, style = T.body.copy(fontSize = 13.sp, lineHeight = 18.sp), color = c.danger, modifier = Modifier.padding(start = 4.dp, top = 6.dp)) }

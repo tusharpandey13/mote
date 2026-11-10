@@ -15,6 +15,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.mote.remote.data.typed
+import dev.mote.remote.diag.Events
 import dev.mote.remote.hid.Hid
 import dev.mote.remote.hid.TestSeam
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -95,6 +98,13 @@ object Net {
         if (inited) return
         inited = true
         app = context.applicationContext
+        Events.log("lifecycle", "init", "sdk" to Build.VERSION.SDK_INT, "tsInstalled" to Tailscale.installed(app))
+        scope.launch {
+            // Bluetooth HID phase changes (the Bluetooth transport's only visible state).
+            Hid.state.map { Triple(it.phase, it.connected != null, it.unpaired) }.distinctUntilChanged().collect { (ph, c, u) ->
+                Events.log("transport", "bt.state", "phase" to ph.name, "connected" to c, "unpaired" to u)
+            }
+        }
         scope.launch {
             dev.mote.remote.pairing.InstantPairing.load(app) // trusted-key hosts need their records before reconnecting
             val p = app.store.data.first()
@@ -129,6 +139,7 @@ object Net {
         }
     }
 
+    private var netLogged = false
     private val _tailnetUp = MutableStateFlow(false)
     /** Heuristic (see [tailnetUp]): a VPN holding a Tailscale address is up. */
     val tailnetUpFlow: StateFlow<Boolean> = _tailnetUp.asStateFlow()
@@ -140,8 +151,12 @@ object Net {
     private fun refreshLinks() {
         val links = Tailscale.links(app)
         wifiNow = onWifi(links)
-        _onWifi.value = wifiNow
         val up = tailnetUp(links)
+        if (_onWifi.value != wifiNow || _tailnetUp.value != up || !netLogged) {
+            netLogged = true
+            Events.log("discovery", "network", "wifi" to wifiNow, "tailnet" to up)
+        }
+        _onWifi.value = wifiNow
         _tailnetUp.value = up
         if (up) tsPrompt.value?.let { p -> tsPrompt.value = null; p.then?.let { scope.launch(Dispatchers.Main) { it() } } }
     }
@@ -155,6 +170,7 @@ object Net {
         refreshLinks()
         if (!needsTailscalePrompt(routes, _tailnetUp.value, wifiNow, seenOnLan)) return false
         tsPrompt.value = TsPrompt(host, then)
+        Events.log("transport", "tailscale.prompt", "routes" to routes.size, "seenOnLan" to seenOnLan, "wifi" to wifiNow)
         return true
     }
 
@@ -162,6 +178,8 @@ object Net {
     var foreground = false
         set(v) {
             field = v
+            Events.log("lifecycle", "foreground", "on" to v)
+            if (!v) Events.flushInput()
             fgFlow.value = v
             stopJob?.cancel()
             val ws = _active.value as? WsTransport ?: return
@@ -174,6 +192,7 @@ object Net {
     }
 
     private fun apply(sel: Selection) {
+        Events.log("transport", "select", "kind" to (if (sel is Selection.Bt) "bluetooth" else "helper"), "saved" to _saved.value.size, "foreground" to foreground)
         _selection.value = sel
         val cur = _active.value
         when (sel) {

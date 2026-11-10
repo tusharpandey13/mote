@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mote.remote.labs.Blockers
 import dev.mote.remote.labs.Labs
 import dev.mote.remote.net.Remote
 import dev.mote.remote.ui.Cap
@@ -144,19 +145,20 @@ fun SmartPanel() {
     val scope = rememberCoroutineScope()
     val on by remember { Labs.flow(ctx, Labs.SMART_REMOTE) }.collectAsState(initial = false)
     if (!on) return
-    val helperUp by SmartRemote.helperUp.collectAsState()
     val mc by SmartRemote.context.collectAsState()
     val np by SmartRemote.nowPlaying.collectAsState()
     val auto by remember { Labs.bool(ctx, SmartRemote.AUTO_KEYBOARD, true) }.collectAsState(initial = true)
     val profile = ContextRules.match(mc, np.np?.bundle)
     val info = np.np
 
-    val hint = when {
-        !helperUp ->"Smart remote needs the Mote Helper over Wi-Fi or Tailscale."
-        !mc.enabled && !np.enabled -> "Turn on Labs › Context & now playing in the Mote Helper menu on the Mac."
-        mc.browser && mc.automation == "denied" -> "Allow Mote Helper to control ${mc.app} (System Settings › Privacy › Automation) to see the tab."
-        else -> null
-    }
+    val overHelper by Remote.overHelper.collectAsState()
+    val linked by Remote.linked.collectAsState()
+    val tooOld by SmartRemote.tooOld.collectAsState()
+    val blocker = Blockers.smartRemote(
+        Blockers.Link(overHelper, linked, tooOld), mc, np, profileShown = profile != null || info != null,
+    )
+    LaunchedEffect(blocker?.code) { Blockers.note("smart_remote", blocker) }
+    val hint = blocker?.text
     if (hint == null && info == null && profile == null) return
 
     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {

@@ -1,5 +1,7 @@
 package dev.mote.remote.net
 
+import dev.mote.remote.diag.Events
+import dev.mote.remote.diag.Wire
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
@@ -31,10 +33,10 @@ class WsSession private constructor(
     val hello: Msg.Hello,
     val address: String,
 ) {
-    fun send(json: String): Boolean = ws.send(json)
+    fun send(json: String): Boolean = ws.send(Wire.out(json))
     /** Bytes queued but not yet sent; used to avoid piling up pointer moves on a slow link. */
     fun queued(): Long = ws.queueSize()
-    fun close() { ws.close(1000, null); inbox.close() }
+    fun close() { Events.log("session", "closed", "address" to address, "reason" to "local"); ws.close(1000, null); inbox.close() }
 
     /** Next message that isn't a broadcast `state` / `pong`, or throws [HelperError] on `err`. */
     suspend fun reply(timeoutMs: Long = 5000): Msg {
@@ -51,13 +53,18 @@ class WsSession private constructor(
     /** `pair` with the 6-digit code; returns the device id and token (shown once). */
     suspend fun pair(code: String, name: String): Msg.Paired {
         send(Proto.pair(code, name))
-        return reply() as? Msg.Paired ?: throw HelperError("bad", "Unexpected reply to pair")
+        val p = try { reply() as? Msg.Paired ?: throw HelperError("bad", "Unexpected reply to pair") }
+            catch (e: HelperError) { Events.log("session", "pair.failed", "code" to e.code); throw e }
+        Events.log("session", "paired", "address" to address)
+        return p
     }
 
     /** HMAC challenge: [sign] maps the hello nonce to hex(HMAC-SHA256(token, nonce)). */
     suspend fun auth(deviceId: String, sign: (String) -> String): Msg.Authed {
         send(Proto.auth(deviceId, sign(hello.nonce)))
-        return reply() as? Msg.Authed ?: throw HelperError("bad", "Unexpected reply to auth")
+        val a = reply() as? Msg.Authed ?: throw HelperError("bad", "Unexpected reply to auth")
+        Events.log("session", "authed", "address" to address, "paused" to a.paused, "ax" to a.ax)
+        return a
     }
 
     companion object {
@@ -70,8 +77,14 @@ class WsSession private constructor(
         suspend fun open(http: OkHttpClient, host: String, port: Int, timeoutMs: Long = 4000): WsSession {
             val inbox = Channel<Msg>(Channel.UNLIMITED)
             val ws = http.newWebSocket(Request.Builder().url(url(host, port)).build(), object : WebSocketListener() {
-                override fun onMessage(webSocket: WebSocket, text: String) { Proto.parse(text)?.let { inbox.trySend(it) } }
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    val m = Proto.parse(text)
+                    Wire.inn(text, when (m) { null -> null; is Msg.Other -> m.t; else -> Wire.typeOf(text) })
+                    if (m is Msg.Err) Wire.err(m.code, m.ref, m.corr)
+                    m?.let { inbox.trySend(it) }
+                }
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    Events.log("session", "closed", "address" to host, "reason" to (t.javaClass.simpleName))
                     inbox.close(IOException(t.message ?: "connection failed", t))
                 }
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { webSocket.close(1000, null); inbox.close() }
@@ -84,6 +97,7 @@ class WsSession private constructor(
             }
             val hello = first as? Msg.Hello ?: run { ws.cancel(); throw IOException("No Mote Helper at $host:$port") }
             if (hello.v != Proto.VERSION) { ws.cancel(); throw HelperError("version", "Mote Helper speaks protocol v${hello.v}; update it") }
+            Events.log("session", "open", "address" to host, "port" to port, "helperProto" to hello.v, "pairing" to hello.pairing)
             return WsSession(ws, inbox, hello, host)
         }
     }

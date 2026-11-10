@@ -15,6 +15,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Net.init(this)
+        dev.mote.remote.diag.Events.log("lifecycle", "init", "activity" to "created", "restored" to (savedInstanceState != null))
         if (savedInstanceState == null) handleLink(intent)
         enableEdgeToEdge()
         setContent { MoteApp() }
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        dev.mote.remote.diag.Perms.check(this, "start")
         Hid.foreground = true
         Net.foreground = true
         HidService.start(this)

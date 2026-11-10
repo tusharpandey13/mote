@@ -37,7 +37,7 @@ import dev.mote.remote.ui.theme.MIcon
 import dev.mote.remote.ui.theme.well
 
 /** Full-screen pages opened from the menu sheet. */
-enum class MenuPage { SETTINGS, HAPTICS, ABOUT, SCREEN }
+enum class MenuPage { SETTINGS, HAPTICS, ABOUT, SCREEN, DIAGNOSTICS }
 
 @Composable
 fun appVersion(): String {
@@ -122,7 +122,7 @@ fun PageScaffold(title: String, onBack: () -> Unit, content: @Composable () -> U
 }
 
 @Composable
-private fun Overline(text: String) {
+internal fun Overline(text: String) {
     val c = LocalMote.current
     Text(text.uppercase(), style = T.caps, color = c.subtle, modifier = Modifier.padding(start = 4.dp, top = 20.dp, bottom = 10.dp))
 }
@@ -130,8 +130,9 @@ private fun Overline(text: String) {
 private fun speedLabel(v: Float) = if (v == 1f) "1x (default)" else "%.2gx".format(v)
 
 @Composable
-fun SettingsPage(onBack: () -> Unit, update: ((UiSettings) -> UiSettings) -> Unit) {
+fun SettingsPage(onBack: () -> Unit, update: ((UiSettings) -> UiSettings) -> Unit, onDiagnostics: () -> Unit = {}) {
     val s = LocalSettings.current
+    val ctx = LocalContext.current
     PageScaffold("Settings", onBack) {
         Overline("Pointer")
         SettingsCard {
@@ -174,6 +175,16 @@ fun SettingsPage(onBack: () -> Unit, update: ((UiSettings) -> UiSettings) -> Uni
             SettingRow("Extra dim", "For dark rooms and presentations") { Switch(s.extraDim, "Extra dim") { update { st -> st.copy(extraDim = it) } } }
         }
         dev.mote.remote.labs.LabsSection()
+        Overline("Diagnostics")
+        SettingsCard {
+            Box(Modifier.clickable(onClickLabel = "Diagnostics", onClick = onDiagnostics)) {
+                SettingRow("Why isn't this working", "This phone and the Mac side by side: connection, permissions, Labs") { MIcon("chevRight", LocalMote.current.muted, size = 20.dp) }
+            }
+            Hairline()
+            Box(Modifier.clickable(onClickLabel = "Share log") { shareLog(ctx) }) {
+                SettingRow("Share log", "The last 5,000 events as a file. No typed keys, tokens or codes.") { MIcon("chevRight", LocalMote.current.muted, size = 20.dp) }
+            }
+        }
     }
 }
 

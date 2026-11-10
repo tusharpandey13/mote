@@ -252,6 +252,7 @@ fun ConnectCard(m: FoundMac, onDone: () -> Unit) {
     }
     val enable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { go() }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        dev.mote.remote.diag.Perms.result(ctx, "connect")
         if (!InstantPairing.ble.permitted()) step = Step.Error(pairFailure(HelperError("far", "far"), m.name))
         else if (!InstantPairing.ble.ready()) runCatching { enable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }.onFailure { go() }
         else { InstantPairing.ble.start(); go() }
@@ -267,6 +268,7 @@ fun ConnectCard(m: FoundMac, onDone: () -> Unit) {
             Step.NeedBluetooth -> {
                 Text("Mote uses Bluetooth once to check this phone is next to your Mac.", style = T.body, color = c.muted, textAlign = TextAlign.Center)
                 PrimaryButton("Allow and connect") {
+                    dev.mote.remote.diag.Perms.requested(BleScan.PERMISSIONS, "connect")
                     if (InstantPairing.ble.permitted()) perms.launch(emptyArray()) else perms.launch(BleScan.PERMISSIONS.toTypedArray())
                 }
             }
@@ -331,12 +333,16 @@ fun BtStep(hostId: String, mac: String, onFinish: () -> Unit) {
     }.onFailure { run() }
     val enable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { discoverable() }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        dev.mote.remote.diag.Perms.result(ctx, "btpair")
         if (!dev.mote.remote.hid.Bt.permitted(ctx)) ui = BtUi.Failed("Mote needs Nearby devices to pair over Bluetooth.")
         else if (!dev.mote.remote.hid.Bt.snapshot(ctx).enabled) runCatching { enable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
         else discoverable()
     }
     fun start() {
-        if (!dev.mote.remote.hid.Bt.permitted(ctx)) perms.launch(dev.mote.remote.hid.Bt.permissions)
+        if (!dev.mote.remote.hid.Bt.permitted(ctx)) {
+            dev.mote.remote.diag.Perms.requested(dev.mote.remote.hid.Bt.permissions.toList(), "btpair")
+            perms.launch(dev.mote.remote.hid.Bt.permissions)
+        }
         else if (!dev.mote.remote.hid.Bt.snapshot(ctx).enabled) runCatching { enable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
         else discoverable()
     }
