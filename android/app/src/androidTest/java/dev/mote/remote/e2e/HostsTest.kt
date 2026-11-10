@@ -109,9 +109,9 @@ class HostsTest {
     @Test
     fun sheetOffersWifiAndAddressFlows() {
         c.desc(noHost).performClick()
-        c.desc("Add Mac over Wi-Fi").performClick()
+        c.onNodeWithText("More options").performClick()
+        c.onNodeWithText("Pair with code").performClick()
         c.onNodeWithText("On the Mac, open the Mote Helper menu", substring = true).assertExists()
-        c.desc("Back").performClick()
         c.desc("Enter address").performClick()
         c.onNodeWithText("For Tailscale, use the Mac's MagicDNS name", substring = true).assertExists()
         c.desc("Connect").performClick() // empty address: validation, no network

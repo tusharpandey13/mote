@@ -186,7 +186,7 @@ export async function run({ r }) {
     const t0 = await tok(src, 0), tm1 = await tok(src, -1), tp1 = await tok(src, 1), tm2 = await tok(src, -2), tp2 = await tok(src, 2);
     src.destroy();
     const cases = [
-      ['fresh token', t0, 'ok'], ['replayed token', t0, 'stale'], ['skew -1 window', tm1, 'ok'], ['skew +1 window', tp1, 'ok'],
+      ['fresh token', t0, 'ok'], ['replayed token', t0, 'stale'], ['skew -1 window', tm1, 'ok'],   // skew +1 (tp1) is spent by the Block check below: a window's token is one-shot for every reader
       ['expired (-2 windows)', tm2, 'stale'], ['future (+2 windows)', tp2, 'stale'],
       ['forged (one hex digit flipped)', t0 && t0.slice(0, -1) + (t0.at(-1) === '0' ? '1' : '0'), 'bad-proximity'],
       ['malformed', 'x:' + 'zz'.repeat(16), 'bad-proximity'], ['no token (far away)', undefined, 'far'],
@@ -198,10 +198,10 @@ export async function run({ r }) {
       if (got !== want) bad.push({ label, want, got });
       c.destroy();
     }
-    chk.ok(bad.length === 0, `proximity tokens: ${cases.length} cases (replay, expiry, forgery, skew +-1)`, bad, 'S1 I6');
+    chk.ok(bad.length === 0, `proximity tokens: ${cases.length} cases (replay, expiry, forgery, skew -1)`, bad, 'S1 I6');
     // Block mid-session: a nearby-trusted phone is dropped, input after Block never executes, then denied blocked.
     const src2 = await open({ port: P.port, host: PEERS[1] });
-    const tk = await tok(src2, 0); src2.destroy();
+    const tk = await tok(src2, 1); src2.destroy();   // windows -1/0 are spent above; +1 is still unused
     const kb = keypair();
     const c = await open({ port: P.port, host: PEERS[1] });
     const first = await labsHello(c, kb, { mutate: (m) => { m.prox = tk; }, waitMs: 3000 });
@@ -216,7 +216,7 @@ export async function run({ r }) {
       const again = await labsHello(c2, kb, { waitMs: 2000 });
       chk.ok(again.verdict?.reason === 'blocked', 'blocked key is refused (denied blocked)', again.verdict, 'S1 I6');
       c2.destroy();
-    } else chk.ok(false, 'nearby phone trusted before Block', first.verdict, 'S2 I6');
+    } else chk.ok(false, 'nearby phone (skew +1 token) trusted before Block', first.verdict, 'S2 I6');
     c.destroy();
     await P.stop();
   }
