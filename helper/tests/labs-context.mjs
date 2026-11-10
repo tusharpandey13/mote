@@ -18,6 +18,13 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mote-labs-'));
 const ctxFile = path.join(dir, 'ctx.json');
 const writeCtx = (o) => fs.writeFileSync(ctxFile, JSON.stringify(o));
 
+// The helper replies on the socket before its stderr line reaches this process through the pipe: poll the log, never read it once.
+async function logged(h, test, ms = 3000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) { if (test(h.logs)) return true; await sleep(25); }
+  return test(h.logs);
+}
+
 function startHelper(port, extra) {
   const p = spawn(bin, ['--dry-run', '--headless', '--no-ble', '--memory-store', '--open-pairing', '--port', String(port), ...extra]);
   p.logs = '';
@@ -29,7 +36,13 @@ function startHelper(port, extra) {
   return p;
 }
 
-function open(port) {
+// The helper prints PAIRING CODE before its listener is necessarily accepting: retry a refused connect instead of crashing.
+async function open(port) {
+  for (let i = 0; ; i++) {
+    try { return await open1(port); } catch (e) { if (i >= 40) throw e; await sleep(100); }
+  }
+}
+function open1(port) {
   return new Promise((res, rej) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`), q = [], waiters = [];
     ws.onmessage = (e) => { const m = JSON.parse(e.data); const w = waiters.shift(); w ? w(m) : q.push(m); };
@@ -111,7 +124,7 @@ const isNp = (m) => m.t === 'labs.np';
     await sleep(400);
     ok(!ws.all.some((m) => isCtx(m) && m.bundle === 'com.apple.Notes'), 'no duplicate push for an unchanged context');
 
-    ok(h.logs.includes('DRY labs seek via=fake to=100.0'), 'helper logged the dry-run seek');
+    ok(await logged(h, (l) => l.includes('DRY labs seek via=fake to=100.0')), 'helper logged the dry-run seek');
     ws.close();
   } finally { h.kill(); }
 }
@@ -129,14 +142,14 @@ const isNp = (m) => m.t === 'labs.np';
     ok(np && np.np === null && !np.seek.includes('mediaremote') && np.seek.includes('js'), 'dry run: no real now playing; JS seek offered for Chrome');
     const s = await ws.req({ t: 'labs.np.seek', by: 10 }, (m) => m.t === 'labs.np.seek');
     ok(s && s.via === 'js', 'seek via browser JavaScript (dry run: logged only)');
-    ok(h.logs.includes('DRY labs seek via=js bundle=com.google.Chrome by=10'), 'helper logged the JS seek');
+    ok(await logged(h, (l) => l.includes('DRY labs seek via=js bundle=com.google.Chrome by=10')), 'helper logged the JS seek');
 
     writeCtx({ app: 'IINA', bundle: 'com.colliderli.iina' });
     await ws.wait((m) => isCtx(m) && m.bundle === 'com.colliderli.iina', 2000);
     const k = await ws.req({ t: 'labs.np.seek', by: 15 }, (m) => m.t === 'labs.np.seek');
     ok(k && k.via === 'keys', 'non-browser app: arrow-key stepping');
     await sleep(300);
-    ok((h.logs.match(/DRY key usage=79 mods=0 action=tap/g) || []).length === 3, '15 s = 3 Right-arrow taps (dry run)');
+    ok(await logged(h, (l) => (l.match(/DRY key usage=79 mods=0 action=tap/g) || []).length === 3), '15 s = 3 Right-arrow taps (dry run)');
     ws.close();
   } finally { h.kill(); }
 }
