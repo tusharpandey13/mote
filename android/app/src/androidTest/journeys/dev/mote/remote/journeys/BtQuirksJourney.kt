@@ -27,9 +27,7 @@ class BtQuirksJourney {
         if (Build.VERSION.SDK_INT >= 33) j.grant(Manifest.permission.POST_NOTIFICATIONS)
         adapter = MutableStateFlow(TestSeam.Adapter(supported = true, enabled = true, hosts = listOf(mac)))
         j.launch(transport = FakeTransport(), adapter = adapter)
-        j.bPre("first-run screen") { j.expect("Use Bluetooth instead (no helper)", timeoutMs = 8_000) }
-        j.bPre("tap Use Bluetooth") { j.tap("Use Bluetooth instead (no helper)") }
-        j.bPre("pill") { j.expect("Device: ", substring = true, timeoutMs = 8_000) }
+        j.bToBluetoothRemote()
         j.bPre("open Devices") { j.tap("Device: ", substring = true) }
         j.bPre("Devices sheet") { j.expect("Devices") }
     }

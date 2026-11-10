@@ -98,6 +98,8 @@ class ConnectNextJourney {
     @Test fun enterAddress() {
         j.path("connect-next.enter-address")
         val port = bFreePort()
+        // U4: first-run setup shows its own "Not now" (notifications); grant it so "Not now" below is the Tailscale sheet's.
+        if (android.os.Build.VERSION.SDK_INT >= 33) j.grant(android.Manifest.permission.POST_NOTIFICATIONS)
         j.launch(sweepPort = port, fakeProximity = true)
         j.bExpectTicking("Mote Helper not found on this network", timeoutMs = 12_000)
         val field = "192.168.1.2 or mac.tailnet.ts.net"

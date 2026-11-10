@@ -103,3 +103,14 @@ fun JourneyRule.bPre(what: String, block: () -> Unit) {
 
 /** A port nothing listens on (for "no helper" runs that later start one there). */
 fun bFreePort(): Int = 19_000 + (System.nanoTime() % 900).toInt()
+
+/**
+ * Bluetooth path precondition: with the Bluetooth permissions granted the app skips the first-run screen
+ * (`startScreen`: btPermitted -> gate/remote) and opens on the remote; without them it shows the first-run
+ * screen and "Use Bluetooth instead" is tapped. Either way ends on the remote's device pill.
+ */
+fun JourneyRule.bToBluetoothRemote() {
+    bPre("first-run screen or remote") { expectAny("Use Bluetooth instead (no helper)", "Device: ", timeoutMs = 8_000, substring = true) }
+    if (shown("Use Bluetooth instead (no helper)")) bPre("tap Use Bluetooth") { tap("Use Bluetooth instead (no helper)") }
+    bPre("remote") { expect("Device: ", substring = true, timeoutMs = 8_000) }
+}

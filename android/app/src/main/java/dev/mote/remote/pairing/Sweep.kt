@@ -135,8 +135,10 @@ enum class Reach { OPEN, REFUSED, TIMEOUT }
 fun tcpReach(host: String, port: Int, timeoutMs: Int = 1500, factory: SocketFactory = SocketFactory.getDefault()): Reach = try {
     (factory.createSocket() as Socket).use { it.connect(InetSocketAddress(host, port), timeoutMs) }
     Reach.OPEN
-} catch (_: java.net.ConnectException) {
-    Reach.REFUSED
+} catch (e: java.net.ConnectException) {
+    // Only an RST (ECONNREFUSED) proves the Mac answered. "Network is unreachable" / "No route to host" (phone offline,
+    // Wi-Fi and data off) is no answer at all: reconnect-D5 told an offline phone the helper wasn't running.
+    if (e.message?.contains("refused", ignoreCase = true) == true) Reach.REFUSED else Reach.TIMEOUT
 } catch (_: Exception) {
     Reach.TIMEOUT
 }

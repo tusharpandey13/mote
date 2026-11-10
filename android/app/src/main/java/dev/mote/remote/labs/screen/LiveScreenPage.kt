@@ -114,7 +114,7 @@ fun LiveScreenPage(onBack: () -> Unit) {
     val btLinked by Remote.linked.collectAsState()
     LaunchedEffect(ws == null) { Blockers.note("live_screen", if (ws == null) Blockers.link(Blockers.Link(false, btLinked)) else null) }
     val plainLan = ready != null && routeOf(ready.address) != Route.TAILNET
-    val warned by remember { ScreenPrefs.warned(ctx) }.collectAsState(initial = true)
+    val warned by remember { ScreenPrefs.warned(ctx) }.collectAsState(initial = null)
     val scope = rememberCoroutineScope()
     var paused by remember { mutableStateOf(false) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -125,7 +125,7 @@ fun LiveScreenPage(onBack: () -> Unit) {
 
     // The stream: runs while linked, on screen, not paused and past the LAN warning. Cancelling it
     // (back, background, pause, link drop) sends `stop`; the helper also stops on its 2 s lease.
-    val streaming = ws != null && ready != null && visible && !paused && (!plainLan || warned)
+    val streaming = ws != null && ready != null && visible && !paused && mayStream(plainLan, warned)
     LaunchedEffect(ws, streaming, ready?.address) {
         if (!streaming || ws == null) return@LaunchedEffect
         v.message = null
@@ -181,7 +181,7 @@ fun LiveScreenPage(onBack: () -> Unit) {
         Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
             when {
                 ws == null -> Notice("Live screen needs Mote Helper", "${Blockers.link(Blockers.Link(false, btLinked))?.text}. Bluetooth can't carry the picture.")
-                plainLan && !warned -> Notice(
+                plainLan && warned == false -> Notice(
                     "Your screen travels unencrypted",
                     "On plain Wi-Fi, anyone on this network who can capture traffic could see the Mac's screen. Tailscale encrypts it. Frames are never saved.",
                     action = "Show the screen",
@@ -292,6 +292,12 @@ private fun Viewer(v: View, ws: WsTransport, paused: Boolean) {
         if (paused) Text("Sharing paused", style = T.label, color = Color.White, modifier = Modifier.align(Alignment.TopCenter).padding(12.dp))
     }
 }
+
+/**
+ * The LAN warning gate. [warned] is null until the preference has loaded: no stream may start before then
+ * (live-screen-D4: it used to default to true, so the first open could stream before the warning settled).
+ */
+internal fun mayStream(plainLan: Boolean, warned: Boolean?): Boolean = !plainLan || warned == true
 
 /** The live screen's own one-time state (DataStore "labs_screen"): the plain-LAN warning was acknowledged. */
 private object ScreenPrefs {

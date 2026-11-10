@@ -207,7 +207,7 @@ class LiveScreenJourney {
         j.dlBluetoothOnly()
         j.step("B1", "faked: TestSeam.transport FakeTransport (HID caps)") {
             openPage()
-            j.expect("Live screen needs Mote Helper"); j.expect("Connect to your Mac over Wi-Fi or Tailscale with Mote Helper. Bluetooth can't carry the picture.")
+            j.expect("Live screen needs Mote Helper"); j.expect("Needs Wi-Fi or Tailscale; connected over Bluetooth. Bluetooth can't carry the picture.")
             j.expectNot("Pause sharing")
         }
     }

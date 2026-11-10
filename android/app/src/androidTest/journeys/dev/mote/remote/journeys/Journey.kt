@@ -314,6 +314,7 @@ class JourneyRule : TestRule {
                 } catch (e: Exception) {
                     throw AssertionError("journeys controller not reachable at ${Ctl.base}: run e2e/journeys/run.sh", e)
                 }
+                resetNetwork()
                 try {
                     base.evaluate()
                 } catch (t: Throwable) {
@@ -332,6 +333,17 @@ class JourneyRule : TestRule {
                 }
             }
         }
+    }
+
+    /**
+     * Per-journey network reset (plan phase 4): a previous journey's Wi-Fi off / airplane mode must not leak in.
+     * App data is reset by the orchestrator (clearPackageData = pm clear, which also revokes runtime permissions and
+     * clears the first-run flags); it can't be done from here because the test runs inside the app's process.
+     */
+    private fun resetNetwork() {
+        runCatching { shell("cmd connectivity airplane-mode disable") }
+        runCatching { shell("svc data enable") }
+        runCatching { wifi(true) }
     }
 
     private fun isTeardownArtifact(t: Throwable): Boolean = generateSequence(t) { it.cause }.any {

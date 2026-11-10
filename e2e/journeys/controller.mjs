@@ -19,7 +19,9 @@ const PORT = Number(process.env.MJ_CONTROLLER_PORT || 8799);
 const OUT = process.env.MJ_OUT || '/tmp/mote-journeys';
 const BIN = process.env.MOTE_HELPER_BIN ||
   path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../helper/build/MoteHelper.app/Contents/MacOS/MoteHelper');
-const FORCED = ['--dry-run', '--headless', '--memory-store', '--no-ble', '--no-bonjour', '--stdin-control'];
+const FORCED = ['--dry-run', '--headless', '--memory-store', '--no-ble', '--no-bonjour', '--stdin-control',
+  // never the fixed bridge port 8792: a real installed helper (or another run) may hold it; tests read the bound port from the log
+  '--bridge-port', '0'];
 // Journey flags only: anything that could reach real state (Keychain service, web root) is refused.
 const ALLOWED = /^--(fake-[a-z-]+|require-approval|no-instant-pairing|labs-pairing|labs-tv|allow-tailscale|open-pairing|store-file|host-id)$/;
 const WITH_VALUE = new Set(['--fake-spaces', '--fake-context', '--fake-tailscale-owner', '--fake-bt-pair-fail', '--store-file', '--host-id']);

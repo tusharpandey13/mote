@@ -156,7 +156,7 @@ Note: the same `paused` error from the sheet (S4) is invisible (open-tv-D1).
 Preconditions delta: active transport is Bluetooth HID (`TestSeam.transport` = FakeTransport with HID caps, linked).
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Open on Mac" | Hint "Opening links needs Mote Helper over Wi-Fi or Tailscale. Quick actions work over Bluetooth too."; no "Open TV mode on the Mac" cap | faked: TestSeam.transport (HID caps) |
+| B1 | phone user | Tap "Open on Mac" | Hint "Needs Wi-Fi or Tailscale; connected over Bluetooth. Quick actions work over Bluetooth too."; no "Open TV mode on the Mac" cap | faked: TestSeam.transport (HID caps) |
 | B2 | phone user | Type `lofi beats`, tap "Open" | Red "Open & TV mode needs Mote Helper over Wi-Fi or Tailscale."; sheet stays | faked: same |
 | B3 | phone user | Tap "Close this tab" / "Exit fullscreen" / "Pause everything" | FakeTransport records ⌘W tap / Esc tap / consumer PLAY_PAUSE (`OpenTv.kt:100-107`) | faked: same |
 

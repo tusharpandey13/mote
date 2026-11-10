@@ -92,6 +92,18 @@ class SweepTest {
         assertEquals(Reach.REFUSED, tcpReach("127.0.0.1", closed))
         ServerSocket(0).use { assertEquals(Reach.OPEN, tcpReach("127.0.0.1", it.localPort)) }
         assertEquals(Reach.TIMEOUT, tcpReach("10.255.255.1", 8790, timeoutMs = 200))
+        // offline phone: ENETUNREACH is a ConnectException too, but it is not "the helper isn't running" (reconnect-D5)
+        fun failing(msg: String) = object : javax.net.SocketFactory() {
+            override fun createSocket() = object : java.net.Socket() {
+                override fun connect(e: java.net.SocketAddress?, t: Int) { throw java.net.ConnectException(msg) }
+            }
+            override fun createSocket(h: String?, p: Int) = createSocket()
+            override fun createSocket(h: String?, p: Int, a: java.net.InetAddress?, lp: Int) = createSocket()
+            override fun createSocket(h: java.net.InetAddress?, p: Int) = createSocket()
+            override fun createSocket(h: java.net.InetAddress?, p: Int, a: java.net.InetAddress?, lp: Int) = createSocket()
+        }
+        assertEquals(Reach.TIMEOUT, tcpReach("192.168.1.9", 8790, factory = failing("isConnectFailed: ENETUNREACH (Network is unreachable)")))
+        assertEquals(Reach.REFUSED, tcpReach("192.168.1.9", 8790, factory = failing("isConnectFailed: ECONNREFUSED (Connection refused)")))
         assertTrue(reachNote("Air", listOf(Reach.TIMEOUT, Reach.REFUSED))!!.startsWith("Mote Helper isn't running on Air"))
         assertTrue(reachNote("Air", listOf(Reach.TIMEOUT))!!.startsWith("Air seems asleep"))
         assertNull(reachNote("Air", listOf(Reach.TIMEOUT, Reach.OPEN)))
