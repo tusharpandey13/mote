@@ -130,9 +130,9 @@ if config.stdinControl {
                     case "nowplaying off": labsContext.setNowPlayingEnabled(false)
                     case "updates on": updater?.enabled = true
                     case "updates off": updater?.enabled = false
-                    // tests: the confirmed Repair / the retry; only against a simulated or non-default Keychain service
-                    case "repair-keychain" where config.usesFakeKeychain || config.keychainService != "dev.mote.helper": hub.repairKeychain()
-                    case "reread-keychain" where config.usesFakeKeychain || config.keychainService != "dev.mote.helper": hub.retryKeychainRead()
+                    // tests: the confirmed Repair / the retry; only against a simulated Keychain or with --memory-store
+                    case "repair-keychain" where config.usesFakeKeychain || config.memoryStore: hub.repairKeychain()
+                    case "reread-keychain" where config.usesFakeKeychain || config.memoryStore: hub.retryKeychainRead()
                     case "tailscale on": hub.settings.allowTailscale = true
                     case "tailscale off": hub.settings.allowTailscale = false
                     case let c: log("stdin-control: unknown command '\(c)'")

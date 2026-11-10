@@ -3,98 +3,233 @@ import Foundation
 import Testing
 @testable import MoteHelper
 
-/// U5 / U6 (docs/journeys): unreadable secrets.v3 after a signing-identity change.
+/// U5 / U6 (docs/journeys): another signature's item, launch order, gate, copy-not-rewrite, ephemeral mode.
 struct VaultUnreadableTests {
     let svc = "dev.mote.test"
+    let id = "cdhash:a"
+    var own: String { "secrets.v4.cdhash:a" }
+    let old = Date(timeIntervalSince1970: 1_700_000_000)
+    let newer = Date(timeIntervalSince1970: 1_700_001_000)
     func blob(identity: UInt8 = 9) -> Data {
         var s = Secrets(); s.identity = Data(repeating: identity, count: 32)
         s.blocked = [LabsBlockedKey(fp: "bad", name: "x")]
         return try! Vault.encoder.encode(s)
     }
-    func backend(_ m: FakeBackend.Mode) -> FakeBackend {
+    /// Another build's `secrets.v3` (legacy), readable per `m`.
+    func backend(_ m: FakeBackend.Mode, modified: Date? = nil) -> FakeBackend {
         let b = FakeBackend(); b.mode = m
-        b.items[b.key(svc, "secrets.v3")] = blob()
+        b.seed(svc, "secrets.v3", blob(), modified: modified ?? old)
         return b
     }
     func defaults() -> UserDefaults { UserDefaults(suiteName: "mote.test." + UUID().uuidString)! }
-    func vault(_ b: FakeBackend, _ d: UserDefaults, id: String? = "cdhash:a") -> Vault {
-        Vault(service: svc, memoryOnly: false, backend: b, defaults: d, identity: id)
+    func vault(_ b: FakeBackend, _ d: UserDefaults, id: String? = "cdhash:a", deferred: Bool = false) -> Vault {
+        Vault(service: svc, memoryOnly: false, backend: b, defaults: d, identity: id, deferInteractive: deferred)
     }
+    func ownData(_ b: FakeBackend) -> Secrets? { b.items[b.key(svc, own)].flatMap { try? Vault.decoder.decode(Secrets.self, from: $0) } }
+    let seedIdentity = Data(repeating: 9, count: 32)
 
-    @Test func partitionMismatchDoesOneInteractiveReadAndRewrites() {
+    // MARK: launch-order matrix
+
+    @Test func ownNewestIsReadWithoutUIAndOthersAreNeverTouched() {
         let b = backend(.mismatch)
+        b.seed(svc, own, blob(identity: 5), modified: newer, foreign: false)
         let v = vault(b, defaults())
-        #expect(b.reads == 4 && b.interactiveReads == 1)   // no-UI read, the one interactive read, a no-UI verify after each write attempt
-        #expect(v.readResult == "found" && v.interactiveRead == "ok" && !v.ephemeral)
-        #expect(v.secrets.identity == Data(repeating: 9, count: 32) && v.secrets.blocked.map(\.fp) == ["bad"])   // kept, not re-minted
-        // backup, in-place update (not readable yet), then delete + add so this build's partition owns the item; backup dropped
-        #expect(b.writes == 3 && b.deletes == 2 && b.items[b.key(svc, Vault.pendingAccount)] == nil)
-        #expect(v.secrets == (try! Vault.decoder.decode(Secrets.self, from: b.items[b.key(svc, Vault.account)]!)))
-        v.update { $0.identity = Data(repeating: 1, count: 32) }
-        #expect(b.writes == 4)                      // saving works again
+        #expect(b.calls == ["list", "read:" + b.key(svc, own)])   // list first (attributes only), then one no-UI read of ours
+        #expect(b.interactiveReads == 0 && b.writes == 0 && b.deletes == 0)
+        #expect(!v.ephemeral && v.readResult == "found" && v.secrets.identity == Data(repeating: 5, count: 32))
+        #expect(v.otherAccounts == ["secrets.v3"])
     }
 
-    @Test func interactiveReadIsGatedPerIdentity() {
-        let d = defaults()
-        let b1 = backend(.deniedInteractive)
-        let v1 = vault(b1, d)
-        #expect(b1.interactiveReads == 1 && v1.interactiveRead == "denied" && v1.ephemeral)
-        let b2 = backend(.deniedInteractive)   // relaunch of the same build: no second prompt
-        let v2 = vault(b2, d)
-        #expect(b2.interactiveReads == 0 && b2.reads == 1 && v2.interactiveRead == "skipped" && v2.ephemeral)
-        let b3 = backend(.deniedInteractive)   // a new build (identity changed): one more
-        let v3 = vault(b3, d, id: "cdhash:b")
-        #expect(b3.interactiveReads == 1 && v3.ephemeral)
-        #expect(b1.writes + b2.writes + b3.writes == 0)
+    @Test func otherNewerIsTheOneInteractiveReadThenCopiedNotRewritten() {
+        let b = backend(.mismatch, modified: newer)
+        b.seed(svc, own, blob(identity: 5), modified: old, foreign: false)   // ours is stale
+        let v = vault(b, defaults())
+        #expect(b.interactiveReads == 1)
+        #expect(!v.ephemeral && v.readResult == "found" && v.interactiveRead == "ok")
+        #expect(v.secrets.identity == seedIdentity && v.secrets.blocked.map(\.fp) == ["bad"])   // kept, not re-minted
+        #expect(ownData(b) == v.secrets)
+        #expect(b.deletes == 0 && b.writeKeys == [b.key(svc, own)] && b.items[b.key(svc, "secrets.v3")] == blob())   // the old item is the backup
     }
 
-    @Test func noIdentityMeansNoInteractiveRead() {
+    @Test func ownMissingReadsOtherInteractivelyAndCreatesOurs() {
         let b = backend(.mismatch)
-        let v = vault(b, defaults(), id: nil)
-        #expect(b.interactiveReads == 0 && v.ephemeral)
+        var adopted = 0
+        let v = vault(b, defaults(), deferred: true)
+        v.onAdopt = { adopted += 1 }
+        #expect(v.reading && v.ephemeral && b.interactiveReads == 0 && b.writes == 0)
+        v.startInteractiveRead(background: false)
+        #expect(b.reads == 2 && b.interactiveReads == 1 && !v.ephemeral && adopted == 1)   // no-UI try, then the one interactive read
+        #expect(b.deletes == 0 && ownData(b) == v.secrets)
+        v.update { $0.identity = Data(repeating: 1, count: 32) }   // saving works, into our account
+        #expect(b.writeKeys.allSatisfy { $0 == b.key(svc, own) } && b.writes == 2)
+        let b2 = b   // next launch: ours is newest, no UI at all
+        b2.interactiveReads = 0
+        let v2 = vault(b2, defaults())
+        #expect(b2.interactiveReads == 0 && v2.secrets.identity == Data(repeating: 1, count: 32) && !v2.ephemeral)
     }
 
-    @Test func errorReadNeverPromptsNeverSavesKeepsIdentityInMemory() {
+    @Test func legacyOnlyReadableWithoutUIIsJustCopied() {
+        let b = backend(.normal)   // same signature as the old build, or an Always Allow
+        let v = vault(b, defaults())
+        #expect(b.interactiveReads == 0 && !v.ephemeral && ownData(b) == v.secrets && b.deletes == 0)
+        #expect(v.secrets.identity == seedIdentity)
+    }
+
+    @Test func readDeniedIsEphemeralAndNeverSaves() {
+        let b = backend(.deniedInteractive)
+        let before = b.items
+        let v = vault(b, defaults())
+        #expect(v.ephemeral && v.ephemeralReason == "denied" && v.interactiveRead == "denied" && v.readResult == "error")
+        v.update { $0.devices = [] }
+        #expect(b.writes == 0 && b.deletes == 0 && b.items == before && v.secrets.blocked.isEmpty)
+    }
+
+    @Test func otherReadErrorIsEphemeralNotMissingAndNeverPrompts() {
         let b = backend(.error)
         let v = vault(b, defaults())
-        #expect(b.reads == 1 && b.interactiveReads == 0 && v.readResult == "error" && v.interactiveRead == "n/a" && v.ephemeral)
-        let before = b.items
+        #expect(b.interactiveReads == 0 && v.readResult == "error" && v.interactiveRead == "n/a" && v.ephemeral && v.ephemeralReason == "error")
         v.update { $0.identity = Data(repeating: 3, count: 32) }
-        v.update { $0.trusted = [LabsTrustedKey(fp: "f", pub: "p", name: "n", via: "approved", created: Date())] }
-        #expect(b.writes == 0 && b.deletes == 0 && b.items == before)   // never saves while the read failed
-        #expect(v.secrets.identity == Data(repeating: 3, count: 32) && v.secrets.trusted.count == 1)   // memory only
+        #expect(b.writes == 0 && b.deletes == 0)
+        #expect(v.secrets.identity == Data(repeating: 3, count: 32))   // memory only
     }
 
-    @Test func deniedIsEphemeralAndNeverSaves() {
-        let b = backend(.deniedInteractive)
-        let v = vault(b, defaults())
-        #expect(v.ephemeral && v.ephemeralReason == "denied" && v.readResult == "error")
-        v.update { $0.devices = [] }
-        #expect(b.writes == 0 && b.deletes == 0 && v.secrets.blocked.isEmpty)   // the real item's lists are not loaded
+    @Test func ownReadErrorIsEphemeralNotMissing() {   // M3
+        for st: Int32 in [-25308, -34018, -25293, -128, -1] {
+            let b = backend(.normal)
+            b.seed(svc, own, blob(identity: 5), modified: newer, foreign: false)
+            b.readErrors[b.key(svc, own)] = st
+            let v = vault(b, defaults())
+            #expect(v.ephemeral && v.ephemeralReason == "error" && v.readResult == "error" && b.writes == 0 && b.deletes == 0 && b.interactiveReads == 0, "\(st)")
+            v.update { $0.devices = [] }
+            #expect(b.writes == 0)   // and a fresh item is never created over it
+        }
     }
 
-    @Test func corruptItemIsEphemeralToo() {
-        let b = FakeBackend()
-        b.items[b.key(svc, "secrets.v3")] = Data("not json".utf8)
+    @Test func listFailureIsEphemeralNotAFreshInstall() {   // M3
+        let b = FakeBackend(); b.listError = KeychainError(status: -25308)
         let v = vault(b, defaults())
-        #expect(v.readResult == "unreadable" && v.ephemeral)
+        #expect(v.ephemeral && v.ephemeralReason == "error" && b.reads == 0 && b.writes == 0)
         v.update { $0.identity = Data([1]) }
         #expect(b.writes == 0)
     }
 
-    @Test func repairDeletesRecreatesAndLeavesEphemeral() {
+    @Test func deniedKeepsTheGateOnRelaunchUntilTheItemChangesOrRetry() {   // H2
+        let d = defaults()
+        let b1 = backend(.deniedInteractive)
+        let v1 = vault(b1, d)
+        #expect(b1.interactiveReads == 1 && v1.interactiveRead == "denied" && v1.ephemeral)
+        let b2 = backend(.deniedInteractive)   // relaunch, same item version: no second prompt
+        let v2 = vault(b2, d)
+        #expect(b2.interactiveReads == 0 && v2.interactiveRead == "skipped" && v2.ephemeral && v2.ephemeralReason == "denied")
+        let b3 = backend(.deniedInteractive, modified: newer)   // the item changed: one more
+        let v3 = vault(b3, d)
+        #expect(b3.interactiveReads == 1 && v3.ephemeral)
+        let b4 = backend(.deniedInteractive)   // another signature: one more
+        _ = vault(b4, d, id: "cdhash:b")
+        #expect(b4.interactiveReads == 1)
+        #expect(b1.writes + b2.writes + b3.writes + b4.writes == 0)
+    }
+
+    @Test func failedInteractiveReadOtherThanDenialKeepsTheGateToo() {
+        let d = defaults()
+        let b = backend(.mismatch)
+        b.readErrors[b.key(svc, "secrets.v3")] = -25308   // the item stays unreadable even interactively
+        let v = vault(b, d)
+        #expect(v.ephemeral && b.interactiveReads == 1)
+        let b2 = backend(.mismatch)
+        _ = vault(b2, d)
+        #expect(b2.interactiveReads == 0)
+    }
+
+    @Test func tryReadAgainClearsTheGateAndReadsNonDestructively() {
+        let d = defaults()
+        let b = backend(.deniedInteractive)
+        let v = vault(b, d)
+        let before = b.items
+        v.tryReadAgain(background: false)   // denied again: nothing changes
+        #expect(v.ephemeral && v.ephemeralReason == "denied" && b.items == before && b.deletes == 0 && b.interactiveReads == 2)
+        b.mode = .mismatch   // the user types the password this time
+        var adopted = 0; v.onAdopt = { adopted += 1 }
+        v.tryReadAgain(background: false)
+        #expect(!v.ephemeral && b.interactiveReads == 3 && v.secrets.identity == seedIdentity && adopted == 1 && b.deletes == 0)
+    }
+
+    @Test func noIdentityMeansNoAccountOfOursAndNoInteractiveRead() {
+        let b = backend(.mismatch)
+        let v = vault(b, defaults(), id: nil)
+        #expect(b.interactiveReads == 0 && b.writes == 0 && v.ephemeral && v.interactiveRead == "n/a" && v.ephemeralReason == "no-identity")
+    }
+
+    @Test func realKeychainUnderDryRunNeverReadsInteractively() {
+        let b = backend(.mismatch)
+        let v = Vault(service: svc, memoryOnly: false, backend: b, defaults: defaults(), identity: id, allowInteractive: false)
+        #expect(b.interactiveReads == 0 && v.ephemeral && v.ephemeralReason == "dry-run" && v.interactiveRead == "n/a")
+    }
+
+    @Test func corruptOwnItemIsEphemeralToo() {
+        let b = FakeBackend()
+        b.seed(svc, own, Data("not json".utf8), modified: Date(), foreign: false)
+        let v = vault(b, defaults())
+        #expect(v.readResult == "unreadable" && v.ephemeral && v.ephemeralReason == "corrupt")
+        v.update { $0.identity = Data([1]) }
+        #expect(b.writes == 0)
+    }
+
+    // MARK: M4 write failures
+
+    @Test func failedCopyIntoOurAccountIsAVisibleNotSavingState() {
+        let b = backend(.mismatch)
+        b.failAccounts = [own]
+        var adopted = 0
+        let v = vault(b, defaults(), deferred: true)
+        v.onAdopt = { adopted += 1 }
+        v.startInteractiveRead(background: false)
+        #expect(v.ephemeral && v.ephemeralReason == "write-failed" && adopted == 1)   // M1 even though the copy failed
+        #expect(v.secrets.identity == seedIdentity && b.items[b.key(svc, "secrets.v3")] == blob() && b.deletes == 0)
+        // the Keychain recovers: the next change saves and ends the state
+        b.failAccounts = []
+        v.update { $0.devices = [] }
+        #expect(!v.ephemeral && ownData(b) == v.secrets)
+    }
+
+    @Test func failedSaveEntersTheStateAndTryAgainRetriesTheWrite() {
+        let b = FakeBackend()
+        let v = vault(b, defaults())
+        #expect(!v.ephemeral)
+        b.failAccounts = [own]
+        v.update { $0.identity = Data(repeating: 4, count: 32) }
+        #expect(v.ephemeral && v.ephemeralReason == "write-failed")
+        v.tryReadAgain(background: false)
+        #expect(v.ephemeral)   // still failing
+        b.failAccounts = []
+        v.tryReadAgain(background: false)
+        #expect(!v.ephemeral && ownData(b)?.identity == Data(repeating: 4, count: 32))
+    }
+
+    @Test func failedFreshInstallWriteIsNotHealthy() {
+        let b = FakeBackend(); b.failWrites = true
+        let v = vault(b, defaults())
+        #expect(v.ephemeral && v.ephemeralReason == "write-failed")
+    }
+
+    // MARK: Repair
+
+    @Test func repairDeletesOnlyOurAccountAndCreatesItFresh() {
         let d = defaults()
         let b = backend(.deniedInteractive)
         let v = vault(b, d)
         #expect(v.ephemeral)
+        var adopted = 0; v.onAdopt = { adopted += 1 }
         #expect(v.repair())
-        #expect(!v.ephemeral && v.readResult == "notfound" && b.deletes == 2 && b.writes == 1)   // main + backup
+        #expect(!v.ephemeral && v.readResult == "notfound" && adopted == 1)
+        #expect(b.deleteKeys == [b.key(svc, own)] && b.items[b.key(svc, "secrets.v3")] == blob())   // the other build's item is left alone
+        #expect(ownData(b) == v.secrets)
         v.update { $0.identity = Data([5]) }
         #expect(b.writes == 2)
-        // a stale gate must not survive a repair: the next identity change may ask again
-        let b2 = backend(.mismatch)
-        _ = vault(b2, d)
-        #expect(b2.interactiveReads == 1)
+        // next launch: ours is newest, the old item is never asked about again
+        b.interactiveReads = 0
+        let v2 = vault(b, d)
+        #expect(b.interactiveReads == 0 && !v2.ephemeral && v2.secrets.identity == Data([5]))
     }
 
     @Test func failedRepairStaysEphemeral() {
@@ -102,9 +237,10 @@ struct VaultUnreadableTests {
         let v = vault(b, defaults())
         b.failWrites = true
         #expect(!v.repair() && v.ephemeral)
+        #expect(v.ephemeralReason == "write-failed")
     }
 
-    @Test func failedDeleteDuringRepairLeavesTheItemAlone() {
+    @Test func failedDeleteDuringRepairChangesNothing() {
         let b = backend(.deniedInteractive)
         let v = vault(b, defaults())
         let before = b.items
@@ -112,108 +248,38 @@ struct VaultUnreadableTests {
         #expect(!v.repair() && v.ephemeral && b.items == before && b.writes == 0)
     }
 
-    @Test func noIdentityIsNotAnInteractiveReadAndSaysWhy() {
-        let v = vault(backend(.mismatch), defaults(), id: nil)
-        #expect(v.ephemeral && v.interactiveRead == "n/a" && v.ephemeralReason == "no-identity")
+    // MARK: launch surface
+
+    @Test func listQueryIsAttributesOnlyAndNeverUI() {
+        let q = KeychainBackend.listQuery(service: svc)
+        #expect(q[kSecReturnData as String] == nil && q[kSecReturnAttributes as String] as? Bool == true)
+        #expect(q[kSecMatchLimit as String] as? String == kSecMatchLimitAll as String)
+        #expect(q[kSecUseAuthenticationUI as String] as? String == kSecUseAuthenticationUIFail as String)
+        #expect(q[kSecAttrAccount as String] == nil)   // every account of the service
     }
 
-    @Test func realKeychainUnderDryRunNeverReadsInteractively() {
-        let b = backend(.mismatch)
-        let v = Vault(service: svc, memoryOnly: false, backend: b, defaults: defaults(), identity: "cdhash:a", allowInteractive: false)
-        #expect(b.interactiveReads == 0 && v.ephemeral && v.ephemeralReason == "dry-run" && v.interactiveRead == "n/a")
+    @Test func accountNamesFollowTheSigningPartition() {
+        #expect(Vault.account(for: "teamid:ABC") == "secrets.v4.teamid:ABC" && Vault.account(for: "cdhash:ff") == "secrets.v4.cdhash:ff")
+        #expect(Vault.account(for: nil) == nil)
     }
 
-    @Test func alwaysAllowUpdateNeedsNoDelete() {
+    @Test func deferredReadStartsEphemeralAndTheKeychainWinsOverMemory() {
         let b = backend(.mismatch)
-        b.updateFixes = true   // the user's earlier "Always Allow" already added our partition: the in-place update is enough
-        let v = vault(b, defaults())
-        #expect(!v.ephemeral && b.deletes == 1 /* only the backup */ && b.items[b.key(svc, Vault.account)] != nil)
-    }
-
-    @Test func failedDeleteDuringRewriteIsNonDestructive() {
-        let b = backend(.mismatch)
-        b.failDeletes = true
-        let d = defaults()
-        let v = vault(b, d)
-        #expect(v.ephemeral && v.ephemeralReason == "rewrite-failed" && v.secrets.identity == Data(repeating: 9, count: 32))
-        #expect(b.items[b.key(svc, Vault.account)] == blob())   // the item is untouched
-        #expect(d.string(forKey: Vault.partitionKey(svc)) == nil)   // not recorded as ours
-        let b2 = backend(.mismatch)   // gate cleared: a later launch (or Try again) may ask again
-        _ = vault(b2, d)
-        #expect(b2.interactiveReads == 1)
-    }
-
-    @Test func deleteOkAddFailedKeepsTheDataAndRecreatesTheItem() {
-        let b = backend(.mismatch)
-        b.failAccounts = [Vault.account]   // the in-place update and the add both fail; the delete works
-        let v = vault(b, defaults())
-        #expect(!v.ephemeral && v.readResult == "notfound")                // not ephemeral: the next save recreates it
-        #expect(b.items[b.key(svc, Vault.account)] == nil && b.items[b.key(svc, Vault.pendingAccount)] != nil)   // data lives in the backup
-        // a crash right now: the next launch restores from the backup
-        let relaunch = Vault(service: svc, memoryOnly: false, backend: b, defaults: defaults(), identity: "cdhash:a")
-        #expect(relaunch.secrets.identity == Data(repeating: 9, count: 32) && relaunch.secrets.blocked.map(\.fp) == ["bad"])
-        // the retry recreates the item and drops the backup
-        b.failAccounts = []
-        v.retryIfNeeded(now: Date().addingTimeInterval(60))
-        #expect(b.items[b.key(svc, Vault.account)] != nil && b.items[b.key(svc, Vault.pendingAccount)] == nil)
-        #expect(v.secrets.identity == Data(repeating: 9, count: 32))
-    }
-
-    @Test func deleteOkAddFailedThenASaveRecreates() {
-        let b = backend(.mismatch)
-        b.failAccounts = [Vault.account]
-        let v = vault(b, defaults())
-        b.failAccounts = []
-        v.update { $0.identity = Data(repeating: 4, count: 32) }
-        let saved = try! Vault.decoder.decode(Secrets.self, from: b.items[b.key(svc, Vault.account)]!)
-        #expect(saved.identity == Data(repeating: 4, count: 32) && saved.blocked.map(\.fp) == ["bad"] && b.items[b.key(svc, Vault.pendingAccount)] == nil)
-    }
-
-    @Test func unverifiedRewriteIsFailedNotRecorded() {
-        let b = backend(.mismatch)
-        b.persistMismatch = true   // added fine, but still unreadable without UI
-        let d = defaults()
-        let v = vault(b, d)
-        #expect(v.ephemeral && v.ephemeralReason == "rewrite-failed" && d.string(forKey: Vault.partitionKey(svc)) == nil)
-        #expect(b.items[b.key(svc, Vault.pendingAccount)] != nil && v.secrets.identity == Data(repeating: 9, count: 32))
-    }
-
-    @Test func deferredReadStartsEphemeralAndLeavesItWhenTheKeychainAnswers() {
-        let b = backend(.mismatch)
-        let v = Vault(service: svc, memoryOnly: false, backend: b, defaults: defaults(), identity: "cdhash:a", deferInteractive: true)
+        let v = vault(b, defaults(), deferred: true)
         #expect(v.reading && v.ephemeral && v.ephemeralReason == "reading" && b.interactiveReads == 0 && b.writes == 0)
         v.update { $0.blocked = [LabsBlockedKey(fp: "mem", name: "m")] }   // made while reading
-        var left = 0; v.onLeaveEphemeral = { left += 1 }
         v.startInteractiveRead(background: false)
-        #expect(!v.reading && !v.ephemeral && left == 1 && b.interactiveReads == 1)
+        #expect(!v.reading && !v.ephemeral && b.interactiveReads == 1)
         #expect(v.secrets.blocked.map(\.fp) == ["bad"])   // the Keychain wins; what was held in memory meanwhile is dropped
-    }
-
-    @Test func tryReadAgainClearsTheGateAndReads() {
-        let d = defaults()
-        let b = backend(.deniedInteractive)
-        let v = vault(b, d)
-        #expect(v.ephemeral && v.interactiveRead == "denied")
-        b.mode = .mismatch   // the user types the password this time
-        v.tryReadAgain(background: false)
-        #expect(!v.ephemeral && b.interactiveReads == 2 && v.secrets.identity == Data(repeating: 9, count: 32))
-    }
-
-    @Test func tryReadAgainDeniedStaysEphemeralAndChangesNothing() {
-        let b = backend(.deniedInteractive)
-        let v = vault(b, defaults())
-        let before = b.items
-        v.tryReadAgain(background: false)
-        #expect(v.ephemeral && v.ephemeralReason == "denied" && b.items == before && b.deletes == 0 && b.interactiveReads == 2)
     }
 
     @Test func fakeKeychainStatesMatchTheContract() {
         for (st, eph, ir) in [(FakeKeychainState.found, false, "none"), (.notFound, false, "none"), (.partitionMismatch, false, "ok"),
                               (.denied, true, "denied"), (.error, true, "n/a")] {
-            let v = Vault(service: svc, memoryOnly: false, backend: FakeKeychain(state: st), identity: "cdhash:t")
+            let v = Vault(service: svc, memoryOnly: false, backend: FakeKeychain(state: st), identity: FakeKeychain.identity)
             #expect(v.ephemeral == eph && v.interactiveRead == ir, "\(st)")
         }
-        let v = Vault(service: svc, memoryOnly: false, backend: FakeKeychain(state: .found))
+        let v = Vault(service: svc, memoryOnly: false, backend: FakeKeychain(state: .found), identity: FakeKeychain.identity)
         #expect(v.secrets.identity == FakeKeychain.seedIdentity)
     }
 }
@@ -224,7 +290,9 @@ struct EphemeralTrustTests {
         var c = Config()
         c.dryRun = true; c.headless = true; c.memoryStore = true; c.ble = false
         c.fakeKeychain = keychain; c.fakeProximity = true; c.fakeTailscaleOwner = "self"
-        return Hub(config: c)
+        let h = Hub(config: c)
+        h.vault.startInteractiveRead(background: false)   // the launch read has run (new pairings are refused while it is due)
+        return h
     }
 
     /// One hello from a fresh phone key presenting a valid proximity token AND the same Tailscale owner. Returns the messages sent.
@@ -325,4 +393,40 @@ struct HubKeychainTests {
         let e2 = out.last { $0["t"] as? String == "err" }
         #expect(e2?["code"] as? String == "auth" && e2?["ephemeral"] == nil)
     }
+
+    // M2: while reading, no new pairing (code or instant); the phone keeps what it has.
+    func session(_ h: Hub, _ out: Box) -> Session {
+        Session(hub: h, transport: "Wi-Fi", peer: "10.0.0.7", send: { d in
+            if let m = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] { out.msgs.append(m) }
+        }, close: {})
+    }
+    final class Box { var msgs: [[String: Any]] = [] }
+
+    @Test func codePairingIsRefusedWhileReadingAndWorksAfter() {
+        let h = hub(.partitionMismatch, defaults())
+        h.pairing.open()
+        let code = h.pairing.code ?? ""
+        let out = Box(); let s = session(h, out)
+        #expect(h.vault.reading)
+        s.handle(Data(#"{"t":"pair","code":"\#(code)","name":"P"}"#.utf8))
+        let e = out.msgs.last
+        #expect(e?["t"] as? String == "err" && e?["code"] as? String == "keychain-reading" && e?["retryAfter"] as? Int == 2)
+        #expect(!out.msgs.contains { $0["t"] as? String == "paired" } && h.store.devices.isEmpty)
+        h.vault.startInteractiveRead(background: false)
+        s.handle(Data(#"{"t":"pair","code":"\#(code)","name":"P"}"#.utf8))
+        #expect(out.msgs.last?["t"] as? String == "paired")
+    }
+
+    @Test func instantHelloIsRefusedWhileReadingWithoutRevealingAKey() {
+        let h = hub(.partitionMismatch, defaults())
+        let out = Box(); let s = session(h, out)
+        let key = Curve25519.Signing.PrivateKey()
+        let pub = key.publicKey.rawRepresentation.hexString
+        let sig = try! key.signature(for: Data(labsClientProof(hostId: h.settings.hostId, nonce: s.nonce, pub: pub).utf8)).hexString
+        h.instantPairing.handle("labs.pair.hello", ["pub": pub, "cn": randomHex(16), "sig": sig, "name": "Phone"], from: s)
+        let e = out.msgs.last
+        #expect(e?["code"] as? String == "keychain-reading" && e?["retryAfter"] as? Int == 2)
+        #expect(!out.msgs.contains { $0["t"] as? String == "labs.pair.hi" } && h.instantPairing.trusted.isEmpty)
+    }
 }
+

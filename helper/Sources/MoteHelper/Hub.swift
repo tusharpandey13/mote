@@ -68,14 +68,13 @@ final class Hub {
         // Accessibility can be granted at any time in System Settings; poll and tell clients.
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self else { return }
-            self.vault.retryIfNeeded()
             let now = PermProbe.check(.accessibility).state == .granted
             if now != self.axTrusted { self.axTrusted = now; self.broadcastState(); self.onChange?() }
         }
         instantPairing = InstantPairing(hub: self)
         bt = BtPair(hub: self)
         vault.onChange = { [weak self] in self?.onChange?() }
-        vault.onLeaveEphemeral = { [weak self] in self?.instantPairing?.reloadIdentity() }
+        vault.onAdopt = { [weak self] in self?.instantPairing?.reloadIdentity() }
     }
 
     /// Accessibility doesn't matter in dry-run (nothing is posted).
@@ -105,7 +104,7 @@ final class Hub {
         for s in subs { s.send(st) }
     }
 
-    /// "Keychain: Repair" (menu / Setup, after the user's confirmation): delete `secrets.v3` and create a fresh one.
+    /// "Keychain: Repair" (menu / Setup, after the user's confirmation): delete this build's own Keychain account and create a fresh one (other builds' items are left alone).
     @discardableResult
     func repairKeychain() -> Bool {
         let ok = vault.repair()
@@ -364,6 +363,8 @@ final class Session {
     }
 
     private func pair(_ m: [String: Any]) {
+        // M2: the saved pairings are being read; a new pairing now would be lost or overwritten. The phone keeps whatever it has.
+        if hub.vault.reading { ev(.session, "pair.failed", ["reason": "keychain-reading", "transport": transport]); err("keychain-reading", "This Mac is still reading its Keychain; try again in a moment", ref: "pair", retryAfter: 2, ephemeral: true); return }
         if let wait = hub.limiter.retryAfter(peer) { err("rate", "too many attempts", ref: "pair", retryAfter: wait); return }
         let code = (m["code"] as? String) ?? ""
         switch hub.pairing.check(code) {

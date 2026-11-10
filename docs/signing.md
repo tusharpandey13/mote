@@ -27,7 +27,7 @@ Interim policy (owner decision, until Developer ID is bought): releases are sign
 exact build, so every helper update shows customers one Keychain prompt (login password, Always Allow), and the first launch is not
 notarized (right-click Open, or `install.sh` strips quarantine). Release notes must say so. Moving to Developer ID later changes the team: one more prompt or re-pair.
 
-Secrets live in account `secrets.v3`. Earlier items (`secrets.v2`, `secrets`, per-secret ones) are never read: a cdhash-partitioned item prompts
+Secrets live in one account per signing identity, `secrets.v4.<partition>` (the older `secrets.v3` is only read, once, and copied; no build deletes another build's item). Earlier items (`secrets.v2`, `secrets`, per-secret ones) are never read: a cdhash-partitioned item prompts
 any other build. Users re-pair once.
 
 ## Current local path: Apple Development (free)
