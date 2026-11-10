@@ -224,7 +224,7 @@ enum Diag {
         ]
 
         return [
-            "v": snapshotVersion, "at": i.at, "source": i.source, "running": live,
+            "t": "diag", "v": snapshotVersion, "at": i.at, "source": i.source, "running": live,
             "helper": ["version": i.version, "protocol": protocolVersion, "pid": i.pid, "uptimeS": i.uptimeS, "dryRun": i.dryRun, "headless": i.headless,
                        "memoryStore": i.memoryStore, "port": i.port, "hostId": i.hostId, "macOS": i.macOS, "arch": i.arch] as [String: Any],
             "features": f.mapValues(\.json),
