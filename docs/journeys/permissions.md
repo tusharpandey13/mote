@@ -106,10 +106,11 @@ stateDiagram-v2
 |---|---|---|---|
 | Absent | notfound | ok | blob created |
 | Found | found | ok | pairings, identity, blocked list loaded |
-| Unreadable | error (`readStatus` = OSStatus) | `keychain-unreadable`, `fix=repair-keychain` | new identity each launch; trust and blocked lists lost (D-RC-1, D-FC-4) |
-| Corrupt | unreadable | `keychain-corrupt` | starts empty, overwrites |
+| Unreadable, partition mismatch | error -25308 / -25293, then `interactiveRead=ok` | ok | one interactive read per identity, item rewritten, everything loaded (U5) |
+| Unreadable, denied or other failure | error, `ephemeral=true` | `keychain-unreadable`, `fix=repair-keychain` | ephemeral: memory only, never saves, no automatic trust, every phone needs Allow; leaves only via a successful read or Repair (U5, U6) |
+| Corrupt | unreadable, `ephemeral=true` | `keychain-corrupt`, `fix=repair-keychain` | same ephemeral mode; never overwritten until Repair |
 | Memory (`--memory-store`) | memory | ok | nothing persisted |
-No UI exposes any state but Found. Tests: helper:VaultTests#authErrorIsNotPresentAndNeverRetriedOrOverwritten, helper:VaultTests#tolerantDecode, helper:DiagTests#keychainStatusCodes (L0); MANUAL-23 (L3).
+Menu line "Pairings aren't being saved: Keychain unavailable", "Keychain: Repair…" and the Setup row show while ephemeral. Tests: helper:VaultUnreadableTests, helper/tests/keychain.mjs, helper:VaultTests#authErrorIsNotPresentAndNeverRetriedOrOverwritten, helper:VaultTests#tolerantDecode, helper:DiagTests#keychainStatusCodes (L0); MANUAL-23 (L3).
 
 ## Android: Nearby devices (BLUETOOTH_SCAN / CONNECT / ADVERTISE, API 31+)
 API 28-30: legacy BLUETOOTH/BLUETOOTH_ADMIN granted at install. Asked from the BT gate (all three + notifications) or the connect card NeedBluetooth (SCAN + CONNECT, ctx `connect`).

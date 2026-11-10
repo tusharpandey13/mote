@@ -78,7 +78,7 @@ phone                                           helper
 |---|---|---|
 | `labs.pair.info` | phone -> helper | none. Reply: `labs.pair.info` with the info fields. Allowed before auth. |
 | `labs.pair.hello` | phone -> helper | `pub`, `name` (≤ 64 chars), `cn` (32 hex), `sig`, optional `prox` (`"<w>:<tk>"`) |
-| `labs.pair.hi` | helper -> phone | `pub`, `fp`, `sig`, `host` (Mac name), `hostId` |
+| `labs.pair.hi` | helper -> phone | `pub`, `fp`, `sig`, `host` (Mac name), `hostId`; optional `newKey: true` + `prevFp` (this launch's key differs from the one the Mac advertised last time), `ephemeral: true` (the key exists only for this helper process: the Keychain is unreadable, see section 7) |
 | `labs.pair.pending` | helper -> phone | `timeout` (seconds, 60); only with Require approval |
 | `labs.pair.ok` | helper -> phone | `via`: `trusted` (known key), `nearby` (valid proximity token), `tailscale` (same tailnet owner), `approved` (Allow clicked); `id` (`k:<fp>`), `name` |
 | `labs.pair.denied` | helper -> phone | `reason`: `far` (no proof of proximity), `stale` (token expired or already used), `bad-proximity` (forged token; counts as a failed attempt), `blocked` (Block was clicked for this key), and with Require approval `denied`, `timeout`, `busy`, `rate` (`retryAfter`) |
@@ -93,7 +93,7 @@ In order:
 
 1. **Blocked key**: `denied blocked`.
 2. **Known key** (trust list): `ok via trusted`.
-3. **Require approval for new devices** on: the Allow/Deny alert ("Allow <phone> to control this Mac?", phone fingerprint and route, auto-deny after 60 s; one alert at a time, 3 prompts per peer and 6 overall per 10 minutes, 10-minute cool-down after Deny). Proximity and Tailscale don't bypass it.
+3. **Require approval for new devices** on, or the helper's Keychain item is unreadable (ephemeral mode, section 7): the Allow/Deny alert ("Allow <phone> to control this Mac?", phone fingerprint and route, auto-deny after 60 s; one alert at a time, 3 prompts per peer and 6 overall per 10 minutes, 10-minute cool-down after Deny). Proximity and Tailscale don't bypass it.
 4. **Proximity**: a valid `prox` → store the key (`via nearby`), `ok via nearby`. Checked before the (slower) Tailscale lookup.
 5. **Tailscale owner**: the peer address is a tailnet address (100.64/10 or `fd7a:115c:a1e0::/48`) and the local `tailscale whois --json <ip>` → `UserProfile.ID` equals `tailscale status --json --peers=false` → `Self.UserID`; tagged nodes never match; CLI missing or > 3 s = no match. A stale or bad token still gets this check.
 6. Otherwise `denied` with `stale` / `bad-proximity` from step 4, else `far`.
@@ -146,6 +146,9 @@ Proximity ≈ Bluetooth range (typically 10-30 m indoors, through walls). Instan
 | Lost phone | Block (when it reconnects), or "Revoke all devices" in the helper menu. | Until revoked it keeps working on the LAN / tailnet. |
 
 ## 7. Compatibility
+
+- **Keychain unreadable** (the `secrets.v3` item was made by another signing identity, as after every "Mote Helper Local" update, see [signing.md](signing.md)). The helper reads without UI first. If macOS refuses because the partition does not match, it asks ONCE per signing identity (a Keychain prompt; remembered in UserDefaults before the read, so it cannot loop); on success it rewrites the item (delete + add) so this build owns it and nothing is lost. If you deny it, or the read fails any other way, the helper runs in **ephemeral mode**: secrets and this Mac's key live in memory only, the Keychain is never written, and nothing is trusted automatically (no proximity, no Tailscale owner, "Require approval" is implied; the blocked list is unknown), so every phone needs an explicit Allow on the Mac. The menu and Setup say "Pairings aren't being saved: Keychain unavailable" with **Keychain: Repair** (confirmation, then the item is deleted and a fresh one created; phones pair again). Only a successful read on a later launch or Repair ends ephemeral mode. Diagnostics: `keychain.ephemeral`, `features.keychain.blockedBy = keychain-unreadable`, `fix = repair-keychain`.
+- **"This Mac has a new key. Trust it?"** (phone side): a phone that pinned a `fp` for a `hostId` and sees another one in `labs.pair.hi` (or in the BLE/WebSocket `labs.pair.info`) must not connect silently. `hi.newKey` / `hi.prevFp` say the Mac itself noticed the change, `hi.ephemeral` says it is a per-launch key that will change again (do not pin it as the permanent key without saying so). Accepting re-pins the key and goes through the normal trust steps of section 4, including the proximity re-check. A helper that sends none of these fields is treated as before: the phone compares `fp` alone.
 
 - Upgrading the helper to the `secrets.v3` build: earlier Keychain items (`secrets.v2`, `secrets`, `devices`, `dev.mote.helper.bridge`, `dev.mote.helper.labs`) are stale and never read, so phones re-pair once (one tap). Remove the stale items in Keychain Access (search "dev.mote.helper"); the helper does not delete them because that can prompt.
 

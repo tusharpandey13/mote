@@ -199,7 +199,9 @@ Rules for reading it: every value is a fact the helper read without UI, or a con
                      "inferred"?: true, "inferredFrom"?: string, "applies"?: bool } },
   "keychain": { "service", "account", "memoryOnly", "readStatus": OSStatus|null, "readResult": "found"|"notfound"|"error"|"unreadable"|"memory",
                 "writeStatus": OSStatus|null, "itemCount": int|null, "partitionAtWrite": string|null, "expectedPartition": string|null,
-                "partitionMatchesSigning": bool|null },
+                "partitionMatchesSigning": bool|null,
+                "ephemeral": bool, "ephemeralReason": "denied"|"error"|"corrupt"|"rewrite-failed"|null,
+                "interactiveRead": "none"|"skipped"|"n/a"|"ok"|"denied"|"error" },
   "transports": { "wifi": {"listening": bool|null, "state", "port", "error", "connections", "accepted", "refused"},
                   "bonjour": {"state", "errorCode", "type": "_mote._tcp", "disabled"},
                   "ble": {"enabled", "status", "advertising"},
@@ -219,7 +221,7 @@ Rules for reading it: every value is a fact the helper read without UI, or a con
 
 `blockedBy` codes: `accessibility-not-granted`, `bluetooth-not-granted`, `bluetooth-denied`, `bluetooth-off`, `local-network-denied`, `screen-recording-not-granted`, `automation-not-granted`, `input-paused`, `keychain-unreadable`, `keychain-corrupt`, `listener-waiting`, `listener-failed`, `bonjour-failed`.
 
-`fix` codes (what a UI may offer): `grant-accessibility`, `grant-bluetooth`, `grant-screen-recording`, `grant-automation` (macOS shows its own prompt), `open-bluetooth-settings`, `open-local-network-settings`, `open-automation-settings` (open the System Settings pane), `turn-bluetooth-on`, `resume-input`, `enable-lab`, `enable-tailscale-setting`, `repair-keychain`, `free-port`, `restart-helper`.
+`keychain` while the vault is unreadable: `blocked`, `blockedBy: keychain-unreadable` (read error, denied or failed interactive read, failed rewrite; `keychain-corrupt` for an unparseable item), `fix: repair-keychain` ("Keychain: Repair" on the Mac: delete and recreate the item, phones pair again), `detail` starts with "Pairings aren't being saved: Keychain unavailable". `ephemeral: true` means: secrets are in memory only, the Keychain is never written, no trust is automatic (every phone needs an explicit Allow on the Mac). `interactiveRead`: after a no-UI read fails because the partition does not match the signing identity, the helper asks macOS once per identity (`ok` = read and the item was rewritten under this build, `denied` / `error` = ephemeral, `skipped` = already asked for this identity, `n/a` = the failure is not one a prompt can fix, `none` = not needed). `fix` codes (what a UI may offer): `grant-accessibility`, `grant-bluetooth`, `grant-screen-recording`, `grant-automation` (macOS shows its own prompt), `open-bluetooth-settings`, `open-local-network-settings`, `open-automation-settings` (open the System Settings pane), `turn-bluetooth-on`, `resume-input`, `enable-lab`, `enable-tailscale-setting`, `repair-keychain`, `free-port`, `restart-helper`.
 
 ### `diag.subscribe` / `diag.events` (event stream)
 
@@ -245,7 +247,7 @@ Areas and events (a unit test keeps this table equal to the code):
 | `lifecycle` | `start`, `ready`, `terminate`, `setting`, `diag.cli` |
 | `signing` | `identity`, `error` |
 | `permission` | `check`, `change`, `request` |
-| `keychain` | `read`, `write`, `partition` |
+| `keychain` | `read`, `write`, `partition`, `interactive`, `rewrite`, `ephemeral.enter`, `ephemeral.leave`, `repair` |
 | `discovery` | `bonjour.attempt`, `bonjour.registered`, `bonjour.failed`, `ble.state`, `ble.advertising`, `ble.failed`, `tailnet.detect` |
 | `transport` | `listen.state`, `conn.accepted`, `conn.refused`, `conn.closed`, `ws.upgrade`, `ws.refused`, `ble.central`, `http.response` |
 | `session` | `open`, `authed`, `auth.failed`, `paired`, `pair.failed`, `closed`, `revoked` |
