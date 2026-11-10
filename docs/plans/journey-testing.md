@@ -19,6 +19,8 @@ Open bugs that this plan must turn into visible reasons and failing tests first:
 | B4 | No Android media notification while the Mac plays. Decided: build it (phase 1b), tested at every level. Now core, not Labs: foreground service while playing, plus a Bluetooth-only variant (transport buttons as HID consumer keys, no metadata); see [UNDEFINED.md](../journeys/UNDEFINED.md) U1-U3 | 2026-11-10 |
 | B5 | Cause of B1 found: TCC kept 8 stale Screen Recording entries, one per past signature, and System Settings showed the switch on for a stale one. After `tccutil reset ScreenCapture dev.mote.helper`, Grant brought no prompt and no list entry until the helper relaunched (cached answer in the process). Fix: on a signature change, Setup says "re-grant: remove the old entry"; Grant after a failed request offers Relaunch. U8: CGPreflight and window titles both flipped after relaunch | 2026-11-10 |
 | B6 | Phone loops labs.pair.hello -> labs.pair.denied every ~4 s (34 times) with no message to the user, after the move to the secrets.v3 Keychain item dropped its trusted key; the helper event log does not record the deny reason. Fix: phone shows "This Mac doesn't recognise this phone" with re-pair; `pairing.denied {reason}` event; carry trusted keys over on vault migration | 2026-11-10 |
+| B7 | Phone TV mode on, helper Labs › TV mode off: `labs.tv.open` fails with err `disabled` and the phone shows no reason. Fix: Blockers.kt maps it to "Turn on TV mode in Mote Helper › Labs" | 2026-11-10 |
+| B8 | Mote Dev's Bluetooth HID phase BLOCKED while the installed Mote also exists (one HID app per phone). Copy says "another app"; name the likely cause (Mote installed too) when `dev.mote.remote` is present | 2026-11-10 |
 
 ## Goals
 
