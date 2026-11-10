@@ -59,8 +59,8 @@ fun SearchingCard(onDevices: () -> Unit) {
         Text("Still looking for $name", style = T.label, color = c.ink)
         SEARCHING_CAUSES.forEach { Text("• $it", style = T.small, color = c.muted) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryButton("Try again") { (Net.active.value as? WsTransport)?.kick() }
-            SecondaryButton("Devices") { onDevices() }
+            SecondaryButton("Try again", Modifier.weight(1f)) { (Net.active.value as? WsTransport)?.kick() }
+            SecondaryButton("Devices", Modifier.weight(1f)) { onDevices() }
         }
     }
 }

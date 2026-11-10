@@ -136,7 +136,11 @@ object InstantPairing {
                         else -> throw e
                     }
                 }
-                save(TrustRecord(c.hostId, done.helper.pub, done.helper.fp, done.via, c.info))
+                // Ephemeral Mac (Keychain unavailable): this key lives one helper process. Never replace a stored pin with it.
+                val rec = TrustRecord(c.hostId, done.helper.pub, done.helper.fp, done.via, c.info)
+                if (!done.helper.ephemeral) save(rec)
+                else if (_records.value[c.hostId] == null) _records.value = _records.value + (c.hostId to rec) // this session only, not persisted
+                if (done.helper.ephemeral) HostKeyChange.reportEphemeral(c.hostId, c.name)
                 withContext(Dispatchers.Main) { adopt(c, s, addr, done) }
                 return@withContext done
             } finally { s.close() }
@@ -185,7 +189,9 @@ object InstantPairing {
 
     /** Silent re-auth: same helper key required, and no prompt (a prompt means the Mac dropped this phone). */
     private suspend fun reconnect(s: WsSession, r: TrustRecord) = try {
-        labsHandshake(s, Identity.get(app), deviceName(), r.fp, allowPrompt = false).authed
+        labsHandshake(s, Identity.get(app), deviceName(), r.fp, allowPrompt = false, onState = { st ->
+            if (st is PairState.Verified && st.helper.ephemeral) HostKeyChange.reportEphemeral(r.hostId, Net.saved.value.firstOrNull { it.hostId == r.hostId }?.name ?: "This Mac")
+        }).authed
     } catch (e: HelperError) {
         if (HostKeyChange.isKeyMismatch(e.code, e.message)) {
             HostKeyChange.report(r.hostId, Net.saved.value.firstOrNull { it.hostId == r.hostId }?.name ?: "This Mac")

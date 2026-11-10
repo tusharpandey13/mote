@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
  * Labs/WS message handler when that message arrives; nothing else in the UI changes.
  */
 object HostKeyChange {
-    data class Pending(val hostId: String, val name: String)
+    data class Pending(val hostId: String, val name: String, val ephemeral: Boolean = false)
 
     private val _pending = MutableStateFlow<Pending?>(null)
     val pending: StateFlow<Pending?> = _pending.asStateFlow()
@@ -47,12 +47,24 @@ object HostKeyChange {
     /** Message the key-mismatch error carries (Handshake.kt); the hook matches on it until the helper has its own message. */
     const val MISMATCH = "This Mac's key changed"
 
+    /** Shown when the Mac is in ephemeral mode (its Keychain is unreadable): per-launch key, approve on the Mac, nothing stored. */
+    const val EPHEMERAL_TEXT = "This Mac can't save pairings right now (Keychain unavailable). Approve this phone on the Mac. Your existing pairing is kept and works again once the Mac's Keychain is repaired."
+
+    /** Classic token `auth` error code of an ephemeral helper: keep the stored token, show [EPHEMERAL_TEXT], never delete anything. */
+    const val KEYCHAIN_UNAVAILABLE = "keychain-unavailable"
+
     fun isKeyMismatch(code: String, msg: String?) = code == "helper-key" && msg == MISMATCH
 
     fun report(hostId: String, name: String) {
         if (_pending.value?.hostId == hostId) return
         _pending.value = Pending(hostId, name)
         Events.log("ui", "banner", "kind" to "new-key", "host" to name)
+    }
+
+    fun reportEphemeral(hostId: String, name: String) {
+        if (_pending.value?.hostId == hostId) return
+        _pending.value = Pending(hostId, name, ephemeral = true)
+        Events.log("ui", "banner", "kind" to "mac-ephemeral", "host" to name)
     }
 
     /** HOOK: the helper told us (or the handshake showed) that [hostId] has a new key. */
@@ -75,13 +87,14 @@ fun KeyChangeCard() {
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).well(RoundedCornerShape(20.dp)).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text("This Mac has a new key. Trust it?", style = T.label, color = c.ink)
+        Text(if (pending.ephemeral) "This Mac can't save pairings" else "This Mac has a new key. Trust it?", style = T.label, color = c.ink)
         Text(
-            error ?: "${pending.name} is using a different Mote Helper key than the one this phone trusted. Only trust it if you reinstalled Mote Helper or set the Mac up again. Keep the phone next to the Mac: Mote checks that over Bluetooth.",
+            if (pending.ephemeral) HostKeyChange.EPHEMERAL_TEXT else error ?: "${pending.name} is using a different Mote Helper key than the one this phone trusted. Only trust it if you reinstalled Mote Helper or set the Mac up again. Keep the phone next to the Mac: Mote checks that over Bluetooth.",
             style = T.small, color = if (error != null) c.linkBad else c.muted,
         )
+        if (pending.ephemeral) { SecondaryButton("OK") { HostKeyChange.dismiss() }; return@Column }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PrimaryButton(if (busy) "Checking…" else "Trust") {
+            PrimaryButton(if (busy) "Checking…" else "Trust", Modifier.weight(1f)) {
                 if (busy) return@PrimaryButton
                 busy = true; error = null
                 scope.launch {
@@ -95,7 +108,7 @@ fun KeyChangeCard() {
                     } finally { busy = false }
                 }
             }
-            SecondaryButton("Not now") { Events.log("ui", "tap", "target" to "new-key-dismiss"); HostKeyChange.dismiss() }
+            SecondaryButton("Not now", Modifier.weight(1f)) { Events.log("ui", "tap", "target" to "new-key-dismiss"); HostKeyChange.dismiss() }
         }
     }
 }

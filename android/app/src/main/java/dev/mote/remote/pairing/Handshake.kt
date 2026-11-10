@@ -20,7 +20,7 @@ class SeedSigner(private val seed: ByteArray) : Signer {
 }
 
 /** Helper as proven by `labs.pair.hi`. */
-data class HelperKey(val pub: String, val fp: String, val host: String)
+data class HelperKey(val pub: String, val fp: String, val host: String, val ephemeral: Boolean = false)
 
 sealed interface PairState {
     data object SentHello : PairState
@@ -60,8 +60,9 @@ class PairMachine(
     private fun next(s: PairState, m: PairMsg): PairState = when {
         s.terminal -> s
         m is PairMsg.Hi && s == PairState.SentHello -> verify(m)
+        // an ephemeral Mac always asks on the Mac, even for a silent reconnect
         m is PairMsg.Pending && s is PairState.Verified ->
-            if (allowPrompt) PairState.Pending(s.helper, m.timeout) else fail("revoked", "The Mac no longer trusts this phone")
+            if (allowPrompt || s.helper.ephemeral) PairState.Pending(s.helper, m.timeout) else fail("revoked", "The Mac no longer trusts this phone")
         m is PairMsg.Ok && s is PairState.Verified -> PairState.Accepted(s.helper, m.via, m.id)
         m is PairMsg.Ok && s is PairState.Pending -> PairState.Accepted(s.helper, m.via, m.id)
         m is PairMsg.Denied && (s is PairState.Verified || s is PairState.Pending) -> PairState.Denied(m.reason, m.retryAfter)
@@ -74,10 +75,12 @@ class PairMachine(
         val pub = PairProto.hexOrNull(h.pub, 32) ?: return fail("bad", "Malformed helper key")
         val fp = PairProto.fingerprint(pub)
         if (fp != h.fp) return fail("helper-key", "Helper key and fingerprint differ")
-        if (pinnedFp != null && pinnedFp != fp) return fail("helper-key", "This Mac's key changed")
+        // A different key than the pinned one: ask the user (U12). A Mac in ephemeral mode (Keychain unavailable) has a
+        // per-process key: accepted for this session only, the caller keeps the stored pin (HelperKey.ephemeral).
+        if (pinnedFp != null && pinnedFp != fp && !h.ephemeral) return fail("helper-key", HostKeyChange.MISMATCH)
         val sig = PairProto.hexOrNull(h.sig, 64) ?: return fail("bad", "Malformed helper signature")
         if (!Ed25519.verify(pub, PairProto.helperProof(hostId, nonce, cn, clientPub), sig)) return fail("helper-key", "Bad helper signature")
-        return PairState.Verified(HelperKey(h.pub, fp, h.host))
+        return PairState.Verified(HelperKey(h.pub, fp, h.host, h.ephemeral))
     }
 }
 
