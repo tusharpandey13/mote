@@ -2,12 +2,12 @@
 
 The phone adapts to what is on the Mac. Netflix gets skip intro and fullscreen. YouTube and other web video get fullscreen, theater, next, captions and speed. A focused text field opens the keyboard. A now-playing card has a scrubber you drag to seek.
 
-This is a preview. It is off on both sides:
+Since 0.7 the two halves are separate on the helper:
 
-- **Android:** Settings › Labs › "Smart remote (preview)" (`Labs.SMART_REMOTE`, key `smart_remote`).
-- **Helper:** menu › Labs › "Context & now playing (preview)". It is persisted in UserDefaults (`labs.context.enabled`).
+- **Now playing** (`labs.np.*`) is a core feature, **on by default**. Menu › "Share now playing" turns it off (UserDefaults `nowPlaying.enabled`, default true; event `lifecycle/setting{key:"nowPlaying"}`). Off: `labs.np` answers `enabled: false`, `labs.np.seek` answers `err unsupported`, and the reader is stopped. The wire format is unchanged. (Android gating on the Labs switch is the app's concern.)
+- **Context** (`labs.ctx.*`, the front app / browser tab) is still a preview and **off by default**: menu › "Context (frontmost app, preview)" (`labs.context.enabled`); Android: Settings › Labs › "Smart remote (preview)" (`Labs.SMART_REMOTE`, key `smart_remote`). The `js` seek path needs context; `mediaremote` and `keys` do not.
 
-The messages below are not part of [protocol.md](../protocol.md) and do not change its version. A helper without the lab answers `labs.ctx.*` / `labs.np.*` with `err` `unknown`. A helper with the lab turned off answers with `enabled: false`.
+The messages below are not part of [protocol.md](../protocol.md) and do not change its version. A helper without the lab answers `labs.ctx.*` / `labs.np.*` with `err` `unknown`. A helper with the feature turned off answers with `enabled: false`.
 
 ## Messages
 
@@ -20,7 +20,7 @@ Every message needs an authenticated session. `*.sub` messages are reads, so pau
 | `labs.np.sub` | client -> helper | `on` (bool, default true). The helper replies with `labs.np` now, and again on every change. |
 | `labs.np` | helper -> client | `enabled`, `source` (`mediaremote` / `fake` / `starting` / `unavailable` / `off`), `now` (Mac clock, ms), `seek` (the seek paths that could work now, best first: `mediaremote` or `fake`, then `js`, then `keys`). `np` is null when nothing plays; otherwise it has `title`, `artist`, `album`, `app`, `bundle`, `duration` (s), `elapsed` (s, true at `at`), `rate` (0 = paused), `playing`, `at` (Mac clock, ms) and `art` (base64 JPEG, 192 px or less, under 40 KB). |
 | `labs.np.seek` | client -> helper | `to` (absolute seconds) or `by` (relative seconds, at most 3600). |
-| `labs.np.seek` | helper -> client | `via` (`mediaremote` / `fake` / `js` / `keys`), `to` (the target, when known), `note` (a hint, e.g. how to allow JavaScript). Errors: `bad`, `paused`, `ax`, `unsupported` (lab off). |
+| `labs.np.seek` | helper -> client | `via` (`mediaremote` / `fake` / `js` / `keys`), `to` (the target, when known), `note` (a hint, e.g. how to allow JavaScript). Errors: `bad`, `paused`, `ax`, `unsupported` (Share now playing off). |
 
 **Clocks.** The client extrapolates the position as `elapsed + (now - at) / 1000 * rate` when the message arrives, then follows its own monotonic clock. Only the Mac's clock is used, so the phone's clock may be wrong.
 

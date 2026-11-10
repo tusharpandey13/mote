@@ -86,11 +86,14 @@ deleted; pairings do not carry over (re-pair once). The proximity secret is per 
 
 Default: status (with **Finish setup…** while Accessibility is missing), the screen-sharing indicator,
 connected phones, **Devices** (trusted / blocked phones, Block / Unblock, Revoke all devices…),
-**Pause input**, **Setup…**, **Quit**.
+**Pause input**, **Setup…**, **Quit**. A line "Mote Helper X.Y.Z is available" (opens the release page) appears when
+the daily GitHub release check finds a newer version; it never downloads anything.
 
 **Advanced**: Wi-Fi remote URLs (click to copy), Wi-Fi / Bluetooth status, Allow Tailscale connections
-(+ the tailnet URL), Share Space thumbnails (off by default; asks for Screen Recording when turned on)
+(off until you turn it on; + the tailnet URL), Share Space thumbnails (off by default; asks for Screen Recording when turned on)
 and Clear Space thumbnails, Require approval for new devices, this Mac's key, Pair with code (web
-remote)…, Open at login.
+remote)…, Share now playing (on by default), Check for updates daily (on), Open at login ("Needs approval in Login Items…" when macOS holds it).
 
-**Labs**: TV mode, Context & now playing, browser extension bridge, Live screen (previews, all off).
+**Labs**: TV mode, Context (frontmost app), browser extension bridge, Live screen (previews, all off).
+
+Test flags (need `--dry-run`): `--fake-ax-denied`, `--update-url URL`, `--update-check-now`; tests: `helper/tests/ux.mjs`.
