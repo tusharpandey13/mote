@@ -49,17 +49,22 @@ class WifiHelperJourney {
             mac.await("^NEW DEVICE: \\{\"id\":\"k:[0-9a-f]{32}\",\"name\":\"\\Q$phone\\E\",\"via\":\"nearby\"\\}")
         }
         j.step("S8") {
-            // Spec (code at the time): the app leaves FindMacScreen for the remote; the Bluetooth offer
-            // isn't shown (connect-next-D2). The 0.6.0 branch now keeps setup on screen for the
-            // Bluetooth step on phones with an adapter: whichever is shown is recorded in the note.
-            j.expectAny("Connected over Wi-Fi", "Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
-            if (j.shown("Connected over Wi-Fi")) throw AssertionError("setup stayed on the Bluetooth offer (\"Connected over Wi-Fi\" + \"Also pair Bluetooth…\"), spec S8 says the remote opens; see DEFECTS connect-next-D2")
+            // next-0.6: setup stays on screen for the optional Bluetooth step (App.kt `setup`), the emulator has an adapter
+            j.expect("Connected over Wi-Fi", timeoutMs = 8_000)
+            j.expect("Also pair Bluetooth for login screen & backup (recommended)")
+            j.expect("Android asks twice: make the phone visible, then Pair. Nothing to do on the Mac.")
+            j.expect("Continue"); j.expect("Skip")
         }
         j.step("S9") {
             mac.await("labs: trusted .* via trusted", 10_000)
             mac.assertNo("^NEW DEVICE", 1_000)
         }
-        j.step("S10", "faked: headless helper has no floating notice; stdout NEW DEVICE (S7) stands in") {
+        j.step("S10") {
+            j.tap("Skip")
+            j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+            j.expect("WI-FI")
+        }
+        j.step("S11", "faked: headless helper has no floating notice; stdout NEW DEVICE (S7) stands in") {
             mac.from = 0; mac.await("^NEW DEVICE: ")
         }
     }
@@ -70,14 +75,22 @@ class WifiHelperJourney {
         val name = mac.info().getString("n")
         j.launch(fakeProximity = false)
         j.expect("Connect to $name", timeoutMs = 6_000)
-        j.step("B1") { j.tap("Connect to $name"); j.expectAny("Connecting…", "Connected. Trusted via Tailscale", "Device: $name via Wi-Fi. Tap to choose") }
+        j.step("B1") { j.tap("Connect to $name"); j.expectAny("Connecting…", "Connected over Tailscale") }
         j.step("B2", "faked: tailnet owner match by --fake-tailscale-owner self over the LAN (no tailnet on the emulator)") {
             mac.await("labs: trusted .* via tailscale")
             mac.await("authed .* via Wi-Fi from 127\\.0\\.0\\.1")
             mac.from = 0; mac.await("^NEW DEVICE: .*\"via\":\"tailscale\"")
         }
-        j.step("B3") { j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000) }
-        j.step("B4", "faked: stdout NEW DEVICE stands in for the Mac's notice") { mac.from = 0; mac.await("^NEW DEVICE: .*tailscale") }
+        j.step("B3") {
+            // code: the label comes from labs.pair.ok `via`, not the route (connect-next-D4)
+            j.expect("Connected over Tailscale", timeoutMs = 8_000)
+            j.expect("Also pair Bluetooth for login screen & backup (recommended)")
+        }
+        j.step("B4") {
+            j.tap("Skip")
+            j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+        }
+        j.step("B5", "faked: stdout NEW DEVICE stands in for the Mac's notice") { mac.from = 0; mac.await("^NEW DEVICE: .*tailscale") }
     }
 
     @Test fun tailscaleReal() {
@@ -88,7 +101,7 @@ class WifiHelperJourney {
 
     @Test fun installNextSteps() {
         j.path("wifi-helper.install-next-steps")
-        j.static("B1", "site/install.sh:85-87 text (DEFECT wifi-helper-D1)")
+        j.static("B1", "site/install.sh final text: Setup window, then open Mote on the phone (wifi-helper-D1 FIXED in next-0.6)")
         j.static("B2", "main.swift: no pairing window unless --open-pairing or instant pairing off")
     }
 }

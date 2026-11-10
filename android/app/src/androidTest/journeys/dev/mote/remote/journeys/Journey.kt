@@ -162,11 +162,19 @@ class JourneyRule : TestRule {
     // ---- helpers / app ----
 
     /** Starts a dry-run helper with journey [args] (fakes only; the controller adds the safe flags). */
-    fun helper(vararg args: String, name: String = "mac", port: Int = 0): Helper {
+    fun helper(vararg args: String, name: String = "mac", port: Int = 0, keep: Boolean = false): Helper {
         val r = Ctl.call("/helper/start", JSONObject().put("name", name).put("args", JSONArray(args.toList())).put("port", port))
         val a = r.getJSONArray("args")
-        return Helper(name, r.getInt("port"), (0 until a.length()).map { a.getString(it) }).also { helpers += it }
+        return Helper(name, r.getInt("port"), (0 until a.length()).map { a.getString(it) }).also { if (keep) kept += it else helpers += it }
     }
+
+    /** A helper a previous test of the same ordered class started with keep = true (null: not running). */
+    fun attach(name: String): Helper? {
+        val r = runCatching { Ctl.call("/helper/info", JSONObject().put("name", name)) }.getOrNull() ?: return null
+        val a = r.getJSONArray("args")
+        return Helper(name, r.getInt("port"), (0 until a.length()).map { a.getString(it) }).also { kept += it; it.mark() }
+    }
+    private val kept = mutableListOf<Helper>()
 
     /**
      * Launches the app. Seams: Bonjour off (the emulator can't see the Mac's Bonjour anyway, and the
@@ -175,7 +183,7 @@ class JourneyRule : TestRule {
      * WebSocket instead of BLE; [transport]/[adapter] replace Bluetooth HID / the adapter.
      */
     fun launch(
-        sweepPort: Int? = helpers.firstOrNull()?.port,
+        sweepPort: Int? = (helpers + kept).firstOrNull()?.port,
         fakeProximity: Boolean = false,
         transport: Transport? = null,
         adapter: StateFlow<TestSeam.Adapter>? = null,
@@ -194,7 +202,9 @@ class JourneyRule : TestRule {
     /** Back to the launcher and in again (onStop/onStart). */
     fun backgroundAndReturn(ms: Long = 1500) {
         device.pressHome(); Thread.sleep(ms)
-        scenario?.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        // ActivityScenario can't resume an activity the launcher stopped: bring the task back like the launcher does.
+        shell("am start -n ${ctx.packageName}/dev.mote.remote.MainActivity -f 0x00020000") // FLAG_ACTIVITY_REORDER_TO_FRONT
+        device.waitForIdle()
     }
 
     fun shell(cmd: String): String {
@@ -233,12 +243,22 @@ class JourneyRule : TestRule {
             (n.config.getOrNull(SemanticsProperties.ContentDescription) ?: emptyList())
     }.distinct()
 
+    /**
+     * One poll interval. The Compose test clock only moves when the test advances it, so UI driven by
+     * `delay()` (ConnectCard's 900 ms close, FindMacPanel's 5 s "not found", BtStep's 1.5 s) would
+     * stall under a plain sleep: advance it in step with real time.
+     */
+    fun tick(ms: Long = 50) {
+        runCatching { compose.mainClock.advanceTimeBy(ms) }
+        Thread.sleep(ms)
+    }
+
     /** Waits until [text] (text or content description) is on screen. */
     fun expect(text: String, timeoutMs: Long = 5_000, substring: Boolean = false) {
         val end = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < end) {
             if (runCatching { shown(text, substring) }.getOrDefault(false)) return
-            Thread.sleep(100)
+            tick()
         }
         throw AssertionError("expected \"$text\" on screen within $timeoutMs ms")
     }
@@ -248,7 +268,7 @@ class JourneyRule : TestRule {
         val end = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < end) {
             texts.firstOrNull { runCatching { shown(it, substring) }.getOrDefault(false) }?.let { return it }
-            Thread.sleep(100)
+            tick()
         }
         throw AssertionError("expected one of ${texts.toList()} on screen within $timeoutMs ms")
     }
@@ -257,7 +277,7 @@ class JourneyRule : TestRule {
         val end = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < end) {
             if (!runCatching { shown(text, substring) }.getOrDefault(true)) return
-            Thread.sleep(100)
+            tick()
         }
         throw AssertionError("expected \"$text\" to leave the screen within $timeoutMs ms")
     }
@@ -297,10 +317,14 @@ class JourneyRule : TestRule {
                 try {
                     base.evaluate()
                 } catch (t: Throwable) {
+                    // Test-only artifact: the compose test dispatcher resumes Bt.observe's awaitClose off the
+                    // main thread when the activity is disposed (production collects on Main). Not a step failure.
+                    if (failedStep == null && isTeardownArtifact(t)) return
                     if (failedStep == null) { shot("setup"); record("setup", Status.FAIL, (t.message ?: t.toString()) + visibleSummary()) }
                     throw t
                 } finally {
-                    runCatching { scenario?.close() }
+                    // The activity is left to the orchestrator (fresh process per test): closing it here
+                    // disposes the composition on the compose test dispatcher (see isTeardownArtifact).
                     helpers.forEach { runCatching { it.stop() } }
                     runCatching { shell("svc wifi enable") }
                     TestSeam.transport = null; TestSeam.adapter = null; TestSeam.noBonjour = false
@@ -309,6 +333,10 @@ class JourneyRule : TestRule {
             }
         }
     }
+
+    private fun isTeardownArtifact(t: Throwable): Boolean = generateSequence(t) { it.cause }.any {
+        it is IllegalStateException && it.message?.contains("removeObserver must be called on the main thread") == true
+    } // only the primary throwable (and its causes): a real failure carrying the artifact as suppressed still fails
 
     override fun apply(base: Statement, description: Description): Statement =
         RuleChain.outerRule(outer).around(compose).apply(base, description)
