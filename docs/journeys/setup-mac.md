@@ -1,94 +1,72 @@
-# setup-mac: A. Mac setup
+# J2 setup-mac: Mac first-run setup
 
-Artboard: `design/mote-v1/journey-setup-mac.html` (Shipped). Code (next-0.6): `site/install.sh`, `helper/Sources/MoteHelper/main.swift`, `SetupWindow.swift`, `Permissions.swift`, `MenuBar.swift`, `Hub.swift`, `Vault.swift`, `InstantPairing.swift`, `Config.swift`, `helper/Info.plist`, `android/.../ui/HostsUi.kt` (HostRowCap). Docs: `docs/design/design-language.md` (User journeys, coverage rows "Helper: install.sh…", "Helper: Accessibility…", "Helper: Local network…"), `docs/pairing.md` §8, `AGENTS.md`.
-Test: `e2e/journeys` → `dev.mote.remote.journeys.SetupMacJourney` (one @Test per path below). Only the helper stand-in steps run on the journey harness; the installer is exercised by `e2e/web/tests/install.spec.ts` (Playwright, local fixture + stubs), so its steps are `static:` here.
-
-## Preconditions
-- P1. App: not involved, except branch `setup-mac.ax-denied` (debug `dev.mote.remote.dev`, trusted + selected helper Mac).
-- P2. Phone: n/a (main path); `ax-denied`: emulator on "AndroidWifi".
-- P3. Mac / helper: no `~/Applications/MoteHelper.app` in the temp `HOME`, no helper process. Helper stand-in for the launch: `MoteHelper --dry-run --headless --memory-store --no-ble --no-bonjour --stdin-control --port N` (instant pairing on by default). Never `open` the real app.
-- P4. Network: installer: loopback fixture `MOTE_RELEASE_URL=http://127.0.0.1:<p>`; helper: loopback.
-
-## Main path `setup-mac`
-| # | Actor | Action (exact) | Expected observable (exact) | Seam |
-|---|---|---|---|---|
-| S1 | Mac user | Copy `curl -fsSL https://tusharpandey13.github.io/mote/install.sh \| bash` from the site | site shows that line + "Copy"/"Copied" | manual: site page copy button (artboard jA-s1/s2); same string as `INSTALL_CMD` (`ConnectUi.kt:56`) |
-| S2 | Mac user | Run `bash site/install.sh` with `HOME=<tmp>`, stub PATH, `MOTE_RELEASE_URL=<fixture>` | stdout, in order: `==> This will:` / `    download  <fixture>/MoteHelper-macos-arm64.zip` / `    verify    its SHA-256 against MoteHelper-macos-arm64.zip.sha256 from the same release` / `    install   <tmp>/Applications/MoteHelper.app` / `    clear the quarantine flag on that app only, then open its Setup window` / `==> Downloading MoteHelper-macos-arm64.zip` / `==> Verifying SHA-256` / `    ok <sha256>` / `==> Unpacking` / `==> Installing to <tmp>/Applications/MoteHelper.app` / `==> Opening Mote Helper Setup` | static: asserted by e2e/web/tests/install.spec.ts (fixture + stubs), not by this harness |
-| S3 | system | (script ends) | exit 0; stdout ends with "Done. Follow the Setup window (allow Accessibility; Bluetooth is recommended), then open Mote on" / "your phone. Reopen it any time from the menu-bar icon: Setup…" / `Uninstall: quit it from the menu, then  rm -rf "<tmp>/Applications/MoteHelper.app"`; stub log `open <tmp>/Applications/MoteHelper.app --args --setup`; no `tccutil` call on a fresh install (no old signature) | static: install.spec.ts |
-| S4 | system | Helper launches | stand-in stderr: `[mote] instant pairing: on (key <8 hex>)`, `[mote] Mote Helper starting (dry run) on <LocalHostName>.local:N`, `[mote] hostId <16 hex>, tailscale connections refused`, `[mote] wifi: listening on :N`; stdout `LABS PAIR INFO: {…"n":"<computer name>"…}`; no `PAIRING CODE:` line | faked: dry-run headless helper stands in for the installed app |
-| S5 | system | Real app, `--setup` (or first launch of setup version 1, or Accessibility missing) | no TCC prompt at launch; window "Mote Helper Setup": "Set up Mote Helper", headline "Mote needs Accessibility to control this Mac. Everything else is optional."; rows "Accessibility" REQUIRED "Lets your phone move the pointer, click and type." [Grant]; "Bluetooth" RECOMMENDED "Finds your phone nearby for one-tap pairing, and works without Wi-Fi." [Grant]; "Local Network" RECOMMENDED (macOS 15+) "Lets your phone reach this Mac over Wi-Fi." [Open Settings]; "Screen Recording" OPTIONAL "Space thumbnails on the phone, and Labs › Live screen." [Enable]; "Automation" OPTIONAL "Labs › Context: reads your browser's active tab for smarter controls." [Enable]; toggle "Open Mote Helper at login"; button "Later" | needs user: window (headless: never shown; `main.swift` skips it under `--dry-run`) |
-| S6 | Mac user | Accessibility › "Grant" | macOS Accessibility prompt + System Settings `Privacy_Accessibility` | needs user: TCC |
-| S7 | Mac user | Turn MoteHelper on in System Settings | ≤ 1 s: row shows "Allowed"; headline "You're set. Open Mote on your phone and tap this Mac."; button "Done"; menu "Mote Helper: Ready" (AX poll 2 s) | needs user: TCC |
-| S8 | Mac user | Bluetooth › "Grant" | `startBLE()` → macOS Bluetooth prompt (`NSBluetoothAlwaysUsageDescription` = "Mote Helper lets your phone's browser connect over Bluetooth to control this Mac.") | needs user: TCC (tests run `--no-ble`) |
-| S9 | system | First real launch with instant pairing on | `SMAppService.mainApp.register()`, log `instant pairing: launch at login on` (`InstantPairing.swift:82-86`); Setup toggle "Open Mote Helper at login" on | needs user: skipped under `--dry-run` |
-| S10 | Mac user | Open the menu-bar icon | items in order (`MenuBar.swift`): "Mote Helper: Ready" (dry run: "Mote Helper: Ready (dry run: logging only)"); ["Pairing code: NNN NNN" / "Show pairing code and QR…" / "Stop pairing" only while open]; "No phone connected" / "Connected:"; "Devices (N)" ▸ (Trusted phones, Block/Unblock, "Revoke all devices…"); "Pause input" ⌘P; "Setup…" ⌘,; "Advanced" ▸ (Wi-Fi remote URLs, "Wi-Fi: …", "Bluetooth: …", "Allow Tailscale connections", "Share Space thumbnails", "Require approval for new devices", "This Mac's key: …", "Pair with code (web remote)…", "Open at login"); "Labs" ▸; "Quit Mote Helper" ⌘Q | needs user: menu only (headless-unobservable) |
-
-## Postconditions
-- App installed in `<HOME>/Applications`, quarantine removed; helper running with instant pairing on, no pairing window; `setupShown=1` in UserDefaults (real app only).
-
-## Branches
-### `setup-mac.checksum-mismatch`: checksum mismatch (from S2; artboard jA-b1s)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | run install.sh, fixture `.sha256` wrong | stderr `error: checksum mismatch (expected <exp>, got <act>). Not installing.`; exit 1; nothing installed, no `open` | static: install.spec.ts |
-
-### `setup-mac.no-sha-file`: .sha256 missing (from S2; not drawn)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | run install.sh, fixture 404s the `.sha256` | curl's own error, exit ≠ 0, nothing installed | static: install.spec.ts |
-
-### `setup-mac.bad-archive`: archive without the app (from S2; artboard jA-b1s)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | run install.sh, zip without `MoteHelper.app/` | stderr `error: archive doesn't contain MoteHelper.app`; exit 1 | static: install.spec.ts |
-
-### `setup-mac.not-mac`: not macOS (from S2; artboard jA-b1s)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | run with stub `uname -s` → `Linux` | stderr `error: Mote Helper is a macOS app. On other systems use the Android app or the web remote.`; exit 1, no request | static: install.spec.ts |
-
-### `setup-mac.bad-cpu`: unsupported CPU (from S2; artboard jA-b1s)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | run with stub `uname -m` → `ppc` | stderr `error: unsupported CPU: ppc`; exit 1 | static: install.spec.ts |
-
-### `setup-mac.missing-tool`: curl / shasum / ditto missing (from S2; not drawn)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | PATH without `shasum` (resp. `curl`, `ditto`) | stderr `error: shasum is required` (resp. `curl is required`, `ditto is required`) | static: site/install.sh:27-29 (not in install.spec.ts) |
-
-### `setup-mac.x86`: Intel Mac (from S2; not drawn)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | run with stub `uname -m` → `x86_64` | `    download  <fixture>/MoteHelper-macos-x86_64.zip`; installs | static: install.spec.ts |
-
-### `setup-mac.ax-denied`: Accessibility denied or skipped (from S6; artboard jA-b2s, jA-b2s2)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | "Later" in Setup without granting | menu "Mote Helper: Needs Accessibility" + "Finish setup…"; Setup reopens at next launch (`shouldAutoOpen`) | needs user: window/menu |
-| B2 | system | phone connects | `{"t":"state","paused":false,"ax":false}`; Devices row "Mote Helper needs Accessibility on the Mac"; pill LED amber | faked: needs new flag `--fake-ax-denied` (dry-run forces `inputReady` true) |
-| B3 | phone user | tap a remote key | `{"t":"err","code":"ax","msg":"Accessibility permission not granted to Mote Helper",…}`; no `DRY` line | faked: needs `--fake-ax-denied` |
-| B4 | Mac user | Menu › "Finish setup…" → Grant → turn on | ≤ 2 s `{"t":"state","paused":false,"ax":true}`; row "Connected · Wi-Fi" | faked: needs stdin `ax-on` |
-
-### `setup-mac.screen-recording`: first use of Space thumbnails or Live screen (from S5; artboard jA-b3s)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | Setup › Screen Recording › "Enable" (or Advanced › "Share Space thumbnails") | thumbnails turned on, macOS Screen Recording prompt in context; row "Relaunch helper" button while still not granted | needs user: TCC (dry-run: "     off in a dry run") |
-| B2 | phone | Live screen denied | "Allow Screen Recording for Mote Helper on the Mac (System Settings › Privacy & Security)." (`ScreenProto.kt:64`) | needs user (journey live-screen covers the phone side) |
-
-### `setup-mac.automation`: first use of Smart remote (Labs) (from S5; artboard jA-b4s)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | Setup › Automation › "Enable" | Labs Context on; per-browser Automation prompt, purpose `NSAppleEventsUsageDescription` = "Mote Helper reads the active tab of your browser so the Mote remote can show the right controls (Labs, off by default)." | needs user: TCC |
-
-## Disagreements → DEFECTS.md
-- `setup-mac-D1`: FIXED in next-0.6 (install.sh no longer promises a pairing-code window; it opens the Setup window).
-- `setup-mac-D2` (S10): artboard menu tour ("Pair new device… ⌘N", Wi-Fi/Tailscale/thumbnail lines at top level, "Launch at login", "Revoke all devices…" top level) ≠ next-0.6 menu ("Devices (N)" ▸, "Setup…", "Advanced" ▸ with "Open at login").
-- `setup-mac-D3` (S9): Launch at login is still turned on automatically at the first real launch; artboard treats it as a user choice.
-- `setup-mac-D4` (S5/ax-denied): artboard shows a macOS Accessibility prompt at launch and menu "Needs Accessibility permission" / "Grant Accessibility…"; code shows the Setup window (no prompt at launch) and "Mote Helper: Needs Accessibility" / "Finish setup…". The Setup window is not drawn at all.
-- `setup-mac-D5` (screen-recording B2): Live screen copy mismatch (unchanged).
-- `setup-mac-D6` (S2): artboard installer output is the pre-0.6 one ("then open it", "Opening Mote Helper", numbered next steps, no Unpacking).
+Phase 2 spec (format: [README.md](README.md)). Derived from `helper/Sources/MoteHelper/{main,SetupWindow,Permissions,Diagnostics,Hub,MenuBar,Vault,InstantPairing,WebServer}.swift`. Permission statecharts: [permissions.md](permissions.md). Replaces the phase-1 draft of this file; its defects setup-mac-D2..D6 are carried below.
 
 ## UNDEFINED
-- S5-S8: macOS prompt copy and whether Local Network is listed (macOS 15+ only).
-- S1: site copy button not in the assigned code.
+- U5 Keychain unreadable after an identity change: what Setup shows and offers.
+- U7 Local Network on macOS 15+: whether "Bonjour registered" may be shown as Allowed.
+- U8 B1: what counts as "Screen Recording granted" after grant + relaunch.
+- U16 Test seam to fake Accessibility denied under `--dry-run`.
+- U17 Open at login when `SMAppService.status == .requiresApproval`.
+
+## Goal
+After install (J1) the user grants what Mote needs from one window and ends with a menu-bar helper that is "Ready", advertising on Wi-Fi (Bonjour) and Bluetooth, with honest permission rows.
+
+## Preconditions
+| Dimension | Values covered |
+|---|---|
+| Install | fresh (setupShown unset) / upgrade (setupShown >= 1) / `--setup` from install.sh / reopened via menu "Setup…" |
+| Accessibility | not granted / granted / stale after identity change (switch on, `AXIsProcessTrusted` false) / revoked while running |
+| Bluetooth (Mac) | notDetermined / allowed / denied / adapter off |
+| Local Network | macOS < 15 (n/a) / 15+ unknown / inferred allowed / denied (-65570) / stale |
+| Screen Recording | feature off / requested, pending relaunch / granted / stale |
+| Automation | no scriptable browser running / per browser notDetermined, granted, denied |
+| Keychain `secrets.v3` | absent / found / unreadable (partition mismatch) / corrupt |
+| Network | Wi-Fi up / no network / multicast blocked (Bonjour still registers locally) |
+| Signing | developer-id / mote-local / adhoc (dev) |
+
+## Success criteria
+- Menu status "Mote Helper: Ready"; `diag.features.input.state == ok`.
+- `diag.transports.wifi.listening == true`, `diag.transports.bonjour.state == registered`, `diag.transports.ble.advertising == true` (if Bluetooth allowed and on).
+- Every Setup row matches the real TCC state (no B1, no B2).
+- `diag.keychain.readResult` in {found, notfound} and `partitionMatchesSigning != false`.
+- Setup does not auto-open on the next launch.
+
+## Main path
+| ID | Actor | Step | Expected | Failure mode | Detected by | User sees | Recovery | Level | Test | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| SM-1 | Helper | Launch (not `--dry-run`): `shouldAutoOpen` = setupShown < 1 or Accessibility missing | Setup window opens; `ui/setup.shown{rows}` | `--dry-run` never auto-opens | `ui/setup.shown` | Setup window: headline "Mote needs Accessibility…" | menu "Setup…" (⌘,) | L0 | helper:PermissionTests#freshInstall; helper:PermissionTests#accessibilityAloneClearsAutoOpen | pass |
+| SM-2 | Helper | Builds rows from `Diag.states(fromSnapshot:)`; polls every 1 s | rows: Accessibility (required), Bluetooth, Local Network (recommended), Screen Recording, Automation (optional) | row state disagrees with TCC | `permission/check{perm,state,api,raw}` | wrong button | see permission rows | L0 | helper:PermissionTests#tiers; helper:PermissionTests#permsFilter | pass |
+| SM-3 | User | Accessibility "Grant" | `AXIsProcessTrustedWithOptions(prompt)` + Privacy › Accessibility pane opens; `ui/setup.button`, `permission/request` | pane does not open | `ui/setup.button` without `permission/request` | nothing happens | menu "Setup…" again | L3 | MANUAL-3 | untested |
+| SM-4 | macOS | User turns Mote Helper on in Accessibility | `AXIsProcessTrusted` true within 2 s (Hub poll), `state{ax:true}` broadcast, row "Allowed", menu "Ready" | stale entry from an older signature: switch on, API false | `permission/change` absent; `diag.permissions.accessibility.apiState=notDetermined` while switch on | row stays "Grant", menu "Needs Accessibility" / "Finish setup…" | remove the entry (-), re-add; install.sh resets on DR change | L3 | MANUAL-4 | untested |
+| SM-5 | Helper | Accessibility never reports denied (false = notDetermined) | button stays "Grant" (never "Open Settings") | user expects a denied state | `permissions.accessibility.state` | "Grant" forever if user refuses | same as SM-3 | L0 | helper:PermissionTests#deniedRecommendedStillGrant; helper:DiagTests#accessibilityAndPause | pass |
+| SM-6 | User | Bluetooth "Grant" (notDetermined) | helper starts BLE, macOS shows Bluetooth prompt; Allow: `discovery/ble.state` poweredOn, `discovery/ble.advertising`; row "Allowed" | Don't Allow | `permission/change{perm:bluetooth,state:denied}`; `diag.features.bluetooth.blockedBy=bluetooth-denied`, `fix=open-bluetooth-settings` | row "Open Settings" | opens Privacy › Bluetooth | L3 | MANUAL-5 | untested |
+| SM-7 | Helper | Bluetooth allowed, adapter off | `diag.features.bluetooth{state:blocked,blockedBy:bluetooth-off,fix:turn-bluetooth-on}` | Setup has no adapter row | `discovery/ble.state` poweredOff | row "Allowed"; menu Advanced › Bluetooth status | turn Bluetooth on | L0 | TODO-SM-7 | untested |
+| SM-8 | Helper | Bluetooth granted before this launch: BLE started at launch only if `PermProbe.check(.bluetooth) == granted` | advertising without a prompt | stale grant after identity change (not reset by install.sh) | `discovery/ble.failed`; `diag.transports.ble.status` | phone instant pairing "far" (no proximity) | Settings › Bluetooth remove/re-add | L3 | MANUAL-6 | UNDEFINED (U9) |
+| SM-9 | Helper | Local Network, macOS < 15 | row text "Can't check: macOS doesn't report this" | n/a | `permissions.localNetwork.applies=false` | text, no button | n/a | L0 | helper:DiagTests#localNetworkUnknownIsNeverBlocked | pass |
+| SM-10 | Helper | Local Network, macOS 15+: inferred from Bonjour (`registered` = granted, -65570 = denied, else unknown) | Allowed after `discovery/bonjour.registered`; "Can't check…" before it | registration succeeds although Local Network is denied, or -65570 although allowed | `discovery/bonjour.failed{dnsCode,policyDenied}`; `permissions.localNetwork.inferred=true,inferredFrom` | wrong row | Privacy › Local Network | L1 | helper:DiagTests#localNetworkDeniedShowsPolicyDenied; TODO-SM-10 (fixture of real NetService results under allowed/denied) | UNDEFINED (U7) |
+| SM-11 | Helper | B2: Local Network allowed in System Settings, Setup shows "Open Settings" | row "Allowed" | reported by owner on 0.6.0; only path to "Open Settings" is `state=denied` from -65570 | `discovery/bonjour.failed{dnsCode:-65570}`; `diag.transports.bonjour.errorCode` | "Open Settings" although allowed | none known | L3 | MANUAL-7 | fail (B2) |
+| SM-12 | User | Screen Recording "Enable" (feature off) | enables Space thumbnails; row becomes "Grant" | n/a | `lifecycle/setting{spaceThumbnails}` | "Grant" | n/a | L0 | helper:PermissionTests#optionalEnabledAsksForGrant; helper:DiagTests#screenRecordingOffWhenNothingUsesIt | pass |
+| SM-13 | User | Screen Recording "Grant" | `CGRequestScreenCaptureAccess` (first time) else pane opens; after the user allows, "Relaunch helper" shown (`open -n --args --setup`) | prompt never shown again after first request | `permission/request{perm:screenRecording}` | "Relaunch helper" | Relaunch | L0 | helper:PermissionTests#relaunchOfferedOnlyAfterAskingScreenRecording | pass |
+| SM-14 | Helper | B1: after grant + relaunch, row "Allowed" | `CGPreflightScreenCaptureAccess` true; `permissions.screenRecording.detail.otherAppWindowTitlesVisible=true` | reported: row still "Grant" after relaunch | `permissions.screenRecording{apiState,raw,detail}` | "Grant" | none known | L3 | MANUAL-8 | fail (B1, U8) |
+| SM-15 | Helper | Automation row (per running scriptable browser, `AEDeterminePermissionToAutomateTarget(ask:false)`) | optional; "Enable" when Smart remote off | denied | `diag.features.labs.context.blockedBy=automation-not-granted`, `fix=open-automation-settings` | "Open Settings" | Privacy › Automation | L1 | TODO-SM-15 | untested |
+| SM-16 | Helper | Keychain state is not a Setup row | readable item | `readResult=error` (partition mismatch) or `unreadable` (corrupt) | `keychain/read{result}`; `diag.features.keychain.blockedBy` keychain-unreadable / keychain-corrupt, `fix=repair-keychain` | nothing (no row, no menu line) | none in UI | L0 | helper:DiagTests#keychainStatusCodes | fail (D-SM-1, U5) |
+| SM-17 | Helper | Wi-Fi listener on `--port` (default) with Bonjour `_mote._tcp` TXT id/v | `transport/listen.state` ready; `discovery/bonjour.attempt` then `registered` | port in use / listener waiting | `diag.features.wifi.blockedBy` listener-failed / listener-waiting, `fix=free-port` / `restart-helper` | menu Advanced › Wi-Fi status | Quit other app, restart | L2 | node:helper/tests/smoke.mjs; node:helper/tests/diag.mjs | pass |
+| SM-18 | User | Done (required OK) or Later | `ui/setup.closed`; setupShown stored | n/a | `ui/setup.closed` | headline "You're set…" / button "Done" | n/a | L3 | MANUAL-3 | untested |
+| SM-19 | User | Toggle "Open Mote Helper at login" | SMAppService register/unregister; Advanced › "Open at login" checkmark follows | status `.requiresApproval`: toggle shows off, no hint | `lifecycle/setting` | toggle off | Login Items settings | L3 | MANUAL-9 | UNDEFINED (U17) |
+| SM-20 | Helper | First real launch registers Open at login once (`loginApplied`) | login item on without asking | user did not choose it (setup-mac-D3) | `lifecycle/setting` | Open at login already on | toggle off | L0 | TODO-SM-20 | untested |
+| SM-21 | Helper | Menu bar after setup | "Mote Helper: Ready"; "Devices (0)"; no "Finish setup…" | AX missing: "Needs Accessibility" + "Finish setup…"; paused: "Paused: input is ignored" | `ui/menu.opened`; Hub `state{paused,ax}` | status line | "Finish setup…" opens Setup | L3 | MANUAL-10 | untested |
+| SM-22 | Helper | Pairing window | not opened by default (instant pairing on); opened with `--open-pairing` or (no devices and instant pairing off) | n/a | `ui/pairing.shown` | no pairing code window | Advanced › "Pair with code (web remote)…" | L2 | node:helper/tests/pairing.mjs | pass |
+| SM-23 | Helper | Relaunch after setup | Setup does not auto-open | AX became stale: Setup reopens | `ui/setup.shown` | Setup again | SM-4 | L0 | helper:PermissionTests#accessibilityAloneClearsAutoOpen | pass |
+| SM-24 | Helper | Accessibility revoked while running | within 2 s: `state{ax:false}`, input refused with err `ax` | n/a | `input/blocked{reason:ax}`; `diag.features.input.blockedBy=accessibility-not-granted` | menu "Needs Accessibility"; phone notice (J6 DU-6) | re-grant | L2 | TODO-SM-24 (needs U16 seam) | untested |
+| SM-25 | Helper | `MoteHelper --diag` while running | relays the running helper's `diag.json` (pid alive, < 60 s old), else own snapshot `source=cli` | stale file | `lifecycle/diag.cli` | JSON | n/a | L0 | helper:DiagFileTests#freshAndAliveIsUsed; helper:DiagFileTests#staleDeadMissingBrokenFallBack | pass |
+| SM-26 | User | Full setup on a clean `motetest` user, then on the owner's Mac | SM-1..21 with real TCC | any | `MoteHelper --diag` before and after each grant | per row | per row | L3 | MANUAL-11 | untested |
+
+## Defects
+- D-SM-1 Keychain unreadable/corrupt is computed (`features.keychain`, `fix: repair-keychain`) but no menu item, Setup row or action exists.
+- D-SM-2 `dry-run` makes `inputReady = axTrusted || dryRun`, so SM-24 and every "Needs Accessibility" path is L3-only; phase-1 drafts cite `--fake-ax-denied` and `--store-file`, which do not exist.
+- D-SM-3 (setup-mac-D2) design menu tour differs from code (Devices ▸, Setup…, Advanced ▸ "Open at login").
+- D-SM-4 (setup-mac-D3) Open at login is enabled automatically at first real launch (SM-20).
+- D-SM-5 (setup-mac-D4) artboard shows a macOS Accessibility prompt at launch and "Grant Accessibility…"; code opens Setup and shows "Finish setup…".
+- D-SM-6 (setup-mac-D5, D6) Live screen copy and pre-0.6 installer output on artboards.
+- D-SM-7 Setup has no Bluetooth-adapter-off line (SM-7); only Advanced › Bluetooth status.

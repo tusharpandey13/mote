@@ -1,87 +1,59 @@
-# setup-phone: B. Phone setup
+# J3 setup-phone: phone first-run setup
 
-Artboard: `design/mote-v1/journey-setup-phone.html` (Shipped). Code (next-0.6): `android/.../ui/App.kt` (Root, `setup`, `requestedPermissions`, `BtGateScreen`), `pairing/FirstRun.kt` (`startScreen`), `pairing/ConnectUi.kt` (`FindMacScreen`), `hid/Bt.kt` (`BtGate`, `gateOf`, `Bt.permissions`), `ui/HostsUi.kt` (`WifiGateOption`, `HostPill`), `AndroidManifest.xml`. Docs: `docs/design/design-language.md` (coverage "Bluetooth gate…", "Notifications permission"), `docs/pairing.md` §5 "First run", `android/README.md`.
-Test: `e2e/journeys` → `dev.mote.remote.journeys.SetupPhoneJourney` (one @Test per path below).
-
-## Preconditions
-- P1. App: debug `dev.mote.remote.dev` 0.6.0-dev, cleared data (orchestrator `clearPackageData`): no saved Macs, no `BT_CHOSEN`/`WIFI_CHOSEN`; runtime permissions not granted: `android.permission.BLUETOOTH_CONNECT`, `BLUETOOTH_ADVERTISE`, `BLUETOOTH_SCAN`, `POST_NOTIFICATIONS`.
-- P2. Phone: emulator API 35, Wi-Fi on ("AndroidWifi"). Adapter: `TestSeam.adapter = Adapter(supported = true, enabled = <per path>)`; `TestSeam.transport = FakeTransport(Caps.HID)` (no real HID registration).
-- P3. Mac / helper: none (FindMacScreen ends in "not found").
-- P4. Network: LAN only, `TestSeam.noBonjour`.
-
-## Main path `setup-phone`
-| # | Actor | Action (exact) | Expected observable (exact) | Seam |
-|---|---|---|---|---|
-| S1 | phone user | Download `mote-vX.Y.Z.apk`, allow "Install unknown apps", Install | package `dev.mote.remote.dev` installed | faked: the harness installs the debug APK (gradle connectedDevAndroidTest) instead of Chrome + package installer |
-| S2 | phone user | Launch Mote | FindMacScreen: "Connect to your Mac", "Over Wi-Fi or Tailscale, through the free Mote Helper on the Mac.", "New phone, or reinstalled Mote? Let's reconnect: tap Connect, nothing changes on the Mac.", button "Use Bluetooth instead (no helper)"; no permission dialog | real |
-| S3 | system | (wait ≤ 10 s) | "Mote Helper not found on this network", "Install it on the Mac (Terminal), keep it running, and use the same Wi-Fi:", `curl -fsSL https://tusharpandey13.github.io/mote/install.sh \| bash`, "or download it from tusharpandey13.github.io/mote", "Retry", "Enter address" | faked: no helper on the swept port, Bonjour off (TestSeam.noBonjour) |
-| S4 | phone user | Tap "Use Bluetooth instead (no helper)" | BtGateScreen: "How do you want to connect?", "Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices so it can pair and connect, then turn Bluetooth on.", "Connect with Bluetooth", "Connect to your Mac instead", "Over Wi-Fi or Tailscale with the free Mote Helper on the Mac (tusharpandey13.github.io/mote). Adds Unicode typing, precise brightness and click-at-point." | real |
-| S5 | phone user | Tap "Connect with Bluetooth" | Android permission dialog(s) (Nearby devices; Notifications) | real (system dialogs, `com.android.permissioncontroller`) |
-| S6 | phone user | Allow every dialog | all four permissions granted; remote shown (content description "Play or pause"); pill content description "Device: Choose a device. Tap to choose" | faked: adapter on (TestSeam.adapter), FakeTransport for HID |
-
-## Postconditions
-- `BT_CHOSEN=true`, no saved hosts, four permissions granted, HidService started.
-
-## Branches
-### `setup-phone.bt-off`: Bluetooth off (from S6; artboard jB-s6)
-Preconditions delta: `TestSeam.adapter(enabled = false)`.
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | after S5 Allow every dialog (and leave any Bluetooth-enable system dialog with Back) | gate BT_OFF: "Mote works as a keyboard, mouse and media remote for your computer. Bluetooth is off; turn it on to continue.", "Turn on Bluetooth", "Connect to your Mac instead" | faked: adapter off (the emulator's real adapter is on, so Android may skip its enable dialog) |
-| B2 | system | adapter turns on | remote shown ("Play or pause") | faked: adapter flow → enabled = true |
-| B3 | system | adapter turns off while in the remote | gate "Turn on Bluetooth" again | faked: adapter flow → enabled = false |
-
-### `setup-phone.denied-once`: Nearby devices denied once (from S5; not drawn)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Deny every dialog | gate unchanged: "Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices so it can pair and connect, then turn Bluetooth on." + "Connect with Bluetooth"; no "Open settings" | real |
-| B2 | phone user | Tap "Connect with Bluetooth", Allow every dialog | remote shown ("Play or pause") | faked: adapter on |
-
-### `setup-phone.denied-twice`: Nearby devices denied twice (from S5; artboard jB-b1s)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Deny, tap "Connect with Bluetooth", Deny again | "Mote works as a keyboard, mouse and media remote for your computer. Allow Nearby devices in Settings, then come back." + "Open settings" | real |
-| B2 | phone user | Tap "Open settings" | system Settings app (package `com.android.settings`) shows the app's details | real |
-| B3 | phone user | Grant Nearby devices there, press Back | on resume: remote shown ("Play or pause") | faked: `grantRuntimePermission` stands in for the Settings toggle; adapter on |
-
-### `setup-phone.notif-denied`: notifications denied, Nearby allowed (from S5; artboard jB-s6)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Allow the Nearby devices dialog, Deny the Notifications dialog | remote shown ("Play or pause"); `POST_NOTIFICATIONS` denied, three Bluetooth permissions granted | faked: adapter on |
-
-### `setup-phone.unsupported`: no usable Bluetooth (from S4; artboard jB-b2s)
-Preconditions delta: `TestSeam.adapter(supported = false)`.
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Tap "Use Bluetooth instead (no helper)" | "How do you want to connect?", "This phone has no Bluetooth adapter Mote can use."; no "Connect with Bluetooth", no "Turn on Bluetooth"; primary "Connect to your Mac" | faked: adapter unsupported |
-| B2 | phone user | Tap "Connect to your Mac" | FindMacScreen "Connect to your Mac"; no permission dialog | real |
-
-### `setup-phone.back-to-wifi`: from the gate back to Wi-Fi (from S4; artboard jB-s5)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Tap "Connect to your Mac instead" | FindMacScreen "Connect to your Mac"; no permission dialog | real |
-
-### `setup-phone.legacy-permitted`: Bluetooth permissions granted before 0.6 (from S2; not drawn)
-Preconditions delta: the three Bluetooth permissions granted before launch, no choice persisted.
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Launch (adapter on) | remote directly ("Play or pause", "Device: Choose a device. Tap to choose"); no "Connect to your Mac" | faked: adapter on; permissions pre-granted |
-| B2 | system | adapter off | gate "Turn on Bluetooth" | faked: adapter |
-
-### `setup-phone.api-28-30`: Android 9-11 fresh install (from S2; not drawn)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Launch on API 28-30 | never FindMacScreen: adapter on → remote; off → BT_OFF gate (`Bt.permissions` empty → `permitted` true) | manual: needs an API 28-30 emulator image (the harness is API 35) |
-
-## Disagreements → DEFECTS.md
-- `setup-phone-D1` (S2): Shipped artboard says the Bluetooth gate is the first screen; code opens FindMacScreen.
-- `setup-phone-D2` (S4): artboard gate copy ("Use Wi-Fi with Mote Helper", "Needs the free Mote Helper app…", header "Choose a device") ≠ code.
-- `setup-phone-D3` (notif-denied / Wi-Fi path): `POST_NOTIFICATIONS` only requested from the Bluetooth gate.
-- `setup-phone-D4` (api-28-30): Android 9-11 skip the Wi-Fi-first first run.
-- `setup-phone-D5` (denied-twice): `openSettings` not saved across recreation.
-- `setup-phone-D6` (S1): artboard APK v0.4.0.
+Phase 2 spec (format: [README.md](README.md)). Derived from `android/app/src/main/AndroidManifest.xml`, `ui/App.kt`, `pairing/{FirstRun,ConnectUi,BleScan,Finder}.kt`, `hid/Bt.kt`, `diag/Perms.kt`. Replaces the phase-1 draft (setup-phone-D1..D6 carried). Folds in `first-run-bt.md` (Bluetooth-only path) at the level of entry points; its HID pairing branches stay in that draft until phase 3.
 
 ## UNDEFINED
-- S1, S5: exact Android dialog copy and the debug app label — system UI.
-- S5: one or two dialogs, order — `RequestMultiplePermissions` behaviour.
-- denied-twice: how many denials Android needs before "don't ask again".
+- U4 When the Wi-Fi/helper path asks for POST_NOTIFICATIONS (now: never).
+- U13 Route to Settings when Nearby devices is permanently denied on the connect card.
+
+## Goal
+A user installs Mote, opens it, and within 5 s either sees their Mac ("Connect to <name>") or a clear next step (install the helper, turn on Wi-Fi, enter an address, or use Bluetooth), without being asked for permissions they do not need yet.
+
+## Preconditions
+| Dimension | Values covered |
+|---|---|
+| Install | fresh / upgrade from <= 0.5 (Bluetooth host saved) / upgrade with a helper host saved / reinstall (data cleared) |
+| Android | 9-11 (legacy BT perms granted at install) / 12 (Nearby) / 13+ (Nearby + notifications) |
+| Nearby devices | not asked / granted / denied once / denied permanently / revoked in Settings |
+| Notifications | not asked / granted / denied / channel off |
+| Wi-Fi | on, same LAN as Mac / on, other subnet or AP isolation / off / cellular only |
+| Multicast (mDNS) | passes / blocked by router or AP |
+| Tailscale | not installed / installed, Mac on same tailnet |
+| Bluetooth adapter | on / off / absent |
+
+## Success criteria
+- First screen is FindMacScreen; no permission dialog at launch (`ui/screen` FIND_MAC, no `permission/request`).
+- Helper on the same /24 is found with or without mDNS (`discovery/nsd.found` or `discovery/sweep.open`) in <= 5 s.
+- Never an open-ended wait: `FindUi` reaches Found, WifiOff or NotFound.
+- Bluetooth-only path asks Nearby (+ notifications on 13+) once, and every denial has a working next step.
+
+## Main path
+| ID | Actor | Step | Expected | Failure mode | Detected by | User sees | Recovery | Level | Test | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| SP-1 | User | Installs `mote-vX.Y.Z.apk` (allow unknown apps) | package installed | blocked by Play Protect / unknown sources off | none | system dialog | allow in Settings | L4 | MANUAL-12 | untested |
+| SP-2 | App | First launch | `startScreen` FIND_MAC: "Connect to your Mac", "Use Bluetooth instead (no helper)"; no permission dialog | Android 9-11: skips Wi-Fi-first (setup-phone-D4) | `lifecycle/init`, `ui/screen{screen:FIND_MAC}` | FindMacScreen | n/a | L0 | android:FirstRunTest#freshInstallOpensIntoFindingTheMacWithoutAskingForBluetooth; android:FirstRunTest#opensIntoFindingTheMacThenBluetoothIsSecondary | pass |
+| SP-3 | App | Discovery: NSD `_mote._tcp`, known-host probe, LAN /24 sweep; BLE scan only if Nearby already granted | "Looking for your Mac…" then Found | n/a | `discovery/nsd.start`, `nsd.found`, `nsd.resolved`, `sweep.start`, `sweep.open`, `sweep.done`, `known.probe`, `ble.start` | "Connect to <name>" | n/a | L2 | android:ConnectNextJourney#main; android:SweepTest#sweepCoversThePhonesSlash24 | pass |
+| SP-4 | Android | mDNS blocked (router/AP drops multicast) | sweep finds the helper on the phone's /24 | Mac on another subnet | no `nsd.found`; `discovery/sweep.open` | "Connect to <name>" (slightly later) | n/a | L2 | android:FirstRunTest#sweepFindsTheHelperWithoutBonjour; android:SweepTest#realTcpSweepFindsAListenerFast | pass |
+| SP-5 | Android | mDNS blocked on a real router | as SP-4 | sweep blocked too (client isolation) | `discovery/sweep.done{open:0}` | NotFound (SP-6) | Enter address / Tailscale | L4 | MANUAL-13 | untested |
+| SP-6 | App | Nothing found in `NOT_FOUND_MS` = 5 s (or all sources done after 1 s) | NotFound: "Mote Helper not found on this network", install command, Retry, "Enter address" | n/a | `FindUi.NotFound`; `discovery/sweep.done` | not-found card | install helper (J1) / Enter address | L0 | android:FirstRunTest#discoveryNeverWaitsForever; android:ConnectNextJourney#notFound | pass |
+| SP-7 | App | Phone not on Wi-Fi | WifiOff "Turn on Wi-Fi" (tailnet-only Macs still Found) | cellular only and no Tailscale | `discovery/network` | "Turn on Wi-Fi" | Wi-Fi on | L2 | android:ConnectNextJourney#wifiOff | pass |
+| SP-8 | User | "Enter address" (IP, `name.local`, tailnet name, pairing link) | address parsed into the right slot, connect starts | malformed | `transport/connect.try` | inline error | retype | L0 | android:HostsTest#parsesTypedAddresses; android:HostsTest#parsesPairingLinks; android:ConnectNextJourney#enterAddress | pass |
+| SP-9 | App | Tailscale installed, Mac on the same tailnet, phone off LAN | Mac Found via tailnet | Tailscale VPN off | `transport/tailscale.prompt` | prompt to open Tailscale | open Tailscale | L2 | android:WifiHelperJourney#tailscaleOwner (second pass: tailscale.md) | pass |
+| SP-10 | User | "Use Bluetooth instead (no helper)" | BtGateScreen | n/a | `ui/screen{screen:BT_GATE}` | gate | "back to Wi-Fi" | L2 | android:SetupPhoneJourney#main; android:SetupPhoneJourney#backToWifi | pass |
+| SP-11 | User | Gate: "Connect with Bluetooth" | dialogs: Nearby devices; Notifications (13+); all granted → REMOTE | n/a | `permission/request`, `permission/result{ctx:gate}` | remote, pill "Choose a device" | n/a | L2 | android:SetupPhoneJourney#main; android:FirstRunGateTest#deniedKeepsGateThenGrantResolvesIt | pass |
+| SP-12 | User | Denies Nearby once | gate stays, button asks again | n/a | `permission/result{granted:false}` | gate copy unchanged | tap again | L2 | android:SetupPhoneJourney#deniedOnce | pass |
+| SP-13 | User | Denies Nearby twice (permanent) | button opens app details Settings | `openSettings` flag not saved across recreation (setup-phone-D5) | `permission/result`; shouldShowRationale false | "Open Settings" | grant in Settings, return (refresh on resume) | L2 | android:SetupPhoneJourney#deniedTwice | pass |
+| SP-14 | User | Denies notifications, allows Nearby | remote works; no link notification | n/a | `diag` Perms `notifications=false` | no notification | Settings | L2 | android:SetupPhoneJourney#notifDenied | pass |
+| SP-15 | Android | Bluetooth off | gate asks to enable | n/a | `transport/bt.state` | "Turn on Bluetooth" | enable | L2 | android:SetupPhoneJourney#btOff; android:BtGateTest#permittedButOffAsksToEnable; android:FirstRunGateTest#bluetoothOffShowsGateUntilAdapterTurnsOn | pass |
+| SP-16 | Android | No Bluetooth adapter | Unsupported; Wi-Fi path still offered | n/a | BtGate UNSUPPORTED | unsupported copy | helper path | L2 | android:SetupPhoneJourney#unsupported; android:FirstRunTest#noBluetoothAdapterStillOffersTheMac | pass |
+| SP-17 | App | Upgrade from <= 0.5 with a Bluetooth host, or legacy grants | keeps the Bluetooth path, no FindMacScreen | n/a | `ui/screen{screen:REMOTE}` | remote | n/a | L0 | android:FirstRunTest#existingUsersKeepTheirPath; android:SetupPhoneJourney#legacyPermitted | pass |
+| SP-18 | App | Android 9-11 fresh install | Wi-Fi-first like 12+ | skips FindMacScreen (setup-phone-D4) | `ui/screen` | gate first | n/a | L2 | android:SetupPhoneJourney#api28to30 | fail (D-SP-4) |
+| SP-19 | App | Helper path asks POST_NOTIFICATIONS | asked once when a notification would first show (B4 prerequisite) | never asked on the helper path | Perms `notifications=false` on 13+; phase 1b `notification/blocked` | no media notification (J6 DU-14) | Settings › Notifications | L2 | TODO-SP-19 | fail (D-SP-3, U4) |
+| SP-20 | App | Bluetooth path on a real phone and Mac | gate, dialogs, HID pairing per `first-run-bt.md` | OEM dialog differences | `permission/result` | per row | per row | L4 | MANUAL-14 | untested |
+
+## Defects
+- D-SP-1 (setup-phone-D1, D2, D6) artboards: gate as first screen, old gate copy, APK v0.4.0.
+- D-SP-2 Connect card NeedBluetooth: when Nearby is permanently denied, `perms.launch` returns denied silently; no Settings route (ConnectUi.kt NeedBluetooth). See J4 FC-6.
+- D-SP-3 (setup-phone-D3) POST_NOTIFICATIONS is requested only from the Bluetooth gate (`ui/App.kt`); B4's notification needs it on the helper path.
+- D-SP-4 (setup-phone-D4) Android 9-11 skip the Wi-Fi-first first run.
+- D-SP-5 (setup-phone-D5) permanent-denial `openSettings` flag lost on activity recreation.
