@@ -9,8 +9,10 @@ Protocol: `docs/protocol.md`; pairing: `docs/pairing.md`.
 helper/build.sh                 # build/MoteHelper.app + build/MoteHelper-macos-<arch>.zip(.sha256)
 ARCHS=arm64 helper/build.sh     # one arch
 MOTE_ADHOC=1 helper/build.sh    # ad-hoc signature (CI, agents): no keychain access, permissions don't stick
-helper/tests/unit.sh            # Swift unit tests (permission model, Keychain blob, screen math); `helper/tests/signing.sh` tests identity selection and notarize.sh with stubs
+helper/tests/unit.sh            # Swift unit tests (CLT only, no Xcode; plain `swift test` can't run them): permissions, Keychain blob, screen math, events, diag; `helper/tests/signing.sh` tests identity selection and notarize.sh with stubs
 ```
+
+Diagnostics (protocol 1.5, `docs/protocol.md` section 2.1): `MoteHelper --diag` prints the snapshot (permissions with raw API answers, signing, Keychain, features) as JSON and exits without any macOS prompt (runtime sections read `unknown`); the running helper answers the `diag` message and has a menu item "Diagnostics…" (readable view, Copy). `--events FILE` appends every event as a JSON line; the same events go to `os_log` (`log stream --predicate 'subsystem == "dev.mote.helper"'`) and to `diag.subscribe` clients. Test: `node helper/tests/diag.mjs`.
 
 ## Signing: one-time setup
 

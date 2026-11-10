@@ -25,6 +25,7 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
   node helper/tests/smoke.mjs 8791 <code>        # or "-" to reuse the credFile (default /tmp/mote-cred.json)
   # Tailscale Host rules: start the helper with --allow-tailscale and run MOTE_TAILNET=1 node helper/tests/smoke.mjs ...
   ```
+  Diagnostics: `MoteHelper --diag` prints the permission/signing/feature snapshot as JSON and exits (no prompts); `--events FILE` writes the event log as JSONL (protocol 1.5, `docs/protocol.md` 2.1). Helper unit tests: `helper/tests/unit.sh` (CLT only; plain `swift test` runs nothing); `node helper/tests/diag.mjs`.
   Never inject real input in tests: always `--dry-run`; use `--memory-store` or `--keychain-service NAME`.
 - E2E (web remote + helper in `--dry-run`, and `site/install.sh`): `cd e2e/web && npm ci && npm test`. See `e2e/web/README.md`.
 - User journeys (specs `docs/journeys/<id>.md`, defects `docs/journeys/DEFECTS.md`): `e2e/journeys/run.sh [journey-id|journey-id#path|all]` boots its own headless emulator (`mote-journeys`, `emulator-5562`; aborts on any non-emulator target), installs `dev.mote.remote.dev`, drives dry-run helpers and writes `e2e/journeys/REPORT.md` (screenshots in `/tmp/mote-journeys/`). See `e2e/journeys/README.md`. Update the spec when a journey changes; a step is only "pass" if asserted for real ("faked" = against a labelled seam).
