@@ -2,8 +2,13 @@ import Foundation
 import Security
 
 /// Everything secret the helper keeps, as ONE JSON blob in ONE generic-password Keychain item
-/// (service `dev.mote.helper`, account `secrets`). Read once at launch and cached in memory, so macOS
-/// asks at most once, and never again after "Always Allow" (with the stable signature, build.sh).
+/// (service `dev.mote.helper`, account `secrets.v3`). Read once at launch and cached in memory.
+///
+/// Why v3 and no migration: an item created by a build without a Team ID (ad-hoc or self-signed) gets a
+/// `cdhash:` partition, so any other build prompts for the login password when it reads it. v3 is created
+/// by the Developer-ID build (`teamid:` partition, docs/signing.md) and read without UI forever after.
+/// Older items (`secrets.v2`, `secrets`, the per-secret ones) are NEVER read or deleted: touching them can
+/// prompt. They are stale; the user removes them in Keychain Access (docs/pairing.md). Users re-pair once.
 ///
 /// The proximity secret (Proximity.swift) is deliberately not stored: it is per process, memory only.
 struct Secrets: Codable, Equatable {
@@ -31,7 +36,6 @@ protocol SecretBackend {
     /// nil = not found; throws on any other failure (denied, locked, ...).
     func read(service: String, account: String) throws -> Data?
     func write(service: String, account: String, data: Data, label: String) -> Bool
-    func delete(service: String, account: String)
 }
 
 struct KeychainError: Error { let status: OSStatus }
@@ -66,22 +70,14 @@ struct KeychainBackend: SecretBackend {
         if st != errSecSuccess { log("keychain write failed: \(st)") }
         return st == errSecSuccess
     }
-
-    func delete(service: String, account: String) { SecItemDelete(query(service, account) as CFDictionary) }
 }
 
 /// Owner of `Secrets`. `memoryOnly` (--memory-store, tests) never touches the Keychain.
 final class Vault {
-    static let account = "secrets.v2"   // v1 "secrets" may carry an ad-hoc-build ACL; never prompt for it
+    static let account = "secrets.v3"
     private(set) var secrets = Secrets()
     private let service: String
     private let backend: SecretBackend?
-
-    /// Pre-0.6 layout: five items over three services. Migrated into the blob once, then deleted.
-    static func legacyItems(_ service: String) -> [(service: String, account: String)] {
-        [(service, "devices"), (service + ".bridge", "devices"),
-         (service + ".labs", "trusted"), (service + ".labs", "blocked"), (service + ".labs", "identity"), (service, "secrets")]
-    }
 
     init(service: String, memoryOnly: Bool, backend: SecretBackend = KeychainBackend()) {
         self.service = service
@@ -89,49 +85,20 @@ final class Vault {
         load()
     }
 
+    /// One read, never retried. Not found: write an empty blob once (so later launches only ever read v3).
+    /// Any other error (interaction required, auth failed, locked...): treat as not present, log, and do not
+    /// write, so an existing item is never overwritten and nothing loops.
     private func load() {
         guard let b = backend else { return }
         do {
             if let d = try b.read(service: service, account: Vault.account) {
                 if let s = try? Vault.decoder.decode(Secrets.self, from: d) { secrets = s } else { log("keychain: unreadable secrets, starting empty") }
-                return
+            } else {
+                save()
             }
         } catch let e as KeychainError {
-            log("keychain read failed: \(e.status) (pairings are kept in memory until the next launch)")
-            return
-        } catch { return }
-        migrate(b)
-    }
-
-    /// Old items -> one blob. Items that can't be read (denied) are left in place and logged.
-    private func migrate(_ b: SecretBackend) {
-        var s = Secrets()
-        var moved: [(String, String)] = []
-        for (svc, acc) in Vault.legacyItems(service) {
-            let data: Data
-            do { guard let d = try b.read(service: svc, account: acc) else { continue }; data = d } catch {
-                log("keychain: legacy item \(svc)/\(acc) unreadable (\((error as? KeychainError)?.status ?? 0)), not migrated"); continue
-            }
-            moved.append((svc, acc))
-            switch (svc.hasSuffix(".bridge"), svc.hasSuffix(".labs"), acc) {
-            case (false, false, "devices"): s.devices = (try? Vault.decoder.decode([Device].self, from: data)) ?? []
-            case (true, _, "devices"): s.bridge = (try? Vault.decoder.decode([Device].self, from: data)) ?? []
-            case (_, true, "trusted"): s.trusted = (try? Vault.decoder.decode([LabsTrustedKey].self, from: data)) ?? []
-            case (_, true, "blocked"):   // [{fp, name}]; early builds stored [fp]
-                s.blocked = (try? JSONDecoder().decode([LabsBlockedKey].self, from: data))
-                    ?? ((try? JSONDecoder().decode([String].self, from: data)) ?? []).map { LabsBlockedKey(fp: $0, name: "Phone") }
-            case (_, true, "identity"): s.identity = data
-            case (false, false, "secrets"): if let v1 = try? Vault.decoder.decode(Secrets.self, from: data) { s = v1 }
-            default: break
-            }
-        }
-        // Always write the blob, even when nothing could be migrated: otherwise the next launch finds no blob,
-        // retries the legacy reads, and macOS prompts again on every launch.
-        secrets = s
-        if save() {
-            for (svc, acc) in moved { b.delete(service: svc, account: acc) }
-            log("keychain: migrated \(moved.count) item(s) into one")
-        }
+            log("keychain: \(Vault.account) not readable without UI (\(e.status)); pairings are kept in memory until the next launch")
+        } catch { log("keychain: read failed: \(error)") }
     }
 
     /// Mutate and persist in one step.
