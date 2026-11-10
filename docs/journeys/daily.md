@@ -1,92 +1,62 @@
-# daily: E. Daily use and reconnect
+# J6 daily: daily use
 
-Artboard: `design/mote-v1/journey-daily.html` (Shipped). Code: `android/.../ui/App.kt`, `ui/HostsUi.kt` (HostPill, HostSheet, HostRowCap, failedText), `net/Net.kt` (select/apply/foreground), `net/WsTransport.kt` (run loop, backoff), `net/Hosts.kt` (candidates, routes), `pairing/InstantPairing.kt:152-230` (trusted-host paths, fallback, rediscover), `pairing/Sweep.kt:130-147` (tcpReach, reachNote), `service/HidService.kt` (link notification), `MainActivity.kt:35-46`; helper `Hub.swift` (paused, input gate, markAuthed log), `main.swift` (stdin-control), `MenuBar.swift:68-70,159`. Docs: `docs/pairing.md` §Reconnect (line 118), `android/README.md:154`, `docs/design/design-language.md` §User journeys.
-Test: `e2e/journeys` → `dev.mote.remote.journeys.DailyJourney` (one @Test per path below).
-
-## Preconditions
-- P1. App: debug `dev.mote.remote.dev`. One saved Mac "H1" created by the `wifi-helper` journey main path (key-trusted record, DataStore `hosts` + `InstantPairing` record), `selection = ws:<hostId H1>`, `wifi_chosen = true`. Setup's optional Bluetooth step skipped with "Skip" (next-0.6 keeps setup on screen for it), so no Bluetooth link (`SavedHost.btAddress = null`). `android.permission.BLUETOOTH_CONNECT` NOT granted unless a branch says so (then `HidService` runs, see daily.notif). Before S1 the activity is closed and the helper socket has closed (30 s, `Net.foreground`); the process stays (the instrumentation runs in the app process, so a force-stop is not possible).
-- P2. Phone: Wi-Fi on ("AndroidWifi", 10.0.2.17/24), Bluetooth irrelevant, no Tailscale VPN.
-- P3. Mac / helper: H1 = `MoteHelper --dry-run --headless --no-ble --memory-store --port N1 --stdin-control` (+ instant-pairing fakes the `wifi-helper` setup needed, e.g. `--fake-proximity`), kept running for the whole test (memory store: a restart forgets the phone). Not paused.
-- P4. Network: same LAN (phone → 10.0.2.2:N1). Bonjour may be off (`TestSeam.noBonjour`); the saved `lan` address is used.
-
-## Main path `daily`
-| # | Actor | Action (exact) | Expected observable (exact) | Seam |
-|---|---|---|---|---|
-| S1 | phone user | Launch Mote (MainActivity) | Remote opens directly (no FindMacScreen: `startScreen` → REMOTE because `hasHelperHost && !btSelected`). Media screen; mode rail "Media" selected. Pill contentDescription `Device: <H1 name> via Wi-Fi. Tap to choose` (route from the saved LAN route before Ready). No test tag. | real (`FirstRun.kt:15`, `HostsUi.kt:77-127`) |
-| S2 | system | `Net.foreground = true` → `WsTransport.start()`; candidates tried in order (trusted host: Bonjour, BLE-info LAN, saved `lan`, `<local>.local`, manual LAN, tailnet names, tailnet IPs; `Paths.kt:18-27`) | Helper stderr `[mote] authed <phone device name> via Wi-Fi from <peer>`; phone gets `{"t":"authed",...,"paused":false,"ax":true}` then sends `{"t":"spaces.sub","on":true}` | real (dry-run). `<peer>` = source IP as the Mac sees it: UNDEFINED for emulator NAT |
-| S3 | system | (WsStatus.Ready) | Pill LED linkOk (no semantics), label `<H1 name>`, badge `WI-FI`; contentDescription `Device: <H1 name> via Wi-Fi. Tap to choose`. Media caps enabled (LocalLinked = true) | real (LED colour: screenshot only) |
-| S4 | phone user | Tap the pill | MoteSheet with HostSheet LIST: title "Devices", note "Mote reconnects to the selected device while the app is open.", row cap contentDescription `Use <H1 name>`, status text "Connected · Wi-Fi", badge `WI-FI` (lit). Buttons "Add a Mac", link "More options", button "Set up Bluetooth" (gate NEEDS_PERMISSION; "Turn on Bluetooth" if BT off; "Pair new Bluetooth device" only when READY, `HostsUi.kt:312-327`) | real |
-| S5 | phone user | Dismiss sheet (swipe down / back) | Sheet gone; `Net.discovery.stop()` | real |
-
-## Postconditions
-- Phone: `selection = ws:<H1>` unchanged; `SavedHost.lan` refreshed by `onReady` (`Net.kt:205-208`). Helper: one authed session for the phone.
-
-## Branches
-### `daily.asleep`: Mac asleep / out of range (from S2; artboard step jE-b1s)
-Preconditions delta: H1's saved addresses don't answer and don't refuse (TCP timeout). Faked: needs a new seam to seed a SavedHost whose `lan` is a non-answering address (no way to sleep the dev Mac; SIGSTOP of the helper still completes TCP handshakes → Reach.OPEN).
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | system | Launch; WsTransport loops (backoff 0.5 s → 8 s, jittered, `WsTransport.kt:140-142`) | Pill LED linkWait pulsing (WsStatus.Connecting), contentDescription `Device: <H1 name> via Wi-Fi. Tap to choose`; Media caps dimmed and rejecting (Cap `needsLink`, haptic REJECT) — taps produce no helper line | faked: needs SavedHost seeding seam |
-| B2 | phone user | Tap the pill | Row status "Connecting…"; after ≥ 1.5 s + probe (≤ 1.5 s per address, `HostsUi.kt:264-277`): danger text `<H1 name> seems asleep or away. Wake it (open the lid or press a key) and keep it on this Wi-Fi or Tailscale.` | faked: same |
-| B3 | system | Address answers again (seam restores the real `lan`) | Within ≤ 8 s + jitter (or at once on `ConnectivityManager` onAvailable / app foreground `kick()`): S2–S3 | faked: same |
-Postconditions: as main path.
-
-### `daily.nohelper`: helper not running (from S2; artboard jE-b2s)
-Preconditions delta: H1 process stopped (SIGTERM) after P1 setup. Note: memory store, so a restarted H1 no longer trusts the phone (that recovery is the `recovery` journey); B3 restarts nothing.
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | system | Launch; connect attempts fail | Pill LED linkWait pulsing; no helper line | real |
-| B2 | phone user | Tap the pill | Row status "Connecting…" (not "Searching…"); after ~1.5 s, if the probe gets REFUSED: danger text `Mote Helper isn't running on <H1 name>. Open it from Applications on the Mac.`; if TIMEOUT: the daily.asleep copy | real (the test probes the same candidates with `tcpReach` and expects `reachNote` of the result; if a closed port still answers TCP there is no note at all, daily-D7) |
-Postconditions: selection unchanged; WsTransport keeps retrying every ≤ 8 s while foreground.
-
-### `daily.paused`: input paused on the Mac (from S3; artboard jE-b3s)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | Menu › Pause input | Helper stderr `[mote] input paused`; phone gets `{"t":"state","paused":true,"ax":true}` | faked: stdin-control `pause` (menu is headless-unobservable: title "Mote Helper: Paused: input is ignored") |
-| B2 | system | — | Pill LED linkWait (not pulsing); Media caps stay enabled (still linked) | real |
-| B3 | phone user | Tap the pill | Row status "Paused on the Mac", badge `WI-FI` | real |
-| B4 | phone user | Dismiss; tap cap "Play or pause" | Phone sends `{"t":"consumer","key":"play"}`; helper replies `{"t":"err","code":"paused","msg":"input is paused on the Mac","ref":"consumer"}`; NO `[mote] DRY consumer play` line; phone shows nothing (err ignored, `WsTransport.kt:120-121`) | real |
-| B5 | Mac user | Menu › Pause input (uncheck) | `[mote] input resumed`; `state paused:false`; pill LED linkOk; row "Connected · Wi-Fi". Nothing from B4 is replayed | faked: stdin-control `resume` |
-
-### `daily.switch`: switch Macs (from S4; artboard jE-s3, jE-s4)
-Preconditions delta: second helper H2 `MoteHelper --dry-run --headless --no-ble --memory-store --port N2` also trusted by the phone (second `wifi-helper` run). Both helpers report the dev Mac's computer name, so rows can't be "MacBook Pro" / "Mac mini": faked: needs new flag `--fake-host-name NAME`. Without it the rows have the same name and differ only by hostId order (saved order).
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Tap the pill | Two rows: `Use <H1>` "Connected · Wi-Fi"; `Use <H2>` "Paired" (or "Nearby" if Bonjour found it) | faked: names need `--fake-host-name` |
-| B2 | phone user | Tap row `Use <H2>` | Sheet closes; `selection = ws:<H2>`; H1 socket closed (no H1 log line exists for a close); H2 stderr `[mote] authed <phone> via Wi-Fi from <peer>` | real |
-| B3 | system | — | Pill `Device: <H2 name> via Wi-Fi. Tap to choose`, LED linkOk. H1 row status "Paired" | real |
-
-### `daily.background`: app leaves the screen (from S3; artboard jE-s2 caption)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Press Home | `Net.foreground = false`; after 30 s `ws.stop()` closes the socket (`Net.kt:161-169`): phone `WsStatus.Idle`; Wi-Fi low-latency lock released | real (phone-side state; the helper logs nothing for a close) |
-| B2 | phone user | Reopen Mote (reconnects), then leave for 5 s and reopen | Same socket kept; no new `authed` line | real |
-| B3 | phone user | Reopen Mote after > 30 s | New `[mote] authed <phone> via Wi-Fi from <peer>` | real |
-
-### `daily.tailnet`: off Wi-Fi, tailnet route (from S1; artboard jE-s2 TAILSCALE badge)
-Preconditions delta: H1 saved with a tailnet address; phone Wi-Fi off and Tailscale VPN up. Emulator has no Tailscale: faked: needs fake Tailscale-VPN state (`Net.tailnetUpFlow`, `onWifiFlow`) + a tailnet-routable address for the helper + `--allow-tailscale`.
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | phone user | Launch | Before Ready: pill badge `TAILSCALE` (`!onWifiNow && TAILNET in routes`); after Ready: badge from the answering address | faked: as above |
-| B2 | system | VPN off as well | Row tap shows the "Tailscale is off" sheet (`tailscale` journey) | faked |
-
-### `daily.notif`: link notification (from S1; artboard jE-s1 "Notification: Searching for MacBook Pro…")
-Preconditions delta: `BLUETOOTH_CONNECT` granted (else `HidService.start` is a no-op and there is no notification at all).
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | system | Launch (helper host selected, no BT link) | Ongoing notification, channel "Bluetooth link", title "Mote", text "Ready to pair" (Hid has no selected host), actions "Play/Pause", "Stop" — even while Wi-Fi is Connected | real (UiAutomator notification shade) |
-| B2 | system | Variant: a Bluetooth host selected (FakeTransport + `TestSeam.adapter` bonded host "Test Mac"; tap the pill, then "Use Test Mac") | text "Searching for Test Mac…"; when the BT host connects: "Connected to Test Mac" | faked: BT HID transport (FakeTransport; Hid never reports connected under the seam, so "Connected to …" is manual: real BT HID bond) |
-
-## Disagreements → DEFECTS.md
-- `daily-D1` (daily.notif): notification reflects only Bluetooth HID; with a Wi-Fi Mac it says "Ready to pair" or doesn't exist.
-- `daily-D2` (daily.asleep/nohelper): code shows Mac-asleep / helper-not-running copy; artboard jE-b1s says "no Mac-asleep copy", design-language "Not in code" list says the same.
-- `daily-D3` (daily.nohelper B2): artboard jE-b2s shows row "Searching…" and "The Mac didn't answer. Is Mote Helper running?"; code shows "Connecting…" and the reachNote copy.
-- `daily-D4` (daily.asleep): artboard jE-b1s "Searching card" (copy "Mote reconnects on its own while it's open. Wake MacBook Pro or bring it in range. Nothing you press is sent until then." + "Choose device") doesn't exist in code.
-- `daily-D5` (S4, jE-s3): Devices sheet buttons "Add Mac over Wi-Fi" / "Enter address" vs code "Add a Mac" / "More options" (→ "Pair with code", "Enter address") + "Connected over Bluetooth but buttons do nothing?".
-- `daily-D6` (S2, jE-s2): route order caption "Bonjour › LAN › name.local › tailnet › manual" is only the code-paired order; trusted hosts (0.6.0 default) put a manual LAN address before tailnet and add BLE-info addresses; doc pairing.md adds a 4 s sweep and a 15 s Bluetooth fallback the artboard doesn't show.
+Phase 2 spec (format: [README.md](README.md)). Derived from `android/.../net/{Net,WsTransport,Proto}.kt`, `ui/HostsUi.kt`, `labs/Blockers.kt`, `helper/Sources/MoteHelper/{Hub,MenuBar,Diagnostics}.swift`, and the phase-1b work in progress (`labs/context/NpNotif.kt`, uncommitted on branch agent-ac9551ef702e6068e at the time of writing). Replaces the phase-1 draft (daily-D1..D6 carried); folds in `media.md`, `macros.md`, `spaces.md`, `settings.md` at the level of entry points (their per-control rows stay in those drafts until phase 3). Labs features other than now-playing: second pass.
 
 ## UNDEFINED
-- S2/B2 `<peer>` text: which source address the Mac sees for emulator traffic to 10.0.2.2.
-- daily.nohelper B2: whether the emulator NAT reports REFUSED or TIMEOUT for a closed host port.
-- daily.background B1: no helper log marks a session close; socket close is only observable phone-side (WsStatus Idle) or by a new helper hook.
-- LED colours (linkOk / linkWait / linkBad) have no semantics; screenshot comparison only.
+- U1 Media notification over a Bluetooth-only link (now: none).
+- U2 Media notification after the app is backgrounded (socket closes after 30 s; no foreground service).
+- U3 Media notification gated on Labs › Smart remote vs a core feature.
+- U4 When the helper path asks for POST_NOTIFICATIONS.
+- U19 B3: what the phone must show, and how fast, when Labs is on both sides and a video plays.
+- U20 Lock-screen visibility of the media notification.
+
+## Goal
+With a connected Mac the user controls media, pointer, keys, macros and Spaces from the phone; every control either works or explains why not; while something plays on the Mac the phone shows it in a media notification (B4).
+
+## Preconditions
+| Dimension | Values covered |
+|---|---|
+| Link | Wi-Fi helper / tailnet helper / Bluetooth HID only |
+| Mac input | Ready / Paused (menu ⌘P) / Accessibility missing or stale / `--dry-run` |
+| Labs | off both sides / phone only / Mac only (`helper-lab-off`) / both |
+| Now playing on Mac | nothing / Music / Spotify / browser video (YouTube) with Automation granted, ask, denied |
+| Android notifications | granted / denied / never asked (helper path) / "nowplaying" channel off |
+| Phone | foreground / background < 30 s / background > 30 s / locked |
+| Helper version | current / older than protocol 1.5 (`helper-too-old`) |
+
+## Success criteria
+- Input reaches the Mac (`input/summary` counts) with no error; paused/ax states shown on the phone within one Hub poll (2 s).
+- Every disabled Labs surface has a `labs/blocked{code}` reason visible on screen.
+- Media notification shown while connected to a helper with now-playing, updated on change, hidden with a logged reason.
+
+## Main path
+| ID | Actor | Step | Expected | Failure mode | Detected by | User sees | Recovery | Level | Test | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| DU-1 | User | Media caps (play/pause, next, volume, D-pad, hold repeat) over Wi-Fi | keys injected (dry-run: logged) | not linked: caps disabled | helper `input/summary{counts}`; `protocol/in` | caps react | n/a | L2 | android:MediaJourney#main; e2e:media.spec.ts "every media control…"; e2e:media.spec.ts "D-pad…" | pass |
+| DU-2 | User | Pointer, scroll, keyboard, Unicode text | moves/keys arrive; Unicode over helper, ASCII over BT | n/a | `input/summary` | n/a | n/a | L2 | e2e:mouse.spec.ts; e2e:keys.spec.ts; android:MacrosJourney#unicode | pass |
+| DU-3 | User | Macro run (confirm, click-at, unicode) | steps run in order | invalid macro | helper `input/macro` | confirm sheet / error | edit | L2 | android:MacrosJourney#main; android:MacrosJourney#invalid; e2e:macros.spec.ts | pass |
+| DU-4 | User | Spaces: thumbnails, go to Space | `spaces` state, goto works; thumbnails need Screen Recording | Screen Recording missing | `diag.features.spaceThumbnails.blockedBy=screen-recording-not-granted` | Spaces without thumbnails | Setup › Screen Recording | L2 | android:SpacesJourney#main; android:SpacesJourney#nocapture; android:HelperIntegrationTest#spacesStateThumbnailsAndGoto | pass |
+| DU-5 | User | Pause input on the Mac (⌘P) | helper refuses input `paused`; phone notice | n/a | Hub `state{paused:true}`; `input/blocked{reason:paused}`; phone `session/state{paused}` | "Input paused on the Mac" notice | Resume (menu) | L2 | android:MediaJourney#paused; e2e:media.spec.ts "input paused on the Mac -> notice shown" | pass |
+| DU-6 | macOS | Accessibility revoked or stale | input refused `ax` | dry-run cannot simulate (D-SM-2) | Hub `state{ax:false}`; `input/blocked{reason:ax}`; phone `session/state{ax:false}` | "Mote Helper needs Accessibility on the Mac" | re-grant (J2 SM-4) | L3 | MANUAL-18 | untested |
+| DU-7 | User | Switch Macs from Devices | `Net.select`, new candidates, old session closed | n/a | `transport/select` | pill name changes | n/a | L2 | android:DailyJourney#switchMacs | pass |
+| DU-8 | App | Link notification | reflects the selected link | Wi-Fi Mac: "Ready to pair" or none (daily-D1) | `lifecycle/service` | notification text | n/a | L2 | android:DailyJourney#notif; android:DailyJourney#notifBt | fail (D-DU-1) |
+| DU-9 | App | Helper older than the app (no protocol 1.5 diag) | Diagnostics asks to update the helper | n/a | `HelperDiag` err; `labs/blocked{code:helper-too-old}` | "update Mote Helper" | J7 | L2 | android:DiagnosticsTest#diagnosticsShowsPhoneStateAndAsksToUpdateNoHelper | pass |
+| DU-10 | App | Labs Smart remote on, Mac lab off | blocker `helper-lab-off` with where to enable | n/a | `labs/blocked{code:helper-lab-off}` | blocker copy | Mac menu › Labs | L2 | android:BlockersTest#helperLabOffSaysWhere; android:SmartRemoteJourney#helperLabOff | pass |
+| DU-11 | App | Labs over Bluetooth only | blocker `bluetooth-only` | n/a | `labs/blocked{code:bluetooth-only}` | blocker copy | connect via helper | L2 | android:BlockersTest#bluetoothSaysWhy; android:DiagnosticsTest#smartRemoteOverBluetoothSaysWhy | pass |
+| DU-12 | Helper | Browser video, Automation not yet asked / denied / no signal | blocker `automation-ask` / `automation-denied` / `no-signal` | n/a | `labs/blocked{code}`; `diag.features.labs.context{blockedBy:automation-not-granted,fix:open-automation-settings}` | blocker copy naming the browser | Privacy › Automation | L2 | android:BlockersTest#browserWithoutAutomationIsNotSilent; android:HelperIntegrationTest#smartRemoteBrowserAskedAutomationExplainsItself; android:SmartRemoteJourney#automationAsk; android:SmartRemoteJourney#automationDenied; android:SmartRemoteJourney#browserNoSignal | pass |
+| DU-13 | User | B3: Labs on both sides, YouTube playing in a browser | phone switches to the video profile or shows a blocker (DU-12) within 2 s | reported: no phone UI change at all | `labs/subscribe`, `labs/push`; `labs/blocked`; helper `labs/push` count | nothing changes | unknown | L3 | MANUAL-19 | fail (B3, U19) |
+| DU-14 | App | B4: helper connected, Smart remote lab on, now-playing present, notifications allowed | MediaStyle notification (channel "nowplaying", low importance, id 2): title, artist, app, art, play state, seek bar if `canSeek` | not built in 0.6 | phase 1b `notification/show{…}` | no notification | n/a | L2 | TODO-DU-14 (`dumpsys notification`, `dumpsys media_session`) | fail (B4) |
+| DU-15 | App | Now-playing changes (track, pause, seek) | notification updates; position extrapolated from Mac timestamps | n/a | `notification/update` | updated notification | n/a | L0 | android:NowPlayingReducerTest#extrapolatesFromTheMacsTimestamps; android:NowPlayingReducerTest#pausedDoesNotMove; TODO-DU-15 (NpNotifPolicy.plan) | untested |
+| DU-16 | User | Notification actions play/pause, next, previous, seek | `Remote.consumer` / `SmartRemote.seekTo` sent to the helper | not linked | `notification/action{action}`; helper `input/summary` | Mac reacts | n/a | L2 | TODO-DU-16 | untested |
+| DU-17 | App | Hide reasons: lab-off, no-helper, disconnected, nothing-playing, no-permission | notification removed, reason logged | n/a | `notification/hide{reason}`; `notification/blocked` for no-permission | notification gone; Diagnostics row says why | per reason | L0 | TODO-DU-17 (NpNotifPolicy.plan) | untested |
+| DU-18 | App | Notifications never asked on the helper path | asked when the first notification would show | never asked (D-SP-3) | `notification/blocked{reason:no-permission}` | nothing | Settings | L2 | TODO-SP-19 | fail (U4) |
+| DU-19 | App | Bluetooth-only link with media playing | per U1 | phase 1b: none | `notification/hide{reason:no-helper}` | nothing | n/a | L0 | TODO-DU-19 | UNDEFINED (U1) |
+| DU-20 | Android | App backgrounded > 30 s while playing | per U2 | socket closed (Net 30 s) → `disconnected` → notification gone | `lifecycle/foreground{v:false}`; `notification/hide{reason:disconnected}` | notification vanishes | reopen app | L2 | TODO-DU-20 | UNDEFINED (U2) |
+| DU-21 | User | Lock screen and Bluetooth headset buttons with the notification | controls on lock screen; headset buttons route to the MediaSession | OEM | `notification/action` | lock-screen controls | n/a | L4 | MANUAL-20 | UNDEFINED (U20) |
+| DU-22 | User | Daily use on real phone and Mac for a day (owner) | DU-1..7, DU-13..16 | any | phone Diagnostics, `MoteHelper --diag` | per row | per row | L4 | MANUAL-21 | untested |
+
+## Defects
+- D-DU-1 (daily-D1) link notification reflects only Bluetooth HID; with a Wi-Fi Mac it says "Ready to pair" or is absent.
+- D-DU-2 B4 notification depends on POST_NOTIFICATIONS, which the helper path never asks for (D-SP-3).
+- D-DU-3 Phase 1b gates the notification on Labs › Smart remote and has no foreground service: it disappears 30 s after the app backgrounds, which defeats the lock-screen use (U2, U3).
+- D-DU-4 (daily-D2..D6) artboard copy for asleep / no-helper / Searching card / Devices buttons / route order differs from code.

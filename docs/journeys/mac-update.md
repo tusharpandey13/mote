@@ -1,71 +1,54 @@
-# mac-update: A2. Mac: login, Tailscale, update and uninstall
+# J7 mac-update: update the helper and the app
 
-Artboard: `design/mote-v1/journey-mac-update.html` (Shipped). Code (next-0.6): `site/install.sh`, `helper/Sources/MoteHelper/MenuBar.swift`, `SetupWindow.swift`, `Config.swift` (Settings, Tailnet), `Vault.swift`, `InstantPairing.swift` (LabsKeyStore, launch-at-login), `main.swift` (stdin `tailscale on|off`), `helper/build.sh` (stable signing), `android/.../net/WsTransport.kt`, `ui/HostsUi.kt` (HostRowCap). Docs: `docs/design/design-language.md` (coverage "Update + Accessibility re-grant…, uninstall"), `docs/pairing.md` §5, `AGENTS.md`.
-Test: `e2e/journeys` → `dev.mote.remote.journeys.MacUpdateJourney` (one @Test per path below). Installer steps are exercised by `e2e/web/tests/install.spec.ts` (`static:` here).
-
-## Preconditions
-- P1. App: debug `dev.mote.remote.dev`, has trusted + selected Mac X over Wi-Fi (established in the test by a first-run connect with `TestSeam.adapter(supported = false)`, so no Bluetooth step).
-- P2. Phone: emulator on "AndroidWifi", no Tailscale VPN.
-- P3. Mac / helper: stand-in `MoteHelper --dry-run --headless --memory-store --no-ble --no-bonjour --stdin-control --port N --fake-proximity`. Installer: an older `MoteHelper.app` in `<tmp HOME>/Applications`, stub `pgrep -x MoteHelper` exits 0.
-- P4. Network: same LAN (10.0.2.2 ↔ 10.0.2.17).
-
-## Main path `mac-update`
-| # | Actor | Action (exact) | Expected observable (exact) | Seam |
-|---|---|---|---|---|
-| S1 | Mac user | Advanced › "Allow Tailscale connections" (on) | helper log `[mote] tailscale connections allowed`; menu line "     Tailscale: http://<MagicDNS or 100.x>:8790" or "     Tailscale: not detected (is it running?)" | faked: stdin-control `tailscale on` stands in for the menu click (menu lines headless-unobservable) |
-| S2 | Mac user | Advanced › "Open at login" / Setup toggle "Open Mote Helper at login" | ✓ iff `SMAppService.mainApp.status == .enabled` | needs user: menu / window |
-| S3 | Mac user | Re-run `bash site/install.sh` (fixture serves the newer zip, helper running) | stdout `==> Downloading MoteHelper-macos-arm64.zip`, `==> Verifying SHA-256`, `    ok <sha>`, `==> Unpacking`, `==> Quitting the running Mote Helper`, `==> Installing to <tmp>/Applications/MoteHelper.app`, `==> Opening Mote Helper Setup`, Done text; stub log `pkill -x MoteHelper`, `open <APP> --args --setup` | static: install.spec.ts ("replaces an older install") |
-| S4 | system | Old helper quits | phone: Devices sheet row of X "Connecting…" (WsTransport retry loop, `WsTransport.kt:140`) | faked: stand-in helper stopped by the controller (SIGTERM) |
-| S5 | system | New helper starts with the same signature (build.sh stable identity) | permissions kept; Setup window opens once (`--setup`); no Keychain prompt after an earlier "Always Allow" | needs user: TCC / Keychain / window |
-| S6 | system | Phone reconnects silently (trusted key, no token) | helper log `labs: trusted <phone> via trusted`; no `NEW DEVICE:`; row "Connected · Wi-Fi" | faked: needs a persistent non-Keychain test store (e.g. `--store-file PATH`): with `--memory-store` a restarted helper has a new hostId and key |
-| S7 | Mac user | uncheck "Open at login", "Quit Mote Helper" (⌘Q) | `SMAppService.mainApp.unregister()`; process exits | needs user |
-| S8 | Mac user | `rm -rf ~/Applications/MoteHelper.app` | app gone; installer's line `Uninstall: quit it from the menu, then  rm -rf "<abs path>/MoteHelper.app"` | manual: user shell |
-
-## Postconditions
-- After S6: phone keeps Mac X (same hostId/fp); helper trusted list keeps the phone.
-- After S8: UserDefaults and the single Keychain item `dev.mote.helper` / `secrets` remain (nothing removes them); TCC entries remain.
-
-## Branches
-### `mac-update.signature-changed`: new build signed differently (from S3; artboard jA2-s3)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | run install.sh where old and new `codesign -d -r-` designated requirements differ | `==> The new version is signed differently: clearing Mote Helper's old permission entries` / `    (only Mote Helper's; grant Accessibility again in the Setup window)`; `tccutil reset Accessibility dev.mote.helper`, `tccutil reset ScreenCapture dev.mote.helper` | static: site/install.sh:72-89 (install.spec.ts has no signed fixture and no `tccutil` stub; never run for real) |
-| B2 | Mac user | Setup window → Accessibility "Grant" → turn on | as setup-mac S6-S7 | needs user: TCC |
-
-### `mac-update.skip-regrant`: skipped the re-grant (from S5; artboard jA2-b1s)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | system | phone reconnects to a helper without Accessibility | `{"t":"state",…,"ax":false}`; row "Mote Helper needs Accessibility on the Mac"; pill LED amber | faked: needs new flag `--fake-ax-denied` |
-| B2 | phone user | tap a key | `{"t":"err","code":"ax",…}`; no `DRY` line | faked: needs `--fake-ax-denied` |
-
-### `mac-update.not-running`: update while the helper isn't running (from S3; not drawn)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | run install.sh, stub `pgrep` exit 1 | no `==> Quitting the running Mote Helper`, no `pkill` | static: install.spec.ts |
-
-### `mac-update.update-fails`: checksum mismatch during update (from S3; not drawn)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | run install.sh, bad `.sha256` | `error: checksum mismatch (expected …, got …). Not installing.`; old app untouched; running helper not quit | static: install.spec.ts |
-
-### `mac-update.keychain-denied`: Keychain read fails after an update (from S5; not drawn)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | Deny Keychain access | log `keychain read failed: <OSStatus> (pairings are kept in memory until the next launch)`; `LabsKeyStore.identity()` finds no identity, mints one and `vault.update` writes the whole blob (`Vault.swift:95-99,133-143`, `InstantPairing.swift:446-451`) | static: Vault.swift / InstantPairing.swift (needs a real Keychain Deny) |
-| B2 | system | phone reconnects | key pin mismatch `helper-key` → `auth`; Devices "The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again." | faked: needs a stand-in with the same hostId and a new key (new flag) |
-
-### `mac-update.tailscale-off`: Allow Tailscale off (from S1; not drawn)
-| # | Actor | Action | Expected observable | Seam |
-|---|---|---|---|---|
-| B1 | Mac user | Advanced › uncheck "Allow Tailscale connections" | log `[mote] tailscale connections refused`; tailnet peers dropped; phone on the LAN stays "Connected · Wi-Fi" | faked: stdin-control `tailscale off` stands in for the menu click |
-
-## Disagreements → DEFECTS.md
-- `mac-update-D1` (keychain-denied): a failed Keychain read still leads to a new identity being written over the vault blob (now also wiping code pairings and the trusted list); the log line claims pairings are "kept in memory until the next launch".
-- `mac-update-D2` (S7): uninstall line still doesn't mention turning off Open at login (auto-enabled).
-- `mac-update-D3`: FIXED in next-0.6 for the copy (stable signing; install.sh resets stale TCC entries); artboard jA2-s2/s3 still say "ad-hoc signed… switch it off and on" and "Always Allow on the Keychain prompt".
-- `mac-update-D4` (skip-regrant): artboard Devices sheet layout is the pre-0.6 one (unchanged).
-- `mac-update-D5` (S1/S2): artboard jA2-s1 shows "Allow Tailscale connections" / "Launch at login" at the menu top level; code moved them to Advanced ("Open at login").
+Phase 2 spec (format: [README.md](README.md)). Derived from `site/install.sh`, `helper/Sources/MoteHelper/{Vault,InstantPairing,Diagnostics,Signing}.swift`, `docs/signing.md`, `android/app/build.gradle*` signing config. Replaces the phase-1 draft (mac-update-D1..D5 carried). File name kept for `MacUpdateJourney`.
 
 ## UNDEFINED
-- S5: whether macOS shows a Keychain prompt for the one `secrets` item after an update — OS behaviour.
-- S4: reconnect backoff timing after the restart.
+- U5 Keychain item unreadable after the update changed the partition (Mote Helper Local: every build; identity switch: once).
+- U9 TCC services to reset on a signature change.
+- U12 Phone behaviour when the helper key changed.
+- U15 Open at login after the bundle moved or was replaced.
+- U21 How a user learns that a new helper or app release exists.
+
+## Goal
+Re-running the installer (helper) or installing a newer APK (app) keeps every pairing, permission and setting; the phone reconnects silently. When an update cannot keep something (identity switch), the user is told once, on the Mac and the phone, and recovers in one step.
+
+## Preconditions
+| Dimension | Values covered |
+|---|---|
+| Helper update kind | same identity, developer-id (team partition) / same identity, mote-local (cdhash partition) / identity switch mote-local → developer-id / from adhoc or apple-development (dev builds) |
+| Permissions before | all granted / some denied / stale |
+| Keychain before | found / never created |
+| Phone | trusted, on LAN / on tailnet / Bluetooth HID linked |
+| App update | same keystore APK over old / different keystore (debug over release: package `dev.mote.remote.dev` differs) / reinstall after uninstall |
+| Protocol | helper and app same version / app newer than helper / helper newer than app |
+
+## Success criteria
+- Same-identity update: `diag.keychain.readResult=found`, `partitionMatchesSigning=true`; TCC rows unchanged; phone `session/authed` without UI.
+- Identity switch: stale TCC reset once (all services), Keychain recovered with one prompt or an explicit re-pair offer; never a silent new identity.
+- App update: TrustRecords, selected host, settings kept.
+
+## Main path
+| ID | Actor | Step | Expected | Failure mode | Detected by | User sees | Recovery | Level | Test | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| UP-1 | User | Re-runs install.sh (J1 INS-1..16) | new build replaces old in `~/Applications`, Setup opens | see J1 | J1 rows | J1 | J1 | L2 | e2e:install.spec.ts "replaces an older install; x86_64 gets the x86_64 asset" | pass |
+| UP-2 | Helper | Same DR (developer-id or mote-local self-signed cert) | no tccutil reset; AX/SR/Bluetooth stay granted | DR changed unexpectedly | install.sh "signed differently" line; `diag.signing.designatedRequirement` | Setup rows "Allowed" | n/a | L2 | e2e:install.spec.ts "upgrade from a differently signed (ad-hoc) build resets its stale grants once" (DR-differs branch only); TODO-UP-2 (same-DR branch) | untested |
+| UP-3 | Helper | Developer ID update, same team: Keychain partition `teamid:` unchanged | `keychain/read{result:found}` | n/a | `diag.keychain{readResult,partitionMatchesSigning}` | nothing | n/a | L3 | MANUAL-22 | untested |
+| UP-4 | Helper | Mote Helper Local update: partition is the cdhash, which changes every build | one Keychain prompt (signing.md) or silent read | code never prompts (`kSecUseAuthenticationUIFail`): `readResult=error` on every update | `keychain/read{result:error}`; `diag.keychain.partitionMatchesSigning=false`; `diag.features.keychain.blockedBy=keychain-unreadable` | nothing on Mac; phone RC-9 | none in UI | L3 | MANUAL-23 | fail (D-UP-1, U5) |
+| UP-5 | Helper | Read error then any trust change calls `Vault.update` → save | existing item never overwritten | save not gated on `readResult` (mac-update-D1); outcome unverified | `keychain/write{status,ok}` | pairings gone | re-pair | L1 | TODO-UP-5 (KeychainBackend against a foreign-partition item) | UNDEFINED (U5) |
+| UP-6 | Helper | Identity switch (mote-local → developer-id) | TCC reset for all services; Keychain: one prompt or re-pair offer | install.sh resets AX + SR only (D-INS-1); Keychain as UP-4 | `diag.permissions.*.apiState`; `keychain/read` | stale Bluetooth/Automation rows; phone "key doesn't match" | Setup; phone Forget + connect | L3 | MANUAL-24 | fail (D-UP-2, U9) |
+| UP-7 | App | Phone reconnects after a same-identity update | `session/authed` within 2 s of helper `lifecycle/ready` | n/a | phone `transport/connect.ready` | brief "Connecting…" | n/a | L2 | android:MacUpdateJourney#main | pass |
+| UP-8 | App | Tailscale setting kept across update | Allow Tailscale unchanged; tailnet phone reconnects | setting unset → defaults on (code) vs off (protocol.md) | `lifecycle/setting`; `diag.transports.tailscale.allowed` | n/a | Advanced › Allow Tailscale connections | L2 | android:MacUpdateJourney#tailscaleOff | pass |
+| UP-9 | App | Phone newer than helper | Diagnostics asks to update the helper; Labs blocker `helper-too-old` | n/a | `labs/blocked{code:helper-too-old}` | "update Mote Helper" | J1 | L2 | android:DiagnosticsTest#diagnosticsShowsPhoneStateAndAsksToUpdateNoHelper | pass |
+| UP-10 | Helper | Helper newer than phone | old messages accepted (protocol is additive); unknown types ignored | n/a | `protocol/bad` count stays 0 | n/a | n/a | L2 | helper:EventCoverageTests#handledTypesTableMatchesTheCode; TODO-UP-10 (old-app fixture) | untested |
+| UP-11 | User | Installs newer APK over the old (same keystore) | data kept; trust, selection, settings intact | n/a | `lifecycle/init`; Hosts list unchanged | remote, reconnects | n/a | L4 | MANUAL-25 | untested |
+| UP-12 | User | Installs APK signed with another key over an existing install | Android refuses ("App not installed") | n/a | none in app | system error | uninstall (loses trust) then install | L4 | MANUAL-26 | untested |
+| UP-13 | App | Prefs from an older version or corrupt | defaults, no crash | n/a | `lifecycle/init` | defaults | n/a | L0 | android:PrefsCorruptionTest | pass |
+| UP-14 | Helper | Open at login after update in place | login item still points at the bundle | bundle moved or second copy (U15) | `lifecycle/setting`; SMAppService status | two helpers or none at login | Advanced › Open at login | L3 | MANUAL-27 | UNDEFINED (U15) |
+| UP-15 | User | Learns a release exists | some notice | no update check anywhere (helper or app) | n/a | nothing | re-run install.sh | L4 | MANUAL-28 | UNDEFINED (U21) |
+| UP-16 | User | Uninstall per install.sh: quit, `rm -rf` | helper gone, nothing starts at login | Open at login (auto-enabled) not mentioned (mac-update-D2) | Login Items list | stale login item | Login Items settings | L3 | MANUAL-29 | fail (D-UP-3) |
+
+## Defects
+- D-UP-1 `docs/signing.md` promises "one Keychain prompt per update" for Mote Helper Local; the helper reads and writes with `kSecUseAuthenticationUIFail`, so it never prompts and the item is unreadable after every update.
+- D-UP-2 Identity switch has no recovery path on the Mac; on the phone only Forget + connect.
+- D-UP-3 (mac-update-D2) uninstall line omits Open at login.
+- D-UP-4 (mac-update-D3, D4, D5) artboards: ad-hoc "switch it off and on" copy, "Always Allow on the Keychain prompt", pre-0.6 Devices sheet, top-level Tailscale / Launch at login.
