@@ -35,6 +35,8 @@ data class UiSettings(
     val spacesHintDone: Boolean = false,
     /** The one-time joystick onboarding pulse (rev 7.1) has played. */
     val stickIntroDone: Boolean = false,
+    /** Now playing and the media notification (lock screen controls) are core and on by default; this turns them off. */
+    val mediaNotification: Boolean = true,
 ) {
     companion object {
         const val SPEED_MIN = 0.25f
@@ -60,6 +62,13 @@ object UiPrefs {
     private val CTRL_N = booleanPreferencesKey("ctrl_number_shortcuts")
     private val SPACES_HINT = booleanPreferencesKey("spaces_hint_done")
     private val STICK_INTRO = booleanPreferencesKey("stick_intro_done")
+    private val MEDIA_NOTIF = booleanPreferencesKey("media_notification")
+
+    private val NOTIF_ASKED = booleanPreferencesKey("notifications_asked")
+
+    /** First-run setup already asked (or the user said "Not now") for the notification permission: never nag again (U4). */
+    fun notifAsked(c: Context): Flow<Boolean> = c.store.data.map { it.typed(NOTIF_ASKED) ?: false }
+    suspend fun setNotifAsked(c: Context) { c.store.edit { it[NOTIF_ASKED] = true } }
 
     private fun clampSpeed(v: Float?) = (v ?: 1f).coerceIn(UiSettings.SPEED_MIN, UiSettings.SPEED_MAX)
 
@@ -80,6 +89,7 @@ object UiPrefs {
         ctrlNumberShortcuts = p.typed(CTRL_N) ?: false,
         spacesHintDone = p.typed(SPACES_HINT) ?: false,
         stickIntroDone = p.typed(STICK_INTRO) ?: false,
+        mediaNotification = p.typed(MEDIA_NOTIF) ?: true,
     )
 
     fun flow(c: Context): Flow<UiSettings> = c.store.data.map(::read)
@@ -104,7 +114,7 @@ object UiPrefs {
             this[H_STRENGTH] = s.hapticStrength.name; this[H_KEYS] = s.hapticKeys
             this[H_DETENTS] = s.hapticDetents; this[H_LINK] = s.hapticLink
             this[DESKTOPS] = s.desktopCount.coerceIn(1, 16); this[CTRL_N] = s.ctrlNumberShortcuts; this[SPACES_HINT] = s.spacesHintDone
-            this[STICK_INTRO] = s.stickIntroDone
+            this[STICK_INTRO] = s.stickIntroDone; this[MEDIA_NOTIF] = s.mediaNotification
         }
     }
 }

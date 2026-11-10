@@ -20,6 +20,9 @@ import org.json.JSONObject
  */
 object SmartRemote {
     /** Labs store key: open Keys automatically on a Mac text field (the "Stop auto-keyboard" chip clears it). */
+    /** U19: a Smart remote / now-playing panel that has heard nothing from the helper after this long says why. */
+    const val NO_REPLY_MS = 2_000L
+
     const val AUTO_KEYBOARD = "smart_remote.auto_keyboard"
 
     private val _context = MutableStateFlow(MacContext())
@@ -40,16 +43,27 @@ object SmartRemote {
 
     private fun send(o: JSONObject): Boolean = Remote.sendLabs(o.toString())
 
-    /** Runs for as long as the caller's composition: (un)subscribes on every (re)link and feeds [context] / [nowPlaying]. */
-    suspend fun run(enabled: Flow<Boolean>) = coroutineScope {
+    private val _replied = MutableStateFlow(false)
+    /** Some `labs.ctx` / `labs.np` has arrived on the current subscription (U19: no answer in [NO_REPLY_MS] is a blocker). */
+    val replied: StateFlow<Boolean> = _replied.asStateFlow()
+
+    /**
+     * Runs for as long as the caller's composition: (un)subscribes on every (re)link and feeds [context] / [nowPlaying].
+     * Now playing ([npOn]: the Settings switch, or the lab) is core; the context ([ctxOn]: Labs › Smart remote) is a preview.
+     */
+    suspend fun run(ctxOn: Flow<Boolean>, npOn: Flow<Boolean>) = coroutineScope {
         launch { LabsBus.incoming.collect { if (active) onMessage(it) } }
-        combine(enabled, Remote.linked) { on, l -> on to l }.collect { (on, linked) ->
-            val up = linked && send(JSONObject().put("t", "labs.ctx.sub").put("on", on))
-            Events.log("labs", "subscribe", "feature" to "smart_remote", "on" to on, "sent" to up, "linked" to linked)
-            if (up) send(JSONObject().put("t", "labs.np.sub").put("on", on))
+        var ctxWasOn = false
+        combine(ctxOn, npOn, Remote.linked) { c, n, l -> Triple(c, n, l) }.collect { (ctxWant, npWant, linked) ->
+            // A helper without the context lab answers `err unknown` to ctx.sub: only ask when it is wanted (or to turn it off).
+            val up = linked && (if (ctxWant || ctxWasOn) send(JSONObject().put("t", "labs.ctx.sub").put("on", ctxWant)) else true) &&
+                send(JSONObject().put("t", "labs.np.sub").put("on", npWant))
+            ctxWasOn = ctxWant && linked
+            Events.log("labs", "subscribe", "feature" to "smart_remote", "ctx" to ctxWant, "np" to npWant, "sent" to up, "linked" to linked)
             if (!linked) _tooOld.value = false
             _helperUp.value = up
-            active = on && up
+            active = (ctxWant || npWant) && up
+            _replied.value = false
             if (!active) { _context.value = MacContext(); _nowPlaying.value = NpState() }
         }
     }
@@ -60,14 +74,14 @@ object SmartRemote {
 
     internal fun onMessage(o: JSONObject) {
         when (o.optString("t")) {
-            "labs.ctx" -> _context.value = parseContext(o)
-            "labs.np" -> reduce(NpEvent.Update(o, now()))
+            "labs.ctx" -> { _replied.value = true; _context.value = parseContext(o) }
+            "labs.np" -> { _replied.value = true; reduce(NpEvent.Update(o, now())) }
             "labs.np.seek" -> reduce(
                 NpEvent.SeekReply(o.optString("via"), if (o.has("to")) o.optDouble("to") else null, o.optString("note").ifEmpty { null }, now()),
             )
             "err" -> when (o.optString("ref")) {
                 "labs.np.seek" -> reduce(NpEvent.Error(o.optString("msg")))
-                "labs.ctx.sub" -> if (o.optString("code") == "unknown") _tooOld.value = true
+                "labs.ctx.sub", "labs.np.sub" -> if (o.optString("code") == "unknown") _tooOld.value = true
             }
         }
     }

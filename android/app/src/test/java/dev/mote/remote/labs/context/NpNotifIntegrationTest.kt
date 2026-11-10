@@ -90,7 +90,7 @@ sleep 600
 
         s.send("""{"t":"labs.np.sub","on":true}""")
         var st = NpReducer.reduce(NpState(), NpEvent.Update(s.nextNp { !it.isNull("np") }, 0))
-        val shown = NpNotifPolicy.plan(st, lab = true, overHelper = true, linked = true, allowed = true, nowMs = 0)
+        val shown = NpNotifPolicy.plan(st, enabled = true, overHelper = true, linked = true, allowed = true, nowMs = 0)
         assertTrue("expected a notification, got $shown", shown is NpNotifPlan.Show)
         assertEquals("Reader Song", (shown as NpNotifPlan.Show).title)
 

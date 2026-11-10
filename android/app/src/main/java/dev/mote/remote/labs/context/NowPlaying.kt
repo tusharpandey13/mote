@@ -42,6 +42,8 @@ data class NpState(
     val pendingSinceMs: Long = 0,
     /** Last hint from the helper (e.g. "turn on Allow JavaScript from Apple Events"). */
     val note: String? = null,
+    /** At least one `labs.np` has arrived on this subscription (so `enabled = false` really is the helper's answer). */
+    val received: Boolean = false,
 ) {
     /** True when the scrubber can set an absolute position (the Mac knows the duration). */
     val canScrub: Boolean get() = np != null && np.duration > 0
@@ -84,10 +86,10 @@ object NpReducer {
     }
 
     private fun update(s: NpState, o: JSONObject, recvMs: Long, decode: (String) -> ByteArray?): NpState {
-        if (!o.optBoolean("enabled", false)) return NpState(enabled = false)
+        if (!o.optBoolean("enabled", false)) return NpState(enabled = false, received = true)
         val seek = o.optJSONArray("seek")?.let { a -> List(a.length()) { a.optString(it) }.filter { it.isNotEmpty() } }.orEmpty()
         val source = o.optString("source", "off")
-        val j = o.optJSONObject("np") ?: return s.copy(enabled = true, source = source, seek = seek, np = null, pendingSeek = null)
+        val j = o.optJSONObject("np") ?: return s.copy(enabled = true, received = true, source = source, seek = seek, np = null, pendingSeek = null)
         val elapsed = j.optDouble("elapsed", 0.0).let { if (it.isNaN()) 0.0 else it }
         val rate = j.optDouble("rate", 0.0).let { if (it.isNaN()) 0.0 else it.coerceIn(0.0, 4.0) }
         // Position at receive time: the Mac stamps `at` (when `elapsed` was true) and `now` (when it sent).
@@ -109,7 +111,7 @@ object NpReducer {
         )
         val pending = s.pendingSeek
         val confirmed = pending != null && (kotlin.math.abs(np.position(recvMs) - pending) <= CONFIRM_S || recvMs - s.pendingSinceMs >= PENDING_MS)
-        return s.copy(enabled = true, source = source, seek = seek, np = np, pendingSeek = if (confirmed) null else pending)
+        return s.copy(enabled = true, received = true, source = source, seek = seek, np = np, pendingSeek = if (confirmed) null else pending)
     }
 
     private fun b64(s: String): ByteArray? = runCatching { java.util.Base64.getDecoder().decode(s) }.getOrNull()?.takeIf { it.isNotEmpty() }

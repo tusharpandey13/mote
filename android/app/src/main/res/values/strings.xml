@@ -1,7 +1,8 @@
 <resources>
     <string name="app_name">Mote</string>
     <string name="channel_link">Bluetooth link</string>
-    <string name="channel_nowplaying">Now playing on the Mac</string>
+    <string name="channel_nowplaying">Media controls</string>
+    <string name="notif_bluetooth_title">Mote · Bluetooth</string>
 <string name="notif_connected">Connected to %1$s</string>
     <string name="notif_searching">Searching for %1$s…</string>
     <string name="notif_idle">Ready to pair</string>

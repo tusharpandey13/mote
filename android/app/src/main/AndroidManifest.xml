@@ -17,6 +17,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Android 14+: the now-playing notification's service (NpService) is a mediaPlayback foreground service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Mote Helper over Wi-Fi / Tailscale. NSD needs no NEARBY_WIFI_DEVICES (that gates Wi-Fi scans,
          P2P and Aware, not NsdManager); the multicast lock is held only while the host picker scans. -->
@@ -80,11 +82,15 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
-        <!-- Labs (Smart remote): the now-playing notification's buttons -->
+        <!-- The media notification's buttons -->
         <receiver android:name=".labs.context.NpActionReceiver" android:exported="false" />
         <service
             android:name=".service.HidService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+        <service
+            android:name=".service.NpService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
     </application>
 </manifest>
