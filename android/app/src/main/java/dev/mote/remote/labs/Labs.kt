@@ -14,7 +14,6 @@ data class LabFlag(val key: String, val title: String, val summary: String)
 
 /** Labs: preview features, each off until turned on in Settings › Labs. Register a preview with one line in [all]. */
 object Labs {
-    val INSTANT_PAIRING = LabFlag("instant_pairing", "Instant pairing (preview)", "Find Macs over Bluetooth and connect without a code. Needs Mote Helper with Labs › Instant pairing on.")
     val OPEN_TV = LabFlag("open_tv", "Open & TV mode (preview)", "An Open… sheet that drives the Mac, and a TV remote for YouTube. Needs Mote Helper with Labs › TV mode on.")
     val VIDEO_BRIDGE = LabFlag("labs_video_bridge", "Browser video control (preview)", "Control the video in the Mac's browser tab with the Mote Video Bridge extension. Needs Mote Helper with Labs › Browser extension bridge on.")
 
@@ -25,7 +24,6 @@ object Labs {
     /** Shown in Settings › Labs, in this order. */
     val all: List<LabFlag> = listOf(
         OPEN_TV,
-        INSTANT_PAIRING,
         SMART_REMOTE,
         VIDEO_BRIDGE,
         LIVE_SCREEN,

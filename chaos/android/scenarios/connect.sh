@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# One-tap connect (being built in parallel; docs/labs/pairing.md section 5) and VPN / failover chaos.
+# One-tap connect (being built in parallel; docs/pairing.md section 5) and VPN / failover chaos.
 # Each check is feature-detected; when its code or prerequisite is missing it records PENDING with
 # the reason, which never fails the run. Detection greps android/app/src/main/java for declarations:
 #
@@ -63,7 +63,7 @@ cn_failover() {
   if [ "${IS_EMU:-1}" = 1 ]; then
     pending connect-failover "Bluetooth HID can't run on an emulator: physical.sh with a paired Mac + helper"; return
   fi
-  pending connect-failover "not automated yet: needs a helper reachable on LAN and tailnet and a BT-linked Mac (manual: docs/labs/pairing.md 5, 15 s fallback, 30 s switch-back)"
+  pending connect-failover "not automated yet: needs a helper reachable on LAN and tailnet and a BT-linked Mac (manual: docs/pairing.md 5, 15 s fallback, 30 s switch-back)"
 }
 
 scenario_connect() {

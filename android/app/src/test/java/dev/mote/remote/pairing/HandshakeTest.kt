@@ -1,4 +1,4 @@
-package dev.mote.remote.labs.pairing
+package dev.mote.remote.pairing
 
 import dev.mote.remote.net.Msg
 import dev.mote.remote.net.toHex
@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 
-/** Pure handshake state machine and proof checks (docs/labs/pairing.md section 3). */
+/** Pure handshake state machine and proof checks (docs/pairing.md section 3). */
 class HandshakeTest {
     private val hostId = "0123456789abcdef"
     private val nonce = "a".repeat(32)

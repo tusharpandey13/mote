@@ -36,23 +36,25 @@ final class BLEServer: NSObject, CBPeripheralManagerDelegate {
         }
     }
 
-    /// (Re)adds the GATT service. Labs instant pairing adds its read-only info characteristic.
+    /// (Re)adds the GATT service. Instant pairing adds its read-only info and proximity characteristics.
     func publish() {
         guard pm.state == .poweredOn else { return }
         let rx = CBMutableCharacteristic(type: BLEServer.rxUUID, properties: [.write, .writeWithoutResponse], value: nil, permissions: [.writeable])
         let tx = CBMutableCharacteristic(type: BLEServer.txUUID, properties: [.notify], value: nil, permissions: [.readable])
         let svc = CBMutableService(type: BLEServer.service, primary: true)
-        svc.characteristics = [rx, tx] + (hub.instantPairing.enabled ? [LabsPairing.infoCharacteristic()] : [])
+        svc.characteristics = [rx, tx] + (hub.instantPairing.enabled ? [InstantPairing.infoCharacteristic(), InstantPairing.proxCharacteristic()] : [])
         self.tx = tx
         pm.stopAdvertising()
         pm.removeAllServices()
         pm.add(svc)
     }
 
-    /// Labs: reads of the instant-pairing info characteristic (long reads come with an offset).
+    /// Reads of the instant-pairing info and proximity characteristics (long reads come with an offset).
     func peripheralManager(_ p: CBPeripheralManager, didReceiveRead r: CBATTRequest) {
-        guard r.characteristic.uuid == LabsPairing.infoUUID, hub.instantPairing.enabled else { p.respond(to: r, withResult: .readNotPermitted); return }
-        let v = hub.instantPairing.infoData(offset: r.offset)
+        let ip = hub.instantPairing!
+        let uuid = r.characteristic.uuid
+        guard ip.enabled, uuid == InstantPairing.infoUUID || uuid == InstantPairing.proxUUID else { p.respond(to: r, withResult: .readNotPermitted); return }
+        let v = uuid == InstantPairing.proxUUID ? ip.proxData(offset: r.offset) : ip.infoData(offset: r.offset)
         guard r.offset <= v.count else { p.respond(to: r, withResult: .invalidOffset); return }
         r.value = v.subdata(in: r.offset..<v.count)
         p.respond(to: r, withResult: .success)

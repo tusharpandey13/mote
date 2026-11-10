@@ -1,4 +1,4 @@
-package dev.mote.remote.labs.pairing
+package dev.mote.remote.pairing
 
 import dev.mote.remote.net.Route
 import dev.mote.remote.net.SavedHost
@@ -9,7 +9,7 @@ import dev.mote.remote.net.routeOf
 data class PairPath(val route: Route, val address: String)
 
 /**
- * Connection order for a Mac (docs/labs/pairing.md section 5), pure:
+ * Connection order for a Mac (docs/pairing.md section 5), pure:
  * 1. LAN: fresh Bonjour address, BLE info LAN IPs, last working LAN IP, `<local>.local`;
  * 2. tailnet: MagicDNS name (stable), then the 100.x / fd7a: address;
  * 3. Bluetooth HID, when the Mac is linked to a bonded HID host ([btAddress]).
@@ -28,3 +28,13 @@ fun selectPaths(info: BleInfo?, saved: SavedHost?, bonjour: String? = null, btAd
 
 /** The helper (WebSocket) addresses of [paths], in order. */
 fun helperCandidates(paths: List<PairPath>): List<String> = paths.filter { it.route != Route.BT }.map { it.address }
+
+/**
+ * The error worth showing after trying several paths: the Mac's own answer (a refusal such as
+ * `far`) beats a later path that couldn't be reached. (0.6.0 bug: an unreachable tailnet address
+ * hid `far` behind "Couldn't reach", so the Bluetooth proof was never offered.)
+ */
+fun worse(prev: Exception, next: Exception): Exception = when {
+    prev is dev.mote.remote.net.HelperError && prev.code != "noroute" && next !is dev.mote.remote.net.HelperError -> prev
+    else -> next
+}

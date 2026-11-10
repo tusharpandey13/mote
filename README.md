@@ -53,7 +53,7 @@ Media keys, D-pad, touchpad, keyboard and macros. Over Bluetooth, Wi-Fi or Tails
 | | Bluetooth HID | Wi-Fi / Tailscale + Mote Helper |
 |---|---|---|
 | Software on the Mac | None | [Mote Helper](#2-install-the-mac-helper-optional) (menu-bar app) |
-| Pairing | macOS Bluetooth settings | 6-digit code or QR (`mote://pair` link) |
+| Pairing | macOS Bluetooth settings | One tap on the phone (nearby or same Tailscale account); 6-digit code as a fallback |
 | Works at login / lock screen | Yes | No |
 | Typing | US layout only | Any Unicode |
 | Brightness | Consumer keys, unconfirmed | Precise (helper path) |
@@ -80,15 +80,16 @@ curl -fsSL https://tusharpandey13.github.io/mote/install.sh | bash
 
 Read the [script](site/install.sh) first. It needs no sudo, downloads the helper from GitHub Releases, verifies its SHA-256, installs into `~/Applications` and asks for Accessibility permission so it can inject input.
 
-### 3. Pair over Wi-Fi or Tailscale
+### 3. Connect over Wi-Fi or Tailscale
 
-1. In Mote choose **Use Wi-Fi with Mote Helper** on first run, or device pill > **Add Mac over Wi-Fi**. No Bluetooth permission needed.
-2. In the helper's menu bar choose **Pair new device**. Pick the Mac and type the 6-digit code, or scan the QR and tap **Open in the Mote app**.
-3. Tailscale: turn on **Allow Tailscale connections** in the helper menu (off by default), then use **Enter address** with the MagicDNS name or `100.x` IP if the phone does not already know it.
+1. Open Mote. It looks for your Mac right away (LAN scan, Bluetooth, Bonjour, Tailscale) and shows **Connect to <your Mac>**. Tap it. Nothing to do on the Mac.
+2. The first time, Mote may ask to use Bluetooth once to prove the phone is next to the Mac. On the same Tailscale account it isn't needed.
+3. The Mac shows a small "<Phone> connected to Mote" notice with **Block**. Turn on **Require approval for new devices** in the helper menu if you'd rather click Allow each time.
+4. Later launches reconnect silently: Wi-Fi, then Tailscale, then Bluetooth HID. The 6-digit code is still there under device pill > **More options** > **Pair with code** (and in the web remote). Details: [`docs/pairing.md`](docs/pairing.md).
 
 ## Security and privacy
 
-- Pairing needs a one-time code shown on the Mac. Each device gets its own token, stored in the Android Keystore.
+- A new phone is trusted when it proves it is within Bluetooth range of the Mac (a rotating token readable only over BLE) or is on the same Tailscale account; the Mac shows a notice with **Block**. Anyone within Bluetooth range can do this, so turn on **Require approval for new devices** where that matters. Keys are Ed25519, stored in the Keychain and the Android Keystore.
 - Every helper session is authenticated with an HMAC; no accounts, no cloud, traffic stays on your LAN or tailnet.
 - The helper menu has **Pause input** and **Revoke all devices**.
 - Wi-Fi mode is plain `http`/`ws`: someone who captures the pairing exchange on the same network gets the token. Pair on a network you trust. Over Tailscale the traffic is encrypted.
@@ -101,7 +102,7 @@ Details: [`docs/protocol.md`](docs/protocol.md).
 - Over Wi-Fi the connection runs only while the app is on screen. Sticky modifiers do not apply to clicks over Wi-Fi, and click-at-point targets the main display.
 - Over Bluetooth typing is US layout only, and `fn` cannot be sent. Scroll direction assumes macOS natural scrolling.
 - The touchpad has mouse semantics: no 3-finger gestures or tap-and-hold drag. Portrait only.
-- The helper is ad-hoc signed and not notarized: after an update you may need to re-grant Accessibility. It does not work at the lock screen.
+- The helper is self-signed (not notarized). Releases signed with the same local identity keep their permissions across updates; an ad-hoc build needs Accessibility granted again (install.sh clears the stale entry for you). It does not work at the lock screen.
 
 Full lists: [`android/README.md`](android/README.md).
 

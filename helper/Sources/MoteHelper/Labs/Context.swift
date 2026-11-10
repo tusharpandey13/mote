@@ -136,7 +136,6 @@ final class LabsContext: NSObject, LabsModule {
     private(set) var last: AppContext?
     private var tabCache: [String: (url: String?, title: String?)] = [:]
     private var automation: [String: String] = [:]
-    private var asked: Set<String> = []
     private var scriptBusy = false
     private var lastScript = Date.distantPast
     private var webAX: Set<pid_t> = []
@@ -265,16 +264,13 @@ final class LabsContext: NSObject, LabsModule {
         propose(c)
     }
 
-    /// Reads the active tab off the main queue, at most once a second. Asks for Automation lazily:
-    /// the first time a scriptable browser is in front while a phone listens.
+    /// Reads the active tab off the main queue, at most once a second. Never asks for Automation:
+    /// that only happens on a click (turning the lab on, "Allow … tabs", or the Setup window).
     private func readTab(_ bundle: String) {
         guard !scriptBusy, Date().timeIntervalSince(lastScript) > 1 else { return }
         scriptBusy = true
-        let ask = !asked.contains(bundle)
-        asked.insert(bundle)
         scriptQ.async { [weak self] in
-            var state = Browsers.automation(bundle, ask: false)
-            if state == "ask" && ask { state = Browsers.automation(bundle, ask: true) }
+            let state = Browsers.automation(bundle, ask: false)
             var url: String?, title: String?
             if state == "granted", let src = Browsers.tabScript(bundle), let script = NSAppleScript(source: src) {
                 var err: NSDictionary?
@@ -429,16 +425,23 @@ final class LabsContext: NSObject, LabsModule {
             switch b.state {
             case "granted": out.append(item("    \(b.name) tabs: allowed", nil))
             case "denied": out.append(item("    \(b.name) tabs: denied, open Settings…", #selector(openAutomation)))
-            default: out.append(item("    \(b.name) tabs: asks on first use", nil))
+            default: out.append(item("    Allow \(b.name) tabs…", #selector(askAutomation)))
             }
         } else {
-            out.append(item("    Browser tabs: asks when a browser is in front", nil))
+            out.append(item("    Browser tabs: bring a browser to the front, then allow it here", nil))
         }
         return out
     }
 
-    @objc private func toggleEnabled() {
-        settings.enabled.toggle()
+    @objc private func toggleEnabled() { setEnabled(!settings.enabled) }
+
+    var enabled: Bool { settings.enabled }
+
+    /// A click (menu or Setup window): turning it on asks the running browsers for Automation, in context.
+    func setEnabled(_ on: Bool) {
+        guard on != settings.enabled else { return }
+        settings.enabled = on
+        if on && !hub.config.dryRun { askAutomation() }
         log("labs: context & now playing \(settings.enabled ? "on" : "off")")
         if !settings.enabled { last = nil; pending = nil }
         updateRunning()
@@ -448,7 +451,22 @@ final class LabsContext: NSObject, LabsModule {
 
     @objc private func toggleFull() { settings.fullDetails.toggle(); broadcastCtx(); hub.onChange?() }
 
-    @objc private func openAutomation() {
+    /// Shows the macOS Automation prompt for every running scriptable browser not yet decided (user action only).
+    @objc func askAutomation() {
+        let bundles = NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier).filter(Browsers.scriptable)
+        if bundles.isEmpty || bundles.allSatisfy({ Browsers.automation($0, ask: false) == "denied" }) { openAutomation(); return }
+        scriptQ.async { [weak self] in
+            var got: [String: String] = [:]
+            for b in bundles { got[b] = Browsers.automation(b, ask: true) }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                for (b, st) in got { self.automation[b] = st }
+                self.hub.onChange?()
+            }
+        }
+    }
+
+    @objc func openAutomation() {
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
     }
 }

@@ -6,6 +6,7 @@ struct Config {
     var dryRun = false        // log input instead of injecting it
     var headless = false      // no menu-bar UI (tests)
     var openPairing = false   // open the pairing window at launch and print the code
+    var openSetup = false     // --setup: open the Setup window at launch (install.sh, "Relaunch helper")
     var ble = true
     var port: UInt16 = 8790
     var keychainService = "dev.mote.helper"
@@ -15,8 +16,13 @@ struct Config {
     var stdinControl = false  // tests: read pair/revoke/pause/resume commands from stdin (needs --dry-run)
     var labsTv = false        // --labs-tv: force Labs › TV mode on for this run (tests)
     var fakeSpaces: [Int]? = nil // tests: simulate displays with N,M,... Spaces and generated thumbnails (needs --dry-run)
-    var labsPairing: Bool? = nil       // Labs: --labs-pairing forces "Instant pairing" on for this run (docs/labs/pairing.md)
+    var instantPairing: Bool? = nil    // instant pairing (docs/pairing.md) is on by default; --no-instant-pairing turns it off
+                                       // for this run, --labs-pairing (old name, tests) forces it on
+    var requireApproval = false        // --require-approval: force "Require approval for new devices" on (tests)
     var fakeApprove: Bool? = nil       // tests: --fake-approve (Allow) / --fake-approve-deny (Deny) every prompt (needs --dry-run)
+    var fakeProximity = false          // tests: answer `labs.pair.prox` with the BLE proximity token (needs --dry-run)
+    var fakeBtPair: String? = nil      // tests: `bt.pair` without real Bluetooth: "ok" (--fake-bt-pair) or a failure reason
+                                       // (--fake-bt-pair-fail REASON) (needs --dry-run)
     var fakeTailscaleOwner: String? = nil // tests: every peer is a tailnet node owned by this ("self" = this Mac's owner) (needs --dry-run)
     var fakeContext: String? = nil // Labs tests: read the frontmost-app context from this JSON file (needs --dry-run)
     var fakeNowPlaying = false     // Labs tests: a synthetic now-playing session (needs --dry-run)
@@ -32,13 +38,19 @@ struct Config {
             case "--dry-run": c.dryRun = true
             case "--headless": c.headless = true
             case "--open-pairing": c.openPairing = true
+            case "--setup": c.openSetup = true
             case "--no-ble": c.ble = false
             case "--memory-store": c.memoryStore = true
             case "--allow-tailscale": c.allowTailscale = true
             case "--stdin-control": c.stdinControl = true
             case "--fake-screen": c.fakeScreen = true
             case "--labs-tv": c.labsTv = true
-            case "--labs-pairing": c.labsPairing = true
+            case "--labs-pairing": c.instantPairing = true
+            case "--no-instant-pairing": c.instantPairing = false
+            case "--require-approval": c.requireApproval = true
+            case "--fake-proximity": c.fakeProximity = true
+            case "--fake-bt-pair": c.fakeBtPair = "ok"
+            case "--fake-bt-pair-fail": if let v = it.next() { c.fakeBtPair = v }
             case "--fake-approve": c.fakeApprove = true
             case "--fake-approve-deny": c.fakeApprove = false
             case "--fake-tailscale-owner": if let v = it.next() { c.fakeTailscaleOwner = v }
@@ -56,10 +68,12 @@ struct Config {
             case "--web-root": if let v = it.next() { c.webRoot = URL(fileURLWithPath: v) }
             case "-h", "--help":
                 print("""
-                MoteHelper [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
+                MoteHelper [--setup] [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale]
                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
-                          [--labs-pairing] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID|timeout]   (Labs; fakes need --dry-run)
+                          [--no-instant-pairing | --labs-pairing] [--require-approval]   (instant pairing: off / force on; approval prompts)
+                          [--fake-proximity] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID|timeout]   (instant pairing tests, need --dry-run)
+                          [--fake-bt-pair | --fake-bt-pair-fail REASON]   (Bluetooth HID setup without Bluetooth, needs --dry-run)
                           [--no-bonjour] [--fake-nowplaying-reader EXE]   (chaos, need --dry-run)
                 """)
                 exit(0)
@@ -80,7 +94,8 @@ final class Settings {
     var onChange: (() -> Void)?
 
     /// "Allow Tailscale connections": accept tailnet peers (100.64/10, fd7a:115c:a1e0::/48) and
-    /// MagicDNS (*.ts.net) or tailnet-literal Host headers. Default off.
+    /// MagicDNS (*.ts.net) or tailnet-literal Host headers. Default on (an explicit off is kept);
+    /// with --memory-store (tests) off unless --allow-tailscale.
     var allowTailscale: Bool {
         didSet {
             guard allowTailscale != oldValue else { return }
@@ -90,8 +105,9 @@ final class Settings {
         }
     }
 
-    /// "Share Space thumbnails": capture and serve Space thumbnails (protocol 1.3). Default on;
-    /// it only has an effect once Screen Recording is granted.
+    /// "Share Space thumbnails": capture and serve Space thumbnails (protocol 1.3). Needs Screen Recording,
+    /// so default off: turned on from the Setup window or Advanced, which ask for the permission then.
+    /// --fake-spaces (tests) turns it on.
     var shareSpaceThumbnails: Bool {
         didSet {
             guard shareSpaceThumbnails != oldValue else { return }
@@ -119,8 +135,8 @@ final class Settings {
             hostId = randomHex(8)
             defaults?.set(hostId, forKey: "hostId")
         }
-        allowTailscale = config.allowTailscale ?? defaults?.bool(forKey: "allowTailscale") ?? false
-        shareSpaceThumbnails = (defaults?.object(forKey: "shareSpaceThumbnails") as? Bool) ?? true
+        allowTailscale = config.allowTailscale ?? defaults.map { $0.object(forKey: "allowTailscale") as? Bool ?? true } ?? false
+        shareSpaceThumbnails = (defaults?.object(forKey: "shareSpaceThumbnails") as? Bool) ?? (config.dryRun && config.fakeSpaces != nil)
         labsLiveScreen = (config.fakeScreen && config.dryRun) || (defaults?.bool(forKey: "labsLiveScreen") ?? false)
     }
 }

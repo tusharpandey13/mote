@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# Builds build/MoteHelper.app (ad-hoc signed) and build/MoteHelper-macos-<arch>.zip + .sha256.
+# Builds build/MoteHelper.app and build/MoteHelper-macos-<arch>.zip + .sha256.
 # Needs only the Swift toolchain (Command Line Tools), no Xcode.
 #   ./build.sh            # arm64 (and x86_64 too if the SDK can cross-compile it)
 #   ARCHS=arm64 ./build.sh
-# Ad-hoc signing: every build has a new signature, so macOS may ask to re-grant Accessibility
-# after an update (System Settings > Privacy & Security > Accessibility: remove MoteHelper, add it again).
+# Signing identity (helper/sign-identity.sh), first match wins:
+#   MOTE_SIGN_IDENTITY=<sha1|name>  explicit
+#   Developer ID Application: ... (TEAMID) in the keychain  -> hardened runtime + timestamp; a release may use it (notarized)
+#   Apple Development: ... (TEAMID) (free Xcode personal team) -> local builds only (skipped for MOTE_RELEASE=1); Team ID, so the Keychain stays silent on rebuilds
+#   "Mote Helper Local" (helper/signing.sh)                 -> dev builds and (un-notarized) releases; Keychain prompts after every rebuild/update
+#   ad-hoc (MOTE_ADHOC=1, or CI)
+#   MOTE_RELEASE=1  Developer ID (notarize + staple, helper/notarize.sh) or "Mote Helper Local" (no notarization, warning); never ad-hoc/Apple Development. See docs/signing.md.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -13,6 +18,31 @@ OUT="$HERE/build"
 VERSION="${VERSION:-$(git -C "$REPO" describe --tags --always 2>/dev/null | sed 's/^v//' || echo 0.1.0)}"
 BUILD_NUM="$(git -C "$REPO" rev-list --count HEAD 2>/dev/null || echo 1)"
 ARCHS="${ARCHS:-arm64 x86_64}"
+
+read -r KIND SIGN < <("$HERE/sign-identity.sh")
+RELEASE="${MOTE_RELEASE:-}"
+case "$KIND" in
+  developer-id) OPTS=(--options runtime --timestamp) ;;
+  *) OPTS=(--options runtime) ;;
+esac
+NOTARIZE=""
+if [ -n "$RELEASE" ]; then
+  case "$KIND" in
+    developer-id) NOTARIZE=1 ;;
+    local) echo "!! WARNING: release signed with the self-signed 'Mote Helper Local', NOT notarized. Users get one Keychain prompt per helper update (docs/signing.md)." >&2 ;;
+    *) echo "!! MOTE_RELEASE=1 needs a Developer ID Application or 'Mote Helper Local' identity (got: $KIND). See docs/signing.md." >&2; exit 1 ;;
+  esac
+fi
+if [ "$KIND" != developer-id ]; then
+  if [ "$KIND" = local ] && [ -z "$RELEASE" ]; then
+    echo "!! WARNING: signing with the self-signed 'Mote Helper Local' (dev build). Its Keychain partition is this exact build," >&2
+    echo "!! so macOS will ask for your login password after EVERY rebuild. Releases need Developer ID (docs/signing.md)." >&2
+  elif [ "$KIND" = apple-development ]; then
+    echo "==> Apple Development identity (local build, not notarizable; releases need Developer ID)" >&2
+  elif [ "$KIND" = adhoc ]; then
+    echo "!! ad-hoc signature: permissions and Keychain access do not carry over between builds." >&2
+  fi
+fi
 
 mkdir -p "$OUT"
 for arch in $ARCHS; do
@@ -39,15 +69,17 @@ for arch in $ARCHS; do
   clang -dynamiclib -fobjc-arc -O2 -arch "$arch" -mmacosx-version-min=13.0 -framework Foundation -framework AppKit -framework ImageIO \
     -o "$APP/Contents/Resources/labs/MoteNowPlaying.dylib" "$HERE/LabsNowPlaying/MoteNowPlaying.m"
   cp "$HERE/LabsNowPlaying/mote-nowplaying.pl" "$APP/Contents/Resources/labs/"
-  codesign --force --sign - "$APP/Contents/Resources/labs/MoteNowPlaying.dylib"
+  codesign --force --sign "$SIGN" "${OPTS[@]}" "$APP/Contents/Resources/labs/MoteNowPlaying.dylib"
 
-  echo "==> ad-hoc codesign"
-  codesign --force --deep --sign - --options runtime --entitlements "$HERE/MoteHelper.entitlements" --identifier dev.mote.helper "$APP"
+  echo "==> codesign ($KIND / $SIGN)"
+  codesign --force --deep --sign "$SIGN" "${OPTS[@]}" --entitlements "$HERE/MoteHelper.entitlements" --identifier dev.mote.helper "$APP"
   codesign --verify --strict "$APP"
+  codesign -d -r- "$APP" 2>&1 | sed -n 's/^[# ]*designated => /    requirement: /p'
 
   ZIP="$OUT/MoteHelper-macos-$arch.zip"
   rm -f "$ZIP"
-  (cd "$OUT/$arch" && ditto -c -k --keepParent MoteHelper.app "$ZIP")
+  if [ -n "$NOTARIZE" ]; then "$HERE/notarize.sh" "$APP" "$ZIP"   # submit, staple, re-zip
+  else (cd "$OUT/$arch" && ditto -c -k --keepParent MoteHelper.app "$ZIP"); fi
   (cd "$OUT" && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256")
   echo "==> $ZIP"; cat "$ZIP.sha256"
 done
