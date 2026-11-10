@@ -484,6 +484,7 @@ private fun FoundCap(f: Found, onClick: () -> Unit) {
 
 private fun failedText(f: WsStatus.Failed) = when (f.code) {
     "auth", "revoked" -> "The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again."
+    "keychain-unavailable" -> dev.mote.remote.pairing.HostKeyChange.EPHEMERAL_TEXT
     "version" -> f.msg
     "unpaired" -> "Pairing data is missing. Long-press the Mac to forget it, then pair again."
     else -> f.msg

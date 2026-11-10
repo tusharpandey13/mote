@@ -150,7 +150,7 @@ class WsTransport(
                 } catch (e: HelperError) {
                     Events.log("transport", "connect.failed", "code" to e.code, "address" to s.address)
                     when (e.code) {
-                        "auth", "revoked" -> { session = null; s.close(); _status.value = WsStatus.Failed(e.code, e.message ?: ""); return }
+                        "auth", "revoked", "keychain-unavailable" -> { session = null; s.close(); _status.value = WsStatus.Failed(e.code, e.message ?: ""); return }
                         "rate" -> backoff = (e.retryAfter ?: 60) * 1000L
                     }
                 } catch (e: Exception) {

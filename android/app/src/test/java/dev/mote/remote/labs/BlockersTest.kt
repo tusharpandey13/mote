@@ -44,4 +44,11 @@ class BlockersTest {
         assertEquals("no-video", Blockers.videoBridge(up, "connected", false)?.code)
         assertNull(Blockers.videoBridge(up, "connected", true))
     }
+
+    /** U19: subscribed, nothing back: silent until NO_REPLY_MS, then a named blocker. */
+    @Test fun noReplyIsABlockerAfterTheWait() {
+        assertNull(Blockers.smartRemote(up, MacContext(), NpState(), false, replied = false, waited = false))
+        assertEquals("no-reply", Blockers.smartRemote(up, MacContext(), NpState(), false, replied = false, waited = true)?.code)
+        assertEquals(2_000L, dev.mote.remote.labs.context.SmartRemote.NO_REPLY_MS)
+    }
 }

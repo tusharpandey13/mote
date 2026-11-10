@@ -40,7 +40,7 @@ object PairProto {
     /** `labs.pair.*` from the helper, or null for anything else / malformed. */
     fun parse(o: JSONObject): PairMsg? = runCatching {
         when (o.optString("t")) {
-            "labs.pair.hi" -> PairMsg.Hi(o.getString("pub"), o.getString("fp"), o.getString("sig"), o.optString("host"), o.getString("hostId"))
+            "labs.pair.hi" -> PairMsg.Hi(o.getString("pub"), o.getString("fp"), o.getString("sig"), o.optString("host"), o.getString("hostId"), o.optBoolean("ephemeral", false), o.optBoolean("newKey", false))
             "labs.pair.pending" -> PairMsg.Pending(o.optInt("timeout", 60))
             "labs.pair.ok" -> PairMsg.Ok(o.getString("via"), o.getString("id"), o.optString("name"))
             "labs.pair.denied" -> PairMsg.Denied(o.optString("reason", "denied"), if (o.has("retryAfter")) o.optInt("retryAfter") else null)
@@ -54,7 +54,7 @@ object PairProto {
 }
 
 sealed interface PairMsg {
-    data class Hi(val pub: String, val fp: String, val sig: String, val host: String, val hostId: String) : PairMsg
+    data class Hi(val pub: String, val fp: String, val sig: String, val host: String, val hostId: String, val ephemeral: Boolean = false, val newKey: Boolean = false) : PairMsg
     data class Pending(val timeout: Int) : PairMsg
     data class Ok(val via: String, val id: String, val name: String) : PairMsg
     data class Denied(val reason: String, val retryAfter: Int?) : PairMsg

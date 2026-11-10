@@ -183,8 +183,24 @@ object Net {
             fgFlow.value = v
             stopJob?.cancel()
             val ws = _active.value as? WsTransport ?: return
-            if (v) { ws.start(); ws.kick() } else stopJob = scope.launch { delay(30_000); ws.stop() }
+            if (v) { ws.start(); ws.kick() } else scheduleStop(ws)
         }
+
+    /**
+     * True while the now-playing foreground service runs ([dev.mote.remote.service.NpService]): the helper socket then stays
+     * open with the app in the background, so the lock-screen notification keeps its state. Clearing it starts the usual 30 s.
+     */
+    @Volatile var holdOpen = false
+        set(v) {
+            field = v
+            Events.log("lifecycle", "service", "state" to if (v) "hold-open" else "release")
+            if (!v && !foreground) (_active.value as? WsTransport)?.let(::scheduleStop)
+        }
+
+    private fun scheduleStop(ws: WsTransport) {
+        stopJob?.cancel()
+        stopJob = scope.launch { delay(30_000); if (!foreground && !holdOpen) ws.stop() }
+    }
 
     fun select(sel: Selection) {
         scope.launch { app.store.edit { it[SELECTION] = sel.encode() } }

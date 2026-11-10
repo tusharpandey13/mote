@@ -68,6 +68,9 @@ import dev.mote.remote.ui.theme.LocalMote
 import dev.mote.remote.ui.theme.metal
 import dev.mote.remote.ui.theme.well
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -79,7 +82,9 @@ import kotlin.math.roundToInt
 fun SmartRemoteEffects(mode: Mode, setMode: (Mode) -> Unit) {
     val ctx = LocalContext.current
     val enabled = remember { Labs.flow(ctx, Labs.SMART_REMOTE) }
-    LaunchedEffect(Unit) { SmartRemote.run(enabled) }
+    val npSetting = remember { dev.mote.remote.data.UiPrefs.flow(ctx).map { it.mediaNotification }.distinctUntilChanged() }
+    // Now playing is core (Settings › Media notification); the Mac's context is the Smart remote lab.
+    LaunchedEffect(Unit) { SmartRemote.run(enabled, combine(enabled, npSetting) { l, n -> l || n }) }
     val on by enabled.collectAsState(initial = false)
     val auto by remember { Labs.bool(ctx, SmartRemote.AUTO_KEYBOARD, true) }.collectAsState(initial = true)
     val mc by SmartRemote.context.collectAsState()
@@ -144,7 +149,8 @@ fun SmartPanel() {
     val c = LocalMote.current
     val scope = rememberCoroutineScope()
     val on by remember { Labs.flow(ctx, Labs.SMART_REMOTE) }.collectAsState(initial = false)
-    if (!on) return
+    val npOn = dev.mote.remote.ui.LocalSettings.current.mediaNotification
+    if (!on && !npOn) return
     val mc by SmartRemote.context.collectAsState()
     val np by SmartRemote.nowPlaying.collectAsState()
     val auto by remember { Labs.bool(ctx, SmartRemote.AUTO_KEYBOARD, true) }.collectAsState(initial = true)
@@ -154,15 +160,24 @@ fun SmartPanel() {
     val overHelper by Remote.overHelper.collectAsState()
     val linked by Remote.linked.collectAsState()
     val tooOld by SmartRemote.tooOld.collectAsState()
+    val replied by SmartRemote.replied.collectAsState()
+    val helperUp by SmartRemote.helperUp.collectAsState()
+    // U19: nothing from the helper 2 s after subscribing is a blocker, not an empty panel.
+    var waited by remember { mutableStateOf(false) }
+    LaunchedEffect(replied, helperUp, linked) {
+        waited = false
+        if (!replied && helperUp && linked) { delay(SmartRemote.NO_REPLY_MS); waited = true }
+    }
     val blocker = Blockers.smartRemote(
         Blockers.Link(overHelper, linked, tooOld), mc, np, profileShown = profile != null || info != null,
+        replied = replied, waited = waited,
     )
-    LaunchedEffect(blocker?.code) { Blockers.note("smart_remote", blocker) }
-    val hint = blocker?.text
+    LaunchedEffect(blocker?.code) { Blockers.note(if (on) "smart_remote" else "now_playing", blocker) }
+    val hint = if (on) blocker?.text else null // now-playing-only users see the reason in Diagnostics, not a hint on Media
     if (hint == null && info == null && profile == null) return
 
     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-        Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (on) Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PreviewTag()
             val where = listOfNotNull(profile?.title, mc.app.takeIf { it.isNotEmpty() && it != profile?.title }).joinToString(" · ")
             Text(
@@ -181,8 +196,9 @@ fun SmartPanel() {
             Text(hint, style = T.body.copy(fontSize = 13.sp, lineHeight = 18.sp), color = c.muted, modifier = Modifier.padding(vertical = 4.dp))
         }
         if (info != null) NowPlayingCard(np, info)
+        if (info != null) NotificationAsk()
         np.note?.let { Text(it, style = T.small, color = c.muted, maxLines = 2, modifier = Modifier.padding(top = 4.dp)) }
-        if (profile != null) {
+        if (on && profile != null) {
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 profile.actions.forEach { a ->
@@ -192,6 +208,38 @@ fun SmartPanel() {
                     }
                 }
             }
+        }
+    }
+}
+
+/** Explains and asks for the notification permission (Android 13+) the first time something plays; denied = a Diagnostics row says why. */
+@Composable
+private fun NotificationAsk() {
+    val ctx = LocalContext.current
+    val c = LocalMote.current
+    val ok by NpNotifier.canNotify.collectAsState()
+    val denied by NpNotifier.askedAndDenied.collectAsState()
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+        dev.mote.remote.diag.Perms.result(ctx, "now-playing")
+        NpNotifier.refreshPermission()
+        NpNotifier.askedAndDenied.value = !granted
+    }
+    if (ok) return
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            if (denied) "Notifications are off for Mote, so there is no player on the lock screen." else "Show what is playing, with controls, in the notification shade and on the lock screen?",
+            style = T.small, color = c.muted, modifier = Modifier.weight(1f),
+        )
+        Cap(Modifier.height(40.dp).widthIn(min = 72.dp), RoundedCornerShape(14.dp), haptic = Haptic.CLICK, description = if (denied) "Open notification settings" else "Allow notifications",
+            onClick = {
+                if (denied || android.os.Build.VERSION.SDK_INT < 33) {
+                    ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                } else {
+                    dev.mote.remote.diag.Perms.requested(listOf(android.Manifest.permission.POST_NOTIFICATIONS), "now-playing")
+                    launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }) {
+            Text(if (denied) "Settings" else "Allow", style = T.label, color = c.ink, maxLines = 1, modifier = Modifier.padding(horizontal = 12.dp))
         }
     }
 }

@@ -44,3 +44,9 @@ fun findUi(elapsedMs: Long, onWifi: Boolean, running: Boolean, found: List<Found
     elapsedMs >= NOT_FOUND_MS || (!running && elapsedMs >= 1_000) -> FindUi.NotFound
     else -> FindUi.Searching
 }
+
+/**
+ * Pure (U13): after a runtime-permission request came back denied, only the app's Settings can grant it when Android
+ * no longer shows the dialog (denied twice, or "don't allow again"), i.e. none of the permissions has a rationale to show.
+ */
+fun needsAppSettings(permitted: Boolean, anyRationale: Boolean): Boolean = !permitted && !anyRationale

@@ -32,8 +32,10 @@ object Blockers {
      * Smart remote. Null = nothing blocks it (it may still have nothing to show, which is not an error).
      * [ctx] / [np] are the last `labs.ctx` / `labs.np`; [profileShown] = a profile or now-playing card is displayed.
      */
-    fun smartRemote(l: Link, ctx: MacContext, np: NpState, profileShown: Boolean): Blocker? {
+    fun smartRemote(l: Link, ctx: MacContext, np: NpState, profileShown: Boolean, replied: Boolean = true, waited: Boolean = false): Blocker? {
         link(l)?.let { return it }
+        // Subscribed but nothing has come back: wait NO_REPLY_MS ([waited]), then say so (never a silent, empty panel).
+        if (!replied) return if (waited) Blocker("no-reply", "The Mac hasn't answered yet. Check that Mote Helper is running and up to date.") else null
         if (!ctx.enabled && !np.enabled) return helperSwitchOff("Labs › Context & now playing")
         if (ctx.browser && ctx.automation == "denied") {
             return Blocker("automation-denied", "Allow Mote Helper to control ${ctx.app} (System Settings › Privacy › Automation) to see the tab")

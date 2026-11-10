@@ -283,6 +283,8 @@ private fun Root(theme: ThemeChoice) {
                     contentAlignment = Alignment.Center,
                 ) { MIcon("more", if (c.dark) c.subtle else c.muted, size = 20.dp, description = "Menu") }
             } }
+            dev.mote.remote.pairing.KeyChangeCard()
+            SearchingCard { deviceSheet = true }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 AnimatedContent(
                     targetState = mode,

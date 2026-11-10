@@ -72,6 +72,7 @@ fun FindMacScreen(onBluetooth: () -> Unit, onDone: () -> Unit = {}) {
         Text("Connect to your Mac", style = T.title, color = c.ink)
         Text("Over Wi-Fi or Tailscale, through the free Mote Helper on the Mac.", style = T.body, color = c.muted)
         Text("New phone, or reinstalled Mote? Let's reconnect: tap Connect, nothing changes on the Mac.", style = T.small, color = c.subtle)
+        NotifyStep()
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(Modifier.fillMaxWidth().well(RoundedCornerShape(24.dp)).padding(vertical = 8.dp)) {
                 if (address) AddressConnect(onBack = { address = false }, onDone = onDone)
@@ -251,11 +252,30 @@ fun ConnectCard(m: FoundMac, onDone: () -> Unit) {
         }
     }
     val enable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { go() }
+    // U13: Nearby devices denied for good (no dialog any more): the button opens the app's Settings, like the Bluetooth gate.
+    var openSettings by remember { mutableStateOf(false) }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         dev.mote.remote.diag.Perms.result(ctx, "connect")
-        if (!InstantPairing.ble.permitted()) step = Step.Error(pairFailure(HelperError("far", "far"), m.name))
+        if (!InstantPairing.ble.permitted()) {
+            val a = ctx as? android.app.Activity
+            openSettings = needsAppSettings(false, a != null && BleScan.PERMISSIONS.any { p -> a.shouldShowRequestPermissionRationale(p) })
+            if (openSettings) dev.mote.remote.diag.Events.log("ui", "banner", "kind" to "nearby-denied-settings")
+            else step = Step.Error(pairFailure(HelperError("far", "far"), m.name))
+        }
         else if (!InstantPairing.ble.ready()) runCatching { enable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }.onFailure { go() }
         else { InstantPairing.ble.start(); go() }
+    }
+
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, openSettings) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME && openSettings && InstantPairing.ble.permitted()) {
+                openSettings = false
+                if (!InstantPairing.ble.ready()) runCatching { enable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }.onFailure { go() } else { InstantPairing.ble.start(); go() }
+            }
+        }
+        lifecycle.addObserver(obs)
+        onDispose { lifecycle.removeObserver(obs) }
     }
 
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -266,10 +286,18 @@ fun ConnectCard(m: FoundMac, onDone: () -> Unit) {
             Step.Connecting -> Text("Connecting…", style = T.body, color = c.muted)
             is Step.Waiting -> Text("Click Allow on ${m.name}. It asks before trusting new devices.", style = T.body, color = c.muted, textAlign = TextAlign.Center)
             Step.NeedBluetooth -> {
-                Text("Mote uses Bluetooth once to check this phone is next to your Mac.", style = T.body, color = c.muted, textAlign = TextAlign.Center)
-                PrimaryButton("Allow and connect") {
-                    dev.mote.remote.diag.Perms.requested(BleScan.PERMISSIONS, "connect")
-                    if (InstantPairing.ble.permitted()) perms.launch(emptyArray()) else perms.launch(BleScan.PERMISSIONS.toTypedArray())
+                Text(
+                    if (openSettings) "Nearby devices is off for Mote. Allow it in Settings, then come back: Mote uses Bluetooth once to check this phone is next to your Mac."
+                    else "Mote uses Bluetooth once to check this phone is next to your Mac.",
+                    style = T.body, color = c.muted, textAlign = TextAlign.Center,
+                )
+                PrimaryButton(if (openSettings) "Open settings" else "Allow and connect") {
+                    if (openSettings) {
+                        runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", ctx.packageName, null))) }
+                    } else {
+                        dev.mote.remote.diag.Perms.requested(BleScan.PERMISSIONS, "connect")
+                        if (InstantPairing.ble.permitted()) perms.launch(emptyArray()) else perms.launch(BleScan.PERMISSIONS.toTypedArray())
+                    }
                 }
             }
             is Step.Done -> Text(when (s.via) { "tailscale" -> "Connected. Trusted via Tailscale"; else -> "Connected" }, style = T.label, color = c.ink)

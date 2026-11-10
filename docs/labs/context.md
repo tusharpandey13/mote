@@ -26,6 +26,16 @@ Every message needs an authenticated session. `*.sub` messages are reads, so pau
 
 **Debounce.** A context has to stay the same for 250 ms before it is pushed. Only changes are pushed. The helper checks focus and the front app every 400 ms while a client is subscribed, and right away on `didActivateApplication`. It reads the browser tab at most once a second, on a background queue.
 
+## Now-playing notification (Android)
+
+This is a core feature, on by default (Settings › Media notification turns it off; no Labs gate). While the phone is linked to a helper (Wi-Fi / Tailscale) that reports now playing, the app posts a media notification (`MediaSession` + `MediaStyle`, `VISIBILITY_PUBLIC` so the lock screen shows it): title, artist, art, previous / play-pause / next and, on Android 13+, a seek bar. Its buttons send the same `consumer` and `labs.np.seek` messages as the Media screen. It is held by `NpService`, a foreground service of type `mediaPlayback` (manifest permission `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, required on Android 14+), which also keeps the helper socket open while the app is in the background (`Net.holdOpen`; without it Net closes the socket 30 s after the app leaves the screen). The service and notification stop when nothing plays, the Mac disconnects, the setting is turned off, or playback has been paused for 10 minutes (`NpNotifPolicy.PAUSED_STOP_MS`).
+
+- **Bluetooth only (no helper):** a transport-only notification "Mote · Bluetooth" with previous, play/pause (a toggle) and next as HID consumer keys. No metadata, no state, no seek. It is posted by the existing link service (`HidService`), not `NpService`.
+- **Android 13+ notification permission:** asked once in first-run setup (a card with a sentence saying why; "Not now" is remembered), and again in context from a row under the now-playing card. Denied: no notification, and Settings › Diagnostics shows the permission and "Now-playing notification: blocked: notifications are not allowed for Mote".
+- **Helper side off:** if the helper answers `labs.np` with `enabled:false`, the plan is `helper-np-off` (Diagnostics says so). If neither `labs.ctx` nor `labs.np` arrives within 2 s of subscribing, the Media screen shows the blocker `no-reply` (U19).
+- Events (`notification`: `show`, `update`, `hide` with `reason`, `blocked`, `action`): see the Events catalog.
+- Tests: `NpNotifPolicyTest` (L0), `NpNotifIntegrationTest` (dry-run helper with a fake reader), `NpNotificationJourney` (emulator: `dumpsys notification` / `media_session`, MediaController callbacks, the helper's `DRY consumer` / `DRY labs seek` lines). Lock screen, Bluetooth headset buttons and tapping the shade's buttons are L4 (manual).
+
 ## How the helper reads context
 
 - **Front app:** `NSWorkspace.frontmostApplication`.

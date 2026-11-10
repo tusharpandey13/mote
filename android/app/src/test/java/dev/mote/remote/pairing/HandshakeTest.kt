@@ -93,4 +93,37 @@ class HandshakeTest {
         assertEquals("labs.pair.hello", hello.getString("t"))
         assertEquals(64, hello.getString("name").length)
     }
+
+    /** U12: a pinned fingerprint that differs ends in the "new key" prompt's error, never a silent connect. */
+    @Test fun pinMismatchAsksTheUser() {
+        val other = SeedSigner(Random(9).nextBytes(32))
+        val st = machine(pin = PairProto.fingerprint(other.pub)).onPair(hi()) as PairState.Failed
+        assertEquals("helper-key", st.code)
+        assertTrue(HostKeyChange.isKeyMismatch(st.code, st.msg))
+    }
+
+    /** Ephemeral Mac (Keychain unavailable): per-process key accepted for the session only, flagged so the pin is kept, and it always asks on the Mac. */
+    @Test fun ephemeralKeyIsSessionOnly() {
+        val other = SeedSigner(Random(9).nextBytes(32))
+        val m = machine(pin = PairProto.fingerprint(other.pub), allowPrompt = false)
+        val v = m.onPair(hi().copy(ephemeral = true)) as PairState.Verified
+        assertTrue(v.helper.ephemeral)
+        assertTrue("asks on the Mac even for a silent reconnect", m.onPair(PairMsg.Pending(60)) is PairState.Pending)
+        // a stale pin never rescues a bad signature
+        val bad = hi().copy(ephemeral = true, sig = "00".repeat(64))
+        assertEquals("helper-key", (machine(pin = PairProto.fingerprint(other.pub)).onPair(bad) as PairState.Failed).code)
+    }
+
+    @Test fun unknownHelloFieldsAreIgnored() {
+        val o = JSONObject("""{"t":"labs.pair.hi","pub":"${mac.pub.toHex()}","fp":"$macFp","sig":"${"00".repeat(64)}","host":"Mac","hostId":"$hostId","ephemeral":true,"newKey":true,"prevFp":"x","future":1}""")
+        val h = PairProto.parse(o) as PairMsg.Hi
+        assertTrue(h.ephemeral && h.newKey)
+        assertEquals(false, (PairProto.parse(JSONObject("""{"t":"labs.pair.hi","pub":"a","fp":"b","sig":"c","hostId":"d"}""")) as PairMsg.Hi).ephemeral)
+    }
+
+    /** Classic token `auth` error `keychain-unavailable`: its own message, not "no longer trusts this phone"; the token is never touched here. */
+    @Test fun keychainUnavailableHasItsOwnCopy() {
+        assertTrue(HostKeyChange.EPHEMERAL_TEXT.contains("Keychain unavailable"))
+        assertEquals("keychain-unavailable", HostKeyChange.KEYCHAIN_UNAVAILABLE)
+    }
 }

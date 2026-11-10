@@ -37,6 +37,7 @@ cd android
 ### Tests
 
 - `net/ProtoTest`, `net/HostsTest`: message encoding, HMAC (RFC 4231 and a `node:crypto` vector), host grouping, the connect fallback order, address and pairing-link parsing.
+- `labs/context/NpNotifPolicyTest`, `NpNotifIntegrationTest`: when the now-playing media notification shows (pure plan) and its inputs against the dry-run helper with a fake reader (docs/labs/context.md).
 - `net/HelperIntegrationTest`: starts the built helper (`helper/build.sh` first) with `--dry-run --headless --no-ble --memory-store --open-pairing` on a free port, then pairs, authenticates and sends input through `WsTransport`, asserting the helper's `DRY ...` log lines (coalesced moves, ordering, Unicode text, brightness, clickAt, wrong token / code). Nothing is injected. It is skipped if no helper binary is found; point it elsewhere with `MOTE_HELPER=/path/to/MoteHelper`. Run only it: `./gradlew :app:testDebugUnitTest --tests '*HelperIntegrationTest'`.
 
 ### Release signing
@@ -162,7 +163,7 @@ app/src/main/java/dev/mote/remote/
   hid/       HidDescriptor (composite descriptor, report builders), Keys (usages, US typing), Hid (registration, connection, ordered report pipe), Bt (adapter/permission state)
   net/       Transport (+ BtHidTransport), Remote (UI entry point), Proto (codec, HMAC), WsSession / WsTransport (OkHttp),
              Hosts (saved hosts, picker reducer, fallback order, links), Net (selection, persistence), Discovery (NSD), Vault (Keystore)
-  service/   HidService: connectedDevice foreground service + notification
+  service/   HidService: connectedDevice foreground service + notification; NpService: mediaPlayback foreground service for the now-playing notification (stops when playback ends, the Mac disconnects, or after 10 min paused)
   data/      Prefs (DataStore), Macro model + JSON + runner
   ui/        App shell, Media / Mouse / Keys / Macros screens, haptics, motion tokens, theme (Silver / Titanium)
 ```
@@ -180,7 +181,7 @@ app/src/main/java/dev/mote/remote/
 ## Not in this MVP
 
 - Click-at-point on Bluetooth hosts (helper hosts only).
-- In-app QR scanning (use the phone camera + "Open in the Mote app"), TLS pinning on the LAN, now-playing.
+- In-app QR scanning (use the phone camera + "Open in the Mote app"), TLS pinning on the LAN.
 - Multi-step macro editing in the UI. Steps can be text/delay in JSON, but the editor records only one chord.
 - Landscape layouts (the app is portrait-locked).
 - 3-finger gestures, tap-and-hold drag.

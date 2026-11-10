@@ -174,6 +174,12 @@ fun SettingsPage(onBack: () -> Unit, update: ((UiSettings) -> UiSettings) -> Uni
             Hairline()
             SettingRow("Extra dim", "For dark rooms and presentations") { Switch(s.extraDim, "Extra dim") { update { st -> st.copy(extraDim = it) } } }
         }
+        Overline("Media")
+        SettingsCard {
+            SettingRow("Media notification", "Now playing and transport buttons on the lock screen. Needs Notifications allowed.") {
+                Switch(s.mediaNotification, "Media notification") { update { st -> st.copy(mediaNotification = it) } }
+            }
+        }
         dev.mote.remote.labs.LabsSection()
         Overline("Diagnostics")
         SettingsCard {
