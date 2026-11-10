@@ -83,7 +83,7 @@ fun JourneyRule.cLinkHelper(
 fun JourneyRule.cLaunchBt(fake: FakeTransport, vararg hosts: Host = arrayOf(C_MAC)): MutableStateFlow<TestSeam.Adapter> {
     cGrantBt()
     val a = cAdapter(*hosts)
-    launch(sweepPort = null, transport = fake, adapter = a)
+    launch(sweepPort = NO_HELPER_PORT, transport = fake, adapter = a)
     expect("Brightness up", timeoutMs = 10_000)
     cWait("FakeTransport link", 5_000) { Remote.linked.value == fake.linked.value }
     compose.waitForIdle()

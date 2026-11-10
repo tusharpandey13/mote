@@ -68,7 +68,8 @@ class BtQuirksJourney {
         }
         // B2 (row grouped with a saved helper host) not automated: needs a helper host named like the BT host.
         j.step("B3", "faked: drop the host from TestSeam.adapter.hosts (stands in for Android Settings › Forget)") {
-            j.tap("Use Test Mac")
+            // B1's long press can end in a plain click (no onLongPress for this row): the row is then already selected and the sheet closed.
+            if (!j.shown("Device: Test Mac via BT. Tap to choose")) j.tap("Use Test Mac")
             j.expect("Device: Test Mac via BT. Tap to choose", timeoutMs = 5_000)
             adapter.value = adapter.value.copy(hosts = emptyList())
             j.expect("Device: Not paired: pair again via BT. Tap to choose", timeoutMs = 8_000)

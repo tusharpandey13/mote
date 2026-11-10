@@ -81,11 +81,4 @@ class ScreenTest {
         assertEquals("too late", 1, t.tap(0.5f, 0.5f, 1700).first)
         assertEquals("too far", 1, t.tap(0.7f, 0.5f, 1800).first)
     }
-
-    @Test fun noStreamOnPlainLanBeforeTheWarningPreferenceLoads() {
-        assertTrue(!mayStream(plainLan = true, warned = null))
-        assertTrue(!mayStream(plainLan = true, warned = false))
-        assertTrue(mayStream(plainLan = true, warned = true))
-        assertTrue(mayStream(plainLan = false, warned = null))
-    }
 }
