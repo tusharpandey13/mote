@@ -1,12 +1,12 @@
 # connect-next: D. Connect: every branch (0.6.0)
 
-Artboard: `design/mote-v1/journey-connect-next.html` (Next (0.6.0)). Code: `android/.../pairing/ConnectUi.kt` (FindMacScreen, FindMacPanel, AddressConnect, ConnectCard, pairFailure, BtStep), `pairing/FirstRun.kt` (findUi, NOT_FOUND_MS), `pairing/Finder.kt`, `pairing/Sweep.kt`, `pairing/InstantPairing.kt` (connect), `pairing/Handshake.kt`, `pairing/BleScan.kt`, `net/Net.kt` (promptForTailscale), `ui/App.kt`, `helper/.../InstantPairing.swift`, `Proximity.swift`, `Hub.swift`, `Security.swift` (RateLimiter), `MenuBar.swift`. Docs: `docs/pairing.md` §2-§5, §8.
+Artboard: `design/mote-v1/journey-connect-next.html` (Next (0.6.0)). Code: `android/.../pairing/ConnectUi.kt` (FindMacScreen, FindMacPanel, AddressConnect, ConnectCard, pairFailure, BtStep), `pairing/FirstRun.kt` (findUi, NOT_FOUND_MS), `pairing/Finder.kt`, `pairing/Sweep.kt`, `pairing/InstantPairing.kt` (connect), `pairing/Handshake.kt`, `pairing/BleScan.kt`, `net/Net.kt` (promptForTailscale), `ui/App.kt` (`setup`), `pairing/Paths.kt` (`worse`), `net/WsSession.kt`, `helper/.../InstantPairing.swift`, `Proximity.swift`, `Hub.swift`, `Security.swift` (RateLimiter), `MenuBar.swift`. Docs: `docs/pairing.md` §2-§5, §8.
 Test: `e2e/journeys` → `dev.mote.remote.journeys.ConnectNextJourney` (one @Test per path below).
 
-Notation as in `wifi-helper.md`: `<Mac>`, `<phone>`, `<fp>`, `$P`. Base helper `H0` = `MoteHelper --dry-run --headless --no-ble --memory-store --port $P --stdin-control` (+ `--no-bonjour` once it exists). Base phone seams `S0` = `TestSeam.noBonjour = true`, `TestSeam.sweepPort = $P`.
+Notation as in `wifi-helper.md`: `<Mac>`, `<phone>`, `<fp>`, `$P`. Base helper `H0` = `MoteHelper --dry-run --headless --no-ble --memory-store --port $P --stdin-control` --no-bonjour. Base phone seams `S0` = `TestSeam.noBonjour = true`, `TestSeam.sweepPort = $P`.
 
 ## Preconditions
-- P1. App: fresh install `dev.mote.remote.dev`, no app data, no runtime permission granted. Seams `S0` + `TestSeam.proximity` (to be added, see wifi-helper P1).
+- P1. App: fresh install `dev.mote.remote.dev`, no app data, no runtime permission granted. Seams `S0` + `TestSeam.fakeProximity = true`.
 - P2. Phone: Wi-Fi on (AndroidWifi, 10.0.2.17/24); emulator Bluetooth adapter as provided by the image, no Mote BLE peripheral; no Tailscale.
 - P3. Mac / helper: `H0 --fake-proximity`; instant pairing on, Require approval off, not paused, trust list empty.
 - P4. Network: same "LAN" (emulator NAT → 10.0.2.2:$P).
@@ -17,12 +17,13 @@ Notation as in `wifi-helper.md`: `<Mac>`, `<phone>`, `<fp>`, `$P`. Base helper `
 | S1 | phone user | Launch Mote | `FindMacScreen` "Connect to your Mac" (full copy: wifi-helper S3); no permission dialog | real |
 | S2 | system | (wait ≤ 5 s) | optionally "Looking for your Mac…" / "Searching this Wi-Fi, Bluetooth and Tailscale."; then `ConnectCard`: title "<Mac>", button "Connect to <Mac>" (contentDescription same) | real (sweep on $P; Bonjour off) |
 | S3 | phone user | Tap "Connect to <Mac>" | "Connecting…" | real |
-| S4 | system (helper) | — | stderr `[mote] labs: trusted <phone> via nearby`, `[mote] authed <phone> via Wi-Fi from 127.0.0.1`, `[mote] labs: new device <phone> via nearby (k:<fp>)`; stdout `NEW DEVICE: {"id":"k:<fp>","name":"<phone>","via":"nearby"}` | faked: `TestSeam.proximity` + `--fake-proximity` |
-| S5 | system (phone) | — | Remote screen; pill contentDescription "Device: <Mac> via Wi-Fi. Tap to choose", badge "WI-FI" | real |
-| S6 | Mac user | — | Notice "<phone> connected to Mote." / "via Bluetooth proximity" / "Block", 15 s | faked: stdout `NEW DEVICE` (headless) |
+| S4 | system (helper) | — | stderr `[mote] labs: trusted <phone> via nearby`, `[mote] authed <phone> via Wi-Fi from 127.0.0.1`, `[mote] labs: new device <phone> via nearby (k:<fp>)`; stdout `NEW DEVICE: {"id":"k:<fp>","name":"<phone>","via":"nearby"}` | faked: `TestSeam.fakeProximity` + `--fake-proximity` |
+| S5 | system (phone) | — | setup stays on screen (App.kt `setup`): "Connected over Wi-Fi", "Also pair Bluetooth for login screen & backup (recommended)", "Continue", "Skip" (emulator has a Bluetooth adapter) | real |
+| S6 | phone user | Tap "Skip" | remote; pill contentDescription "Device: <Mac> via Wi-Fi. Tap to choose", badge "WI-FI" | real |
+| S7 | Mac user | — | Notice "<phone> connected to Mote." / "via Bluetooth proximity" / "Block", 15 s | faked: stdout `NEW DEVICE` (headless) |
 
 ## Postconditions
-- Phone: saved host `deviceId="k:<fp>"`, `lan="10.0.2.2"`, port $P; trust record `via="nearby"`; selection `ws:<hostId>`; `wifi_chosen=true`.
+- Phone: remote screen after S6; saved host `deviceId="k:<fp>"`, `lan="10.0.2.2"`, port $P; trust record `via="nearby"`; selection `ws:<hostId>`; `wifi_chosen=true`.
 - Helper: 1 trusted key `via:"nearby"`.
 
 ## Branches
@@ -48,11 +49,11 @@ Preconditions delta: helper not started.
 | B1 | phone user | Tap "Enter address" | `AddressConnect`: "Enter the Mac's address", "A LAN IP (192.168.1.2), name.local, or its Tailscale name / 100.x address.", field placeholder/contentDescription "192.168.1.2 or mac.tailnet.ts.net", button "Find", link "Back" | real |
 | B2 | phone user | Tap "Find" with field empty or `bad host!` | "Enter an address like 192.168.1.2 or mac.tailnet.ts.net." | real |
 | B3 | phone user | Type `10.0.2.3:$P` (nothing listens), tap "Find" | "Checking…", then "No Mote Helper answered at 10.0.2.3:$P." | real |
-| B4 | phone user | Type `10.0.2.2:$P`, tap "Find" | `ConnectCard` "Connect to <Mac>" + link "Back"; continue at S3 | real |
-| B5 | phone user | Type `mac.example.ts.net`, tap "Find", VPN off | "Tailscale is off" sheet (see tailscale.md); no continuation after the VPN comes up (tailscale-D2) | faked: no Tailscale app → sheet shows "Tailscale isn't installed on this phone." / "Get Tailscale" |
+| B4 | phone user | Type `10.0.2.2:$P`, tap "Find" | `ConnectCard` "Connect to <Mac>" + link "Back" ("Back" returns to the discovery card, not the address field); continue at S3 | real |
+| B5 | phone user | (before B4, from the address field) Type `mac.example.ts.net`, tap "Find", VPN off; then "Not now" | "Tailscale is off" sheet (see tailscale.md); no continuation after the VPN comes up (tailscale-D2) | faked: no Tailscale app → sheet shows "Tailscale isn't installed on this phone." / "Get Tailscale" |
 
 ### `connect-next.need-bluetooth`: no token and Bluetooth not permitted (from S3; artboard caption of jD-s2)
-Preconditions delta: no `TestSeam.proximity`; helper `H0` (no fake owner). Emulator API ≥ 31.
+Preconditions delta: no `TestSeam.fakeProximity`; helper `H0` (no fake owner). Emulator API ≥ 31.
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
 | B1 | phone user | Tap "Connect to <Mac>" | helper stderr `[mote] labs: denied (far) 127.0.0.1` (once per address tried); phone: "Mote uses Bluetooth once to check this phone is next to your Mac.", button "Allow and connect" | real |
@@ -68,18 +69,18 @@ Preconditions delta: `BLUETOOTH_SCAN`+`BLUETOOTH_CONNECT` granted, adapter on, n
 | B2 | phone user | Tap "Try again" | same `denied (far)` and the same error copy (no state change) | real |
 
 ### `connect-next.stale`: expired token (not drawn)
-Preconditions delta: `TestSeam.proximity` returns tokens for window `dw=-3` (`{"t":"labs.pair.prox","dw":-3}`) on every read.
+Preconditions delta: the phone presents a token for window `dw=-3` on every read. `TestSeam.fakeProximity` always asks `{"t":"labs.pair.prox"}` without `dw` (InstantPairing.kt `fakeProximity`), so this needs a seam extension (missing fake).
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Connect to <Mac>" | helper `labs: denied (stale) 127.0.0.1` twice (first try, then the one automatic re-read, InstantPairing.kt:127); phone: "The nearby check expired. Try again next to the Mac." + "Try again" | faked: `TestSeam.proximity` with `dw` |
-| B2 | (variant) | seam returns `dw=-3` once, then `dw=0` | one `denied (stale)`, then `labs: trusted <phone> via nearby`; continue at S5 | faked |
+| B1 | phone user | Tap "Connect to <Mac>" | helper `labs: denied (stale) 127.0.0.1` twice (first try, then the one automatic re-read); phone: "The nearby check expired. Try again next to the Mac." + "Try again" | faked: needs `TestSeam.fakeProximity` with a `dw` (missing) |
+| B2 | (variant) | seam returns `dw=-3` once, then `dw=0` | one `denied (stale)`, then `labs: trusted <phone> via nearby`; continue at S5 | faked: needs `TestSeam.fakeProximity` with a `dw` (missing) |
 
 ### `connect-next.bad-proximity`: forged token (not drawn)
-Preconditions delta: `TestSeam.proximity` returns `1:00000000000000000000000000000000`.
+Preconditions delta: the phone presents `1:00000000000000000000000000000000` (needs a forged-token seam; `TestSeam.fakeProximity` only relays the helper's real token: missing fake).
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Connect to <Mac>" | helper `labs: denied (bad-proximity) 127.0.0.1`; phone: "The nearby check failed. Try again next to the Mac." | faked |
-| B2 | phone user | Tap "Try again" until the 6th hello within 60 s | helper `err rate` (`retryAfter` ≤ 60); phone: "Too many requests. Try again in 60 s." (always 60: retryAfter dropped, connect-next-D7) | faked |
+| B1 | phone user | Tap "Connect to <Mac>" | helper `labs: denied (bad-proximity) 127.0.0.1`; phone: "The nearby check failed. Try again next to the Mac." | faked: needs a forged-token seam (missing) |
+| B2 | phone user | Tap "Try again" until the 6th hello within 60 s | helper `err rate` (`retryAfter` ≤ 60); phone: "Too many requests. Try again in 60 s." (always 60: retryAfter dropped, connect-next-D7) | faked: needs a forged-token seam (missing) |
 
 ### `connect-next.tailscale-owner`: same Tailscale owner (from S3; artboard jD-b3s)
 Specced in `wifi-helper.md` branch `wifi-helper.tailscale-owner` (helper `--fake-tailscale-owner self`).
@@ -91,7 +92,7 @@ Preconditions delta: helper `H0 --fake-proximity --require-approval --fake-appro
 | B1 | Mac user | (menu) "Require approval for new devices" checked; "Trusted phones: 0"; "This Mac's key: <4x4 hex> …" | headless-unobservable; stderr at launch `[mote] instant pairing: on, require approval (key <8 hex>)` | faked: `--require-approval` |
 | B2 | phone user | Tap "Connect to <Mac>" | wire `{"t":"labs.pair.pending","timeout":60}`; phone: "Click Allow on <Mac>. It asks before trusting new devices." (may be < 100 ms) | real |
 | B3 | Mac user | Alert "Allow “<phone>” to control this Mac?" / "It will be able to type, click and move the pointer, like a keyboard and mouse." / "Via Wi-Fi (127.0.0.1)" / "Key <4x4 hex> …" / "Deny if you didn't just tap Connect on this phone." / buttons "Allow", "Deny" → Allow | stderr `[mote] labs: prompt <phone> (Wi-Fi 127.0.0.1)`, then `labs: trusted <phone> via approved`, `authed …`, `labs: new device <phone> via approved (k:<fp>)`; stdout `NEW DEVICE: {…,"via":"approved"}` | faked: `--fake-approve` answers after 100 ms; alert not shown headless |
-| B4 | system (phone) | — | Remote screen, pill "via Wi-Fi" | real |
+| B4 | system (phone) | — | "Connected over Wi-Fi" + Bluetooth offer (as S5) | real |
 Postconditions: helper key `via:"approved"`; notice text would be "approved on this Mac".
 
 ### `connect-next.require-approval-deny` (from B2; not drawn)
@@ -122,9 +123,9 @@ Preconditions delta: `--require-approval --fake-approve-deny` is unsuitable (coo
 ### `connect-next.blocked` (from S6 Block; not drawn)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | Mac user | After S5, Block (stdin `block`) | stderr `[mote] labs: blocked k:<fp>`; phone session gets `err revoked`; pill LED red; Devices sheet note "The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again." | faked: stdin `block` stands in for the notice button |
-| B2 | phone user | Pill › long-press "Use <Mac>" › "Forget" › "Add a Mac" › "Connect to <Mac>" | helper `labs: denied (blocked) 127.0.0.1`; phone: "<Mac> blocked this phone. Unblock it with Revoke all devices in the Mote Helper menu." (connect-next-D5) | real |
-| B3 | Mac user | stdin `unblock`, phone taps "Try again" | `[mote] labs: unblocked k:<fp>`, then `labs: trusted <phone> via nearby` + `NEW DEVICE` | faked: stdin `unblock` |
+| B1 | Mac user | After S6, Block (stdin `block`) | stderr `[mote] labs: blocked k:<fp>`; phone session gets `err revoked`; pill LED red; Devices sheet note "The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again." | faked: stdin `block` stands in for the notice button |
+| B2 | phone user | Pill › long-press "Use <Mac>" ("Forget <Mac> on this phone?") › "Forget" (the only Mac is gone: `startScreen` → FIND_MAC, the app shows `FindMacScreen` again) › "Connect to <Mac>" | helper `labs: denied (blocked) 127.0.0.1`; phone: "<Mac> blocked this phone. Unblock it with Revoke all devices in the Mote Helper menu." (connect-next-D5) | real |
+| B3 | Mac user | stdin `unblock`; phone taps "Try again" once a new 30 s proximity window has started (a retry inside the window of the first trust gets `labs: proximity token replayed by …` + `denied (stale)` twice and "The nearby check expired. Try again next to the Mac.": instant-pairing-D3) | `[mote] labs: unblocked k:<fp>`, then `labs: trusted <phone> via nearby` + `NEW DEVICE` | faked: stdin `unblock` |
 
 ### `connect-next.instant-off`: helper with instant pairing off (not drawn)
 Preconditions delta: helper `H0 --no-instant-pairing`.
@@ -136,12 +137,12 @@ Preconditions delta: helper `H0 --no-instant-pairing`.
 ### `connect-next.unreachable`: helper gone between discovery and Connect (not drawn)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | system | Kill the helper after S2, tap "Connect to <Mac>" | "Couldn't reach <Mac>. Is Mote Helper running, and the phone on the same Wi-Fi or Tailscale?" + "Try again" | real |
+| B1 | system | Kill the helper after S2, tap "Connect to <Mac>" | next-0.6 `pairFailure` maps a `java.net.ConnectException` to "<Mac> answered, but Mote Helper isn't running there. Open it from Applications on the Mac.", but `WsSession.open` rethrows every OkHttp failure as a plain `IOException` (WsSession.kt `onFailure` → `inbox.close(IOException(…))`), so the phone shows the generic branch: "Couldn't connect to <Mac> (IOException: <message>). Is Mote Helper running?" + "Try again" (connect-next-D9) | real |
 
 ### `connect-next.timeout`: helper silent after `hello` (not drawn)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Connect to <Mac>" | after 8 s: "<Mac> didn't answer in time." | faked: chaos proxy (`chaos/helper/lib/proxy.mjs`) on $P forwards `hello` then black-holes |
+| B1 | phone user | Tap "Connect to <Mac>" | after 8 s: "<Mac> didn't answer in time." | faked: chaos proxy (`chaos/helper/lib/proxy.mjs`) on $P forwards `hello` then black-holes (not wired into the journey controller: missing fake) |
 
 ### `connect-next.helper-key`: another key / Mac at the address (not drawn)
 | # | Actor | Action | Expected observable | Seam |
@@ -164,13 +165,14 @@ Preconditions delta: a host already saved (so the app is on the remote), `TestSe
 
 ## Disagreements → DEFECTS.md
 - `connect-next-D1` (S2): discovery list and Connect sheet layout/copy differ from artboard (no source list, no "Nearby · Wi-Fi", no "Not now").
-- `connect-next-D2` (S5): first-run Connect jumps to the remote before "Connected…"/BT offer can render.
-- `connect-next-D3` (tailscale-owner): a tailnet-only Mac is never discovered (saved Macs filtered out, unknown tailnet not probed).
+- `connect-next-D2` (S5): FIXED in next-0.6 (setup stays on screen until the Bluetooth step is done or skipped).
+- `connect-next-D3` (tailscale-owner): a tailnet-only Mac is never discovered (Macs saved before the card opened are filtered out, unknown tailnet not probed); still true in next-0.6.
 - `connect-next-D4` (bt-offer): "Connected over Tailscale/Wi-Fi" uses the trust `via`, not the route.
 - `connect-next-D5` (blocked): blocked copy points to Revoke all; helper has per-phone Unblock.
 - `connect-next-D6` (B3 of approval, jD-b5s): alert line layout, menu order, artboard apostrophes, "Try again" vs "Retry".
 - `connect-next-D7` (bad-proximity B2): `retryAfter` of `err rate` lost in the handshake.
 - `connect-next-D8`: artboard cites `docs/labs/pairing.md`, which no longer exists.
+- `connect-next-D9` (unreachable B1): the specific "isn't running / no answer / address" copies are dead code for WebSocket opens; users see raw exception text.
 
 ## UNDEFINED
 - need-bluetooth / far: whether the emulator image exposes an enabled Bluetooth adapter (decides which of the two branches a run takes); Android permission / enable dialog copy.

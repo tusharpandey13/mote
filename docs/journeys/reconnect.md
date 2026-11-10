@@ -52,23 +52,23 @@ Postconditions: selection still `bt:AA:00:00:00:00:01`.
 Preconditions delta: one saved, key-trusted Mac "H1" (created by the `wifi-helper` main path against H1 with `TestSeam.proximity`), `selection = ws:<H1 hostId>`, `wifi_chosen = true`, no `btAddress`. FakeTransport not installed for `Net.bt` (or `Caps.HID`, unused).
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Launch Mote | Helper stderr `[mote] labs: trusted <Phone> via trusted` then `[mote] authed <Phone> via Wi-Fi from <peer>`; pill label `<H1 name>`, badge `WI-FI`, LED linkOk; contentDescription `Device: <H1 name> via Wi-Fi. Tap to choose` | real; `<Phone>` = `Settings.Global.DEVICE_NAME` or `Build.MODEL` (UNDEFINED for the image); `<peer>` UNDEFINED (emulator NAT) |
-| B2 | system | `adb shell svc wifi disable` and `adb shell svc data disable` | Within ≤ 40 s (OkHttp ping 20 s + failure) status Connecting: pill LED linkWait pulsing, route badge from saved routes; Media caps disabled | real; exact detection time UNDEFINED (OkHttp ping failure timing) |
-| B3 | phone user | Tap the pill | Row status "Connecting…"; after ≥ 1.5 s a danger line from `reachNote`: if the probe's connect throws `ConnectException` (offline: ENETUNREACH on Android, PLAUSIBLE) "Mote Helper isn't running on <H1 name>. Open it from Applications on the Mac." (reconnect-D5), on timeout "<H1 name> seems asleep or away. Wake it (open the lid or press a key) and keep it on this Wi-Fi or Tailscale." | real; which Reach the emulator reports offline is UNDEFINED (verify) |
+| B1 | phone user | Launch Mote | Helper stderr `[mote] labs: trusted <Phone> via trusted` then `[mote] authed <Phone> via Wi-Fi from <peer>`; pill label `<H1 name>`, badge `WI-FI`, LED linkOk; contentDescription `Device: <H1 name> via Wi-Fi. Tap to choose` | faked: the silent reconnect right after pairing stands in for a cold launch (the app process cannot be restarted under instrumentation); `<Phone>` = `sdk_gphone64_arm64` |
+| B2 | system | `adb shell svc data disable` and `adb shell svc wifi disable` (both: with mobile data on, the emulator still reaches 10.0.2.2) | Within ≤ 40 s (OkHttp ping 20 s + failure) status Connecting: pill LED linkWait pulsing, route badge from saved routes; Media caps disabled | real; exact detection time UNDEFINED (OkHttp ping failure timing) |
+| B3 | phone user | Tap the pill | Row status "Connecting…"; after ≥ 1.5 s a danger line from `reachNote`: if the probe's connect throws `ConnectException` (offline: ENETUNREACH on Android; confirmed on the emulator) "Mote Helper isn't running on <H1 name>. Open it from Applications on the Mac." (reconnect-D5), on timeout "<H1 name> seems asleep or away. Wake it (open the lid or press a key) and keep it on this Wi-Fi or Tailscale." | real; which Reach the emulator reports offline is UNDEFINED (verify) |
 | B4 | system | `adb shell svc wifi enable` | `registerDefaultNetworkCallback.onAvailable` → `kick()` skips the backoff (≤ 8 s + 25 % jitter otherwise); helper `[mote] authed <Phone> via Wi-Fi from <peer>`; pill linkOk; row "Connected · Wi-Fi" | real |
 Postconditions: selection unchanged; H1 has one authed session.
 
 ### `reconnect.background`: app leaves the screen (from helper-network B1)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Press Home | `Net.foreground = false`; 30 s later `WsTransport.stop()`: socket closed, status Idle. Helper: session ends (no log line for a normal close) | real (helper side only observable as the absence of the session; UNDEFINED log) |
-| B2 | phone user | Reopen Mote (after > 30 s) | `ws.start(); ws.kick()`: helper `[mote] authed <Phone> via Wi-Fi from <peer>` again; pill linkOk | real |
+| B1 | phone user | Press Home | `Net.foreground = false`; still `WsStatus.Ready` at 29 s; 30 s after leaving, `WsTransport.stop()`: socket closed, `WsStatus.Idle`. Helper: session ends (no log line for a normal close) | real (asserted on the app's `Net.wsStatus`; no helper line) |
+| B2 | phone user | Reopen Mote (after > 30 s; `am start` of MainActivity) | `ws.start(); ws.kick()`: helper `[mote] authed <Phone> via Wi-Fi from <peer>` again; pill `Device: <H1 name> via Wi-Fi. Tap to choose` | real |
 
 ### `reconnect.fallback-bt`: helper unreachable 15 s, Mac linked to a Bluetooth host (doc pairing.md §5; not drawn)
-Preconditions delta: as helper-network, plus `SavedHost.btAddress = AA:00:00:00:00:01` (adapter host named exactly `<H1 name>` at Connect time, so `InstantPairing.adopt` links it) and trust record present.
+Preconditions delta: as helper-network, plus `BLUETOOTH_*` granted, `TestSeam.adapter` with host `AA:00:00:00:00:01` named exactly `<H1 name>` and `TestSeam.transport = FakeTransport(Caps.HID)` at Connect time, so `InstantPairing.adopt` links `SavedHost.btAddress` (the Connect card then shows "Connected", no Bluetooth offer).
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | system | Make H1 unreachable without losing its state: `kill -STOP <H1 pid>` | After the socket fails, status Connecting; 4 s later `rediscover` sweeps the /24 once (no new address); 15 s later (`FALLBACK_MS`) `Net.select(Selection.Bt(AA:00:00:00:00:01))`: pill label `<H1 name>` (Hid selected host name), badge `BT`, pulsing (no real HID link) | faked: SIGSTOP on the dry-run helper + adapter seam; BT link itself faked |
+| B1 | system | Make H1 unreachable without losing its state: `kill -STOP <H1 pid>` | After the socket fails (OkHttp ping, ≤ ~40 s), status Connecting; 4 s later `rediscover` sweeps the /24 once (no new address); 15 s later (`FALLBACK_MS`) `Net.select(Selection.Bt(AA:00:00:00:00:01))`: pill contentDescription `Device: <H1 name> via BT. Tap to choose`, Hid selected host = the linked one | faked: SIGSTOP on the dry-run helper + adapter seam; BT link itself faked |
 | B2 | system | `kill -CONT <H1 pid>` | Within ≤ 30 s (`PROBE_MS`, foreground only) `Net.probe` sees `hello.hostId == H1` → `Net.select(Selection.Helper(H1))`; helper `[mote] authed <Phone> via Wi-Fi from <peer>`; pill badge `WI-FI` (+ `BT` badge only if Hid reports the linked host connected) | faked: SIGCONT |
 Postconditions: `selection = ws:<H1>`; `fallbackFrom` cleared.
 
@@ -89,8 +89,8 @@ Preconditions delta: as helper-network B1.
 |---|---|---|---|---|
 | B1 | phone user | Tap the pill, long-press row `Use <H1 name>` | Inline row under it (not a dialog): text "Forget <H1 name> on this phone?", then "Forget" (danger), then "Cancel" (reconnect-D6) | real |
 | B2 | phone user | Tap "Cancel" | Inline row gone; nothing changed | real |
-| B3 | phone user | Long-press again, tap "Forget" | `Net.forget`: Vault entry and SavedHost removed, socket stopped, `selection` removed; the InstantPairing trust record stays. Pill label "Choose a device", no badge, LED linkBad; row gone; helper still trusts the phone (no helper log) | real |
-Postconditions: `hosts` empty; `labs_pairing/trust` still has H1; H1 trusted list unchanged. Next launch: `startScreen` → FIND_MAC (`wifi_chosen` and no helper host).
+| B3 | phone user | Long-press again, tap "Forget" | `Net.forget`: Vault entry and SavedHost removed, socket stopped, `selection` removed; the InstantPairing trust record stays. The sheet and remote are replaced at once by FindMacScreen ("Connect to your Mac", then "Connect to <H1 name>" from the sweep): `startScreen` → FIND_MAC because `wifi_chosen` and no helper host (reconnect-D7); helper still trusts the phone (no helper log) | real |
+Postconditions: `hosts` empty; `labs_pairing/trust` still has H1; H1 trusted list unchanged; FindMacScreen shown.
 
 ## Disagreements → DEFECTS.md
 - `reconnect-D1` (unpaired B3): Bluetooth-only rows can't be long-pressed / forgotten, though the artboard and stale-pairing copy say to.
@@ -98,6 +98,7 @@ Postconditions: `hosts` empty; `labs_pairing/trust` still has H1; H1 trusted lis
 - `reconnect-D3` (signal-lost B2): after 3 attempts the pill and notification keep saying searching while nothing is tried.
 - `reconnect-D4` (mac-forgot): a Mac-side unpair is never detected; "Not paired" needs the phone-side bond to go.
 - `reconnect-D5` (helper-network B3): an offline phone may be told "Mote Helper isn't running".
+- `reconnect-D7` (forget-helper B3): forgetting the last Mac drops the user straight into FindMacScreen; the artboard says pair again from Devices.
 - `reconnect-D6` (S1, forget-helper B1): artboard Searching card, "Add Mac over Wi-Fi" / "Enter address" buttons and the Forget dialog differ from code.
 
 ## UNDEFINED

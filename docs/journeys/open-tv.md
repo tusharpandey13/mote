@@ -4,7 +4,7 @@ Artboard: `design/mote-v1/journey-open-tv.html` (Preview (Labs)). Code: `android
 Test: `e2e/journeys` → `dev.mote.remote.journeys.OpenTvJourney` (one @Test per path below).
 
 ## Preconditions
-- P1. App: debug build `dev.mote.remote.dev`, already paired to the dry-run helper and linked over Wi-Fi (fixture: any pairing path, e.g. instant pairing or code pairing with `--open-pairing`); `android.permission.BLUETOOTH_CONNECT` / Nearby devices not required for this journey. Settings › Labs › switch contentDescription `Open & TV mode (preview)` = On (DataStore `labs`, key `open_tv`). Open… store `labs_open` empty (default pins, no recents). Mode rail on Media (default `Mode.MEDIA`, `App.kt:141`).
+- P1. App: fresh data, connected to the dry-run helper over Wi-Fi by the `wifi-helper` main path (FindMacScreen "Connect to <Mac>" with `TestSeam.fakeProximity`); next-0.6 keeps setup on the Bluetooth offer, so the precondition taps "Skip" until the pill `Device: <Mac> via Wi-Fi. Tap to choose` shows Debug build `dev.mote.remote.dev`; `android.permission.BLUETOOTH_CONNECT` / Nearby devices not required for this journey. Settings › Labs › switch contentDescription `Open & TV mode (preview)` = On (DataStore `labs`, key `open_tv`). Open… store `labs_open` empty (default pins, no recents). Mode rail on Media (default `Mode.MEDIA`, `App.kt:141`).
 - P2. Phone: Wi-Fi on ("AndroidWifi"), Bluetooth irrelevant, no Tailscale VPN.
 - P3. Mac / helper: `MoteHelper --dry-run --headless --no-ble --memory-store --port N --stdin-control --labs-tv` (`--labs-tv` = Labs › TV mode (preview) forced on; `TvMode.swift:110`). Not paused. Clipboard of the emulator holds whatever the step says.
 - P4. Network: same LAN (phone 10.0.2.17 → helper 10.0.2.2:N).
@@ -13,7 +13,7 @@ Test: `e2e/journeys` → `dev.mote.remote.journeys.OpenTvJourney` (one @Test per
 | # | Actor | Action (exact) | Expected observable (exact) | Seam |
 |---|---|---|---|---|
 | S1 | system | (app linked, P1) | Top bar shows a 44 dp box, contentDescription "Open on Mac" (search icon) between the wordmark and "Menu"; phone sends `{"t":"labs.tv.get"}`, helper replies `{"t":"labs.tv.state","enabled":true,"on":false,"page":"home"}` | real (`OpenUi.kt:85,95-101`, `Hub.swift:249`) |
-| S2 | phone user | Tap "Open on Mac" | Bottom sheet: title "Open on Mac", badge "PREVIEW", field placeholder "Search YouTube or paste a link" (field contentDescription same), button "Paste", hint "Links open on the Mac; YouTube opens in TV mode. Tap the keyboard mic to speak.", section "Quick actions" with caps "Close this tab", "Exit fullscreen", "Pause everything", cap "Open TV mode on the Mac" (contentDescription "Open TV mode"), section "Pinned" with "Edit" and six caps contentDescription "Open YouTube", "Open Netflix", "Open Prime Video", "Open Disney+", "Open Twitch", "Open Spotify"; no "Recent" section. No test tags. | real |
+| S2 | phone user | Tap "Open on Mac" | Bottom sheet: title "Open on Mac", badge "PREVIEW", field placeholder "Search YouTube or paste a link" (field contentDescription same), button "Paste", hint "Links open on the Mac; YouTube opens in TV mode. Tap the keyboard mic to speak.", section "QUICK ACTIONS" (SectionHead renders uppercase) with caps "Close this tab", "Exit fullscreen", "Pause everything", cap "Open TV mode on the Mac" (contentDescription "Open TV mode"), section "PINNED" with "Edit" and six caps contentDescription "Open YouTube", "Open Netflix", "Open Prime Video", "Open Disney+", "Open Twitch", "Open Spotify"; no "RECENT" section. No test tags. | real |
 | S3 | phone user | Type `lofi beats` into the field | "Paste" is replaced by primary cap "Open" | real |
 | S4 | phone user | Tap "Open" (or IME Go) | Sheet closes. Phone sends `{"t":"labs.open.url","url":"https://www.youtube.com/results?search_query=lofi%20beats","mode":"tv"}`. Helper stderr `[mote] DRY labs.tv open page=youtube url=https://www.youtube.com/tv#/search?q=lofi%20beats`; every authed session gets `{"t":"labs.tv.state","enabled":true,"on":true,"page":"youtube","url":"https://www.youtube.com/tv#/search?q=lofi%20beats"}` | real (dry-run: no window, `TvMode.swift:236-239`) |
 | S5 | system | (state arrives) | Media is replaced by TvRemotePanel: "TV MODE", "PREVIEW", "Exit"; subtitle "YouTube"; contentDescription "TV direction pad" with caps "Up", "Down", "Left", "Right", "OK"; caps "Back", "Home", "Search"; "Volume down", "Play or pause", "Volume up" | real |
@@ -69,14 +69,14 @@ Postconditions: recents first entry "Netflix" / `https://www.netflix.com/browse`
 Preconditions delta: `open_tv` = Off.
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | system | same `am start ... ShareTarget` as share B1 | Fails: component disabled (`setComponentEnabledSetting` DISABLED, `OpenTv.kt:117-123`); top bar has no "Open on Mac" | real (exact `am` error text UNDEFINED) |
+| B1 | system | Labs flag off at launch (`rememberOpenTv` → `OpenTv.syncShareTarget(false)`) | Alias `ShareTarget` is COMPONENT_ENABLED_STATE_DISABLED and no SEND `text/plain` activity of the app resolves (the system share sheet can't offer "Open on Mac"); top bar has no "Open on Mac". A shell `am start -n …ShareTarget` still prints "Starting: …" on API 35 and opens no sheet | real (whether `am start` launches the disabled alias is UNDEFINED) |
 
 ### `open-tv.recents`: reopen from Recent, clear (from postconditions of main path)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Open on Mac" | Section "Recent" with "Clear" (clickLabel "Clear recents") and row clickLabel "Open YouTube: lofi beats", subtitle "youtube.com" | real |
+| B1 | phone user | Tap "Open on Mac" | Section "RECENT" with "Clear" (clickLabel "Clear recents") and row clickLabel "Open YouTube: lofi beats", subtitle "youtube.com" | real |
 | B2 | phone user | Tap the row | Same `labs.open.url` as S4 but `mode` is `tv` via modeFor → `[mote] DRY labs.tv open page=youtube url=https://www.youtube.com/tv#/search?q=lofi%20beats` | real |
-| B3 | phone user | Reopen, tap "Clear" | "Recent" section disappears | real |
+| B3 | phone user | Reopen, tap "Clear" | "RECENT" section disappears | real |
 
 ### `open-tv.pins-edit`: edit pinned sites (from S2)
 | # | Actor | Action | Expected observable | Seam |
@@ -163,7 +163,7 @@ Preconditions delta: active transport is Bluetooth HID (`TestSeam.transport` = F
 ### `open-tv.unlinked`: not linked (from S2)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Open the sheet while unlinked | Quick actions, "Open TV mode on the Mac" (absent: caps ≠ HELPER) and pin caps disabled (`needsLink`); "Paste" enabled | real (stop the helper) |
+| B1 | phone user | Stop the helper, wait until unlinked, open the sheet | Hint "Links open on the Mac; YouTube opens in TV mode. Tap the keyboard mic to speak." (caps stay HELPER while the socket reconnects); quick actions, "Open TV mode on the Mac" and pin caps shown but disabled (`needsLink`); "Paste" enabled | real (stop the helper) |
 
 ## Disagreements → DEFECTS.md
 - `open-tv-D1` (S4, helper-lab-off, paused): helper errors for sheet actions are never shown (sheet closes on local send success; reopening clears the error).

@@ -4,7 +4,7 @@ Artboard: `design/mote-v1/journey-daily.html` (Shipped). Code: `android/.../ui/A
 Test: `e2e/journeys` → `dev.mote.remote.journeys.DailyJourney` (one @Test per path below).
 
 ## Preconditions
-- P1. App: debug `dev.mote.remote.dev`. One saved Mac "H1" created by the `wifi-helper` journey main path (key-trusted record, DataStore `hosts` + `InstantPairing` record), `selection = ws:<hostId H1>`, `wifi_chosen = true`. No Bluetooth link (`SavedHost.btAddress = null`). `android.permission.BLUETOOTH_CONNECT` NOT granted unless a branch says so (then `HidService` runs, see daily.notif). App force-stopped before S1.
+- P1. App: debug `dev.mote.remote.dev`. One saved Mac "H1" created by the `wifi-helper` journey main path (key-trusted record, DataStore `hosts` + `InstantPairing` record), `selection = ws:<hostId H1>`, `wifi_chosen = true`. Setup's optional Bluetooth step skipped with "Skip" (next-0.6 keeps setup on screen for it), so no Bluetooth link (`SavedHost.btAddress = null`). `android.permission.BLUETOOTH_CONNECT` NOT granted unless a branch says so (then `HidService` runs, see daily.notif). Before S1 the activity is closed and the helper socket has closed (30 s, `Net.foreground`); the process stays (the instrumentation runs in the app process, so a force-stop is not possible).
 - P2. Phone: Wi-Fi on ("AndroidWifi", 10.0.2.17/24), Bluetooth irrelevant, no Tailscale VPN.
 - P3. Mac / helper: H1 = `MoteHelper --dry-run --headless --no-ble --memory-store --port N1 --stdin-control` (+ instant-pairing fakes the `wifi-helper` setup needed, e.g. `--fake-proximity`), kept running for the whole test (memory store: a restart forgets the phone). Not paused.
 - P4. Network: same LAN (phone → 10.0.2.2:N1). Bonjour may be off (`TestSeam.noBonjour`); the saved `lan` address is used.
@@ -12,7 +12,7 @@ Test: `e2e/journeys` → `dev.mote.remote.journeys.DailyJourney` (one @Test per 
 ## Main path `daily`
 | # | Actor | Action (exact) | Expected observable (exact) | Seam |
 |---|---|---|---|---|
-| S1 | phone user | Launch Mote (`am start -n dev.mote.remote.dev/dev.mote.remote.MainActivity`) | Remote opens directly (no FindMacScreen: `startScreen` → REMOTE because `hasHelperHost && !btSelected`). Media screen; mode rail "Media" selected. Pill contentDescription `Device: <H1 name> via Wi-Fi. Tap to choose` (route from the saved LAN route before Ready). No test tag. | real (`FirstRun.kt:15`, `HostsUi.kt:77-127`) |
+| S1 | phone user | Launch Mote (MainActivity) | Remote opens directly (no FindMacScreen: `startScreen` → REMOTE because `hasHelperHost && !btSelected`). Media screen; mode rail "Media" selected. Pill contentDescription `Device: <H1 name> via Wi-Fi. Tap to choose` (route from the saved LAN route before Ready). No test tag. | real (`FirstRun.kt:15`, `HostsUi.kt:77-127`) |
 | S2 | system | `Net.foreground = true` → `WsTransport.start()`; candidates tried in order (trusted host: Bonjour, BLE-info LAN, saved `lan`, `<local>.local`, manual LAN, tailnet names, tailnet IPs; `Paths.kt:18-27`) | Helper stderr `[mote] authed <phone device name> via Wi-Fi from <peer>`; phone gets `{"t":"authed",...,"paused":false,"ax":true}` then sends `{"t":"spaces.sub","on":true}` | real (dry-run). `<peer>` = source IP as the Mac sees it: UNDEFINED for emulator NAT |
 | S3 | system | (WsStatus.Ready) | Pill LED linkOk (no semantics), label `<H1 name>`, badge `WI-FI`; contentDescription `Device: <H1 name> via Wi-Fi. Tap to choose`. Media caps enabled (LocalLinked = true) | real (LED colour: screenshot only) |
 | S4 | phone user | Tap the pill | MoteSheet with HostSheet LIST: title "Devices", note "Mote reconnects to the selected device while the app is open.", row cap contentDescription `Use <H1 name>`, status text "Connected · Wi-Fi", badge `WI-FI` (lit). Buttons "Add a Mac", link "More options", button "Set up Bluetooth" (gate NEEDS_PERMISSION; "Turn on Bluetooth" if BT off; "Pair new Bluetooth device" only when READY, `HostsUi.kt:312-327`) | real |
@@ -36,7 +36,7 @@ Preconditions delta: H1 process stopped (SIGTERM) after P1 setup. Note: memory s
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
 | B1 | system | Launch; connect attempts fail | Pill LED linkWait pulsing; no helper line | real |
-| B2 | phone user | Tap the pill | Row status "Connecting…" (not "Searching…"); after ~1.5 s, if the probe gets REFUSED: danger text `Mote Helper isn't running on <H1 name>. Open it from Applications on the Mac.`; if TIMEOUT: the daily.asleep copy | real; which Reach the emulator NAT reports for a closed host port is UNDEFINED (verify once) |
+| B2 | phone user | Tap the pill | Row status "Connecting…" (not "Searching…"); after ~1.5 s, if the probe gets REFUSED: danger text `Mote Helper isn't running on <H1 name>. Open it from Applications on the Mac.`; if TIMEOUT: the daily.asleep copy | real (the test probes the same candidates with `tcpReach` and expects `reachNote` of the result; if a closed port still answers TCP there is no note at all, daily-D7) |
 Postconditions: selection unchanged; WsTransport keeps retrying every ≤ 8 s while foreground.
 
 ### `daily.paused`: input paused on the Mac (from S3; artboard jE-b3s)
@@ -59,8 +59,8 @@ Preconditions delta: second helper H2 `MoteHelper --dry-run --headless --no-ble 
 ### `daily.background`: app leaves the screen (from S3; artboard jE-s2 caption)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Press Home | `Net.foreground = false`; after 30 s `ws.stop()` closes the socket (`Net.kt:161-169`); Wi-Fi low-latency lock released | real (no helper log for a close; assert via helper session count: UNDEFINED headless, needs a log or stdin `status` command) |
-| B2 | phone user | Reopen Mote within 30 s | Same socket kept; no new `authed` line | real |
+| B1 | phone user | Press Home | `Net.foreground = false`; after 30 s `ws.stop()` closes the socket (`Net.kt:161-169`): phone `WsStatus.Idle`; Wi-Fi low-latency lock released | real (phone-side state; the helper logs nothing for a close) |
+| B2 | phone user | Reopen Mote (reconnects), then leave for 5 s and reopen | Same socket kept; no new `authed` line | real |
 | B3 | phone user | Reopen Mote after > 30 s | New `[mote] authed <phone> via Wi-Fi from <peer>` | real |
 
 ### `daily.tailnet`: off Wi-Fi, tailnet route (from S1; artboard jE-s2 TAILSCALE badge)
@@ -75,7 +75,7 @@ Preconditions delta: `BLUETOOTH_CONNECT` granted (else `HidService.start` is a n
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
 | B1 | system | Launch (helper host selected, no BT link) | Ongoing notification, channel "Bluetooth link", title "Mote", text "Ready to pair" (Hid has no selected host), actions "Play/Pause", "Stop" — even while Wi-Fi is Connected | real (UiAutomator notification shade) |
-| B2 | system | Variant: a Bluetooth host selected (FakeTransport + `TestSeam.adapter` bonded host "MacBook Pro") | text "Searching for MacBook Pro…"; when the BT host connects: "Connected to MacBook Pro" | faked: BT HID (FakeTransport; Hid never reports connected under the seam, so "Connected to …" is manual: real BT HID bond) |
+| B2 | system | Variant: a Bluetooth host selected (FakeTransport + `TestSeam.adapter` bonded host "Test Mac"; tap the pill, then "Use Test Mac") | text "Searching for Test Mac…"; when the BT host connects: "Connected to Test Mac" | faked: BT HID transport (FakeTransport; Hid never reports connected under the seam, so "Connected to …" is manual: real BT HID bond) |
 
 ## Disagreements → DEFECTS.md
 - `daily-D1` (daily.notif): notification reflects only Bluetooth HID; with a Wi-Fi Mac it says "Ready to pair" or doesn't exist.

@@ -4,7 +4,7 @@ Artboard: `design/mote-v1/journey-live-screen.html` (Preview (Labs)). Code: `and
 Test: `e2e/journeys` → `dev.mote.remote.journeys.LiveScreenJourney` (one @Test per path below).
 
 ## Preconditions
-- P1. App: debug build `dev.mote.remote.dev` (debug = stats badge shown), paired to the dry-run helper and linked over Wi-Fi (fixture: any pairing path). Settings › Labs › switch contentDescription `Live screen (preview)` = On (DataStore `labs`, key `live_screen`). DataStore `labs_screen` empty (`lan_warning_seen` unset). No permissions beyond what linking needs.
+- P1. App: fresh data, connected to the dry-run helper over Wi-Fi by the `wifi-helper` main path (FindMacScreen "Connect to <Mac>" with `TestSeam.fakeProximity`); next-0.6 keeps setup on the Bluetooth offer, so the precondition taps "Skip" until the pill `Device: <Mac> via Wi-Fi. Tap to choose` shows Debug build `dev.mote.remote.dev` (debug = stats badge shown). Settings › Labs › switch contentDescription `Live screen (preview)` = On (DataStore `labs`, key `live_screen`). DataStore `labs_screen` empty (`lan_warning_seen` unset). No permissions beyond what linking needs.
 - P2. Phone: Wi-Fi on ("AndroidWifi"), no Tailscale VPN (so the route is LAN, not TAILNET).
 - P3. Mac / helper: `MoteHelper --dry-run --headless --no-ble --memory-store --port N --stdin-control --fake-screen` (`--fake-screen` forces Labs › Live screen on and streams synthetic frames of a 1512x982 pt display at (−1512, −200), scale 2). Startup log `[mote] fake screen: fake-screen 1512x982 pt at (-1512.0, -200.0) scale 2.0`. Input not paused, sharing not paused.
 - P4. Network: same LAN (phone 10.0.2.17 → helper 10.0.2.2:N; helper sees transport "Wi-Fi").
@@ -89,7 +89,7 @@ Preconditions delta: helper without `--fake-screen`; stdin `screen-lab-on`.
 ### `live-screen.denied`: no Screen Recording permission (from S3)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Open the page | overlay "Allow Screen Recording for Mote Helper on the Mac (System Settings › Privacy & Security)."; helper calls `CGRequestScreenCaptureAccess()` | needs user: real TCC; or faked: needs new flag `--fake-screen-denied` |
+| B1 | phone user | Open the page | helper `err` `denied` "Allow Screen Recording in Mote Helper › Setup on the Mac" (next-0.6: no macOS prompt from a phone message); phone overlay ignores that msg: "Allow Screen Recording for Mote Helper on the Mac (System Settings › Privacy & Security)." (live-screen-D8) | needs user: real TCC; or faked: needs new flag `--fake-screen-denied` |
 
 ### `live-screen.taken`: another device takes over (from S4)
 | # | Actor | Action | Expected observable | Seam |
@@ -146,6 +146,7 @@ Preconditions delta: active transport is Bluetooth HID (`TestSeam.transport` Fak
 - `live-screen-D4` (warning-race): `warned` defaults to `true` before DataStore loads, so the first open can start a stream before the LAN warning is acknowledged.
 - `live-screen-D5` (mac-stop): after the Mac's "Stop sharing screen" the phone shows a frozen frame with no message and no restart; artboard/menu copy "Stop sharing" vs code "Stop sharing screen".
 - `live-screen-D6` (mac-pause B2, lab-off-mid B2): no automatic restart after the Mac resumes sharing or turns the lab back on.
+- `live-screen-D8` (denied): phone copy points to System Settings, the next-0.6 helper to its Setup window; doc still says the start asks macOS.
 - `live-screen-D7` (input-paused-click): an input-pause `paused` error on a click shows the "Screen sharing is paused…" copy; `ax` falls back to raw helper text.
 
 ## UNDEFINED

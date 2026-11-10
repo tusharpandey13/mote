@@ -15,8 +15,8 @@ The quirks themselves (Keyboard Setup Assistant, a stale macOS bond) are macOS b
 | # | Actor | Action (exact) | Expected observable (exact) | Seam |
 |---|---|---|---|---|
 | S1 | Mac user | Pair the phone from System Settings › Bluetooth (phone discoverable via "Pair new Bluetooth device") | macOS opens "Keyboard Setup Assistant" ("Your keyboard cannot be identified…", Quit / Continue); Quit is fine | manual: macOS UI, real Bluetooth HID bond; no Mote code involved (UNDEFINED copy) |
-| S2 | system (phone) | HID host connects | pill contentDescription "Device: <Mac> via BT. Tap to choose", badge "BT", LED green | faked: `TestSeam.transport` reports connected |
-| S3 | phone user | Tap the pill | `HostSheet` LIST: row "<Mac>" (contentDescription "Use <Mac>") status "Connected · BT", badge "BT"; button "Add a Mac"; link "More options"; button "Pair new Bluetooth device"; "Makes this phone visible for 2 minutes. Pair it from the computer's Bluetooth settings; Android asks you to confirm the code."; link "Connected over Bluetooth but buttons do nothing?" | faked: adapter/transport |
+| S2 | system (phone) | HID host connects | pill contentDescription "Device: <Mac> via BT. Tap to choose", badge "BT", LED green; Devices row status "Connected · BT" | faked: needs a seam driving `Hid.state.connected` (FakeTransport only fakes the transport; missing fake) |
+| S3 | phone user | Tap the pill | `HostSheet` LIST: row "<Mac>" (contentDescription "Use <Mac>"), badge "BT"; button "Add a Mac"; link "More options"; button "Pair new Bluetooth device"; "Makes this phone visible for 2 minutes. Pair it from the computer's Bluetooth settings; Android asks you to confirm the code."; link "Connected over Bluetooth but buttons do nothing?" | faked: adapter (bonded host "Test Mac") + transport seams |
 
 ## Postconditions
 - Phone: selection `bt:<addr>` (Hid), no helper host. Mac: bond (real runs only).
@@ -25,15 +25,15 @@ The quirks themselves (Keyboard Setup Assistant, a stale macOS bond) are macOS b
 ### `bt-quirks.stale-help`: shows Connected but buttons do nothing (from S3; artboard jC2-b1s)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Connected over Bluetooth but buttons do nothing?" | link replaced by: "The computer kept an old pairing. Fix: on the computer, forget this phone in Bluetooth settings; here, long-press it and forget it too; then Pair new Bluetooth device again." | faked: adapter/transport |
+| B1 | phone user | Tap "Connected over Bluetooth but buttons do nothing?" | link replaced by: "The computer kept an old pairing. Fix: on the computer, forget this phone in Bluetooth settings; here, long-press it and forget it too; then Pair new Bluetooth device again." | faked: adapter (bonded host "Test Mac") + transport seams |
 | B2 | system | — | no automatic detection of the stale state (nothing in code inspects HID report delivery) | static |
 
 ### `bt-quirks.forget-on-phone`: long-press › Forget (from B1; artboard jC2-b1s2)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Long-press the Bluetooth-only row "Use <Mac>" | nothing happens: `onLongPress` is only set for rows with a saved helper host (HostsUi.kt `HostRowCap`, `r.saved != null`) (bt-quirks-D1) | faked: adapter/transport |
+| B1 | phone user | Long-press the Bluetooth-only row "Use <Mac>" | nothing happens ("Forget <Mac> on this phone?" never shows): `onLongPress` is only set for rows with a saved helper host (HostsUi.kt `HostRowCap`, `r.saved != null`) (bt-quirks-D1) | faked: adapter (bonded host "Test Mac") + transport seams |
 | B2 | (variant) | Row grouped with a saved helper host (same name / linked `btAddress`), long-press | inline row "Forget <Mac> on this phone?" with "Forget" (red) then "Cancel"; "Forget" runs `Net.forget(hostId)`: removes the helper host and token only; the Android Bluetooth bond stays (bt-quirks-D1) | faked: seeded helper host + adapter |
-| B3 | phone user | Unpair on the phone: Android Settings › Connected devices › <Mac> › Forget | bonded list loses <addr>; if it was selected the row shows "Not paired: pair again" and the pill "Not paired: pair again" | manual: Android system Settings (faked: drop the host from `TestSeam.adapter.hosts`) |
+| B3 | phone user | Select "Use <Mac>" (pill "Device: <Mac> via BT. Tap to choose"), then unpair on the phone (Android Settings › Connected devices › <Mac> › Forget) | bonded list loses <addr>: pill "Device: Not paired: pair again via BT. Tap to choose" | faked: drop the host from TestSeam.adapter.hosts (stands in for Android Settings › Forget) |
 
 ### `bt-quirks.forget-on-mac` (artboard jC2-b1s3)
 | # | Actor | Action | Expected observable | Seam |
@@ -43,7 +43,7 @@ The quirks themselves (Keyboard Setup Assistant, a stale macOS bond) are macOS b
 ### `bt-quirks.pair-again` (artboard jC2-b1s4)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Pair new Bluetooth device" | `Hid.pausePairing(120000)`; system dialog for `ACTION_REQUEST_DISCOVERABLE` (120 s) | real dialog on an emulator with an adapter (copy UNDEFINED); faked adapter otherwise |
+| B1 | phone user | Tap "Pair new Bluetooth device" | `Hid.pausePairing(120000)`; system dialog for `ACTION_REQUEST_DISCOVERABLE` (120 s) with an "Allow" button | real dialog (emulator adapter); copy UNDEFINED |
 | B2 | phone user | Same, `BLUETOOTH_ADVERTISE` not granted | Toast "Allow Nearby devices to pair"; no dialog | real |
 | B3 | Mac user | Pair from System Settings; confirm the code on Android | new bond; back to S1 | manual |
 

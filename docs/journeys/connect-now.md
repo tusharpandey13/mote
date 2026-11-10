@@ -1,6 +1,6 @@
 # connect-now: C. Code pairing (legacy 0.4.0, being replaced)
 
-Artboard: `design/mote-v1/journey-connect-now.html` (Legacy (0.4.0, being replaced)). Code: `android/.../ui/HostsUi.kt` (HostSheet pages LIST, NEARBY "Pair with code", ADDRESS, CODE; `friendly()`), `net/Net.kt` (pair, probe), `net/WsSession.kt` (pairWith, reply), `net/Hosts.kt` (PairLink, parseAddress), `net/Discovery.kt` (Bonjour), `MainActivity.kt` (mote://pair), `ui/App.kt` (startScreen, BtGateScreen), `helper/.../Hub.swift` (Session.pair), `Security.swift` (Pairing, RateLimiter), `MenuBar.swift` (Advanced › Pair with code, showPairing), `main.swift` (stdin `pair`). Docs: `docs/protocol.md` §1, §4; `docs/pairing.md` (status line); `android/README.md` "Over Wi-Fi or Tailscale".
+Artboard: `design/mote-v1/journey-connect-now.html` (Legacy (0.4.0, being replaced)). Code: `android/.../ui/HostsUi.kt` (HostSheet pages LIST, NEARBY "Pair with code", ADDRESS, CODE; `friendly()`), `net/Net.kt` (pair, probe), `net/WsSession.kt` (pairWith, reply), `net/Hosts.kt` (PairLink, parseAddress), `net/Discovery.kt` (Bonjour), `MainActivity.kt` (mote://pair), `ui/App.kt` (startScreen, `setup`, BtGateScreen), `helper/.../Hub.swift` (Session.pair), `Security.swift` (Pairing, RateLimiter), `MenuBar.swift` (Advanced › Pair with code, showPairing), `main.swift` (stdin `pair`). Docs: `docs/protocol.md` §1, §4; `docs/pairing.md` (status line); `android/README.md` "Over Wi-Fi or Tailscale".
 Test: `e2e/journeys` → `dev.mote.remote.journeys.ConnectNowJourney` (one @Test per path below).
 
 What the code does now: the 6-digit code is a hidden fallback. Phone: pill › Devices › "More options" › "Pair with code" (or a `mote://pair` link). Mac: menu Advanced › "Pair with code (web remote)…" (headless: `--open-pairing` or stdin `pair`). Notation: `<Mac>`, `<phone>`, `$P` as in `wifi-helper.md`; `<code>` = 6 digits from stdout `PAIRING CODE: <code>`.
@@ -81,14 +81,14 @@ Preconditions delta: helper without `--open-pairing` (or after a device paired, 
 Preconditions delta: fresh install, no Bluetooth chosen.
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | system | `adb shell am start -a android.intent.action.VIEW -d 'mote://pair?h=10.0.2.2:$P&code=<code>' dev.mote.remote.dev` | app skips the first-run screen (`skip = link != null`) and opens the Devices sheet; HostSheet consumes the link (`pendingLink = null`, `chooseWifi()`), so `startScreen` becomes FIND_MAC (`macChosen && !hasHelperHost`) and the app lands on `FindMacScreen` "Connect to your Mac"; the CODE page and the code are gone (connect-now-D4) | real |
+| B1 | system | app already open on `FindMacScreen`; `adb shell am start -a android.intent.action.VIEW -d 'mote://pair?h=10.0.2.2:$P&code=<code>' dev.mote.remote.dev` | next-0.6: the `setup` flag (App.kt) keeps `FindMacScreen` "Connect to your Mac" on screen even though `skip` makes `startScreen` REMOTE; no "Pair with 10.0.2.2" page, no code field. (Cold start by the link: the sheet opens, consumes the link, `chooseWifi()` → FIND_MAC → `FindMacScreen`.) Either way the code is lost (connect-now-D4) | real |
 | B2 | (variant) | same link while a helper host is saved or a Bluetooth host is selected | sheet stays: CODE "Pair with <saved name or 10.0.2.2>", code prefilled; tap "Pair" → continue at S7 | real |
 | B3 | (variant of B2) | link with `&ts=mac.example.ts.net` | extra line "Tailscale address from the pairing link: mac.example.ts.net"; on a non-HelperError LAN failure the phone retries on `ts` (after the Tailscale prompt if the VPN is off) | real (fallback faked) |
 
 ## Disagreements → DEFECTS.md
 - `connect-now-D1` (S2, closed B1/B2, B3): phone and helper copy say "Pair new device"; the menu item is Advanced › "Pair with code (web remote)…".
 - `connect-now-D2` (S1-S2): artboard entry (gate "Use Wi-Fi with Mote Helper" → "Add Mac over Wi-Fi") no longer exists; code entry is Devices › More options › Pair with code, unreachable on Wi-Fi-only first run without a link.
-- `connect-now-D4` (deep-link B1): a `mote://pair` link on a fresh install is dropped: the app falls back to FindMacScreen.
+- `connect-now-D4` (deep-link B1): a `mote://pair` link on a fresh install is dropped: the app stays on / falls back to FindMacScreen (still true in next-0.6).
 - `connect-now-D3`: `android/README.md` "Over Wi-Fi or Tailscale" and "First use" still describe code pairing / old button names.
 
 ## UNDEFINED

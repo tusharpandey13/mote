@@ -14,12 +14,12 @@ Test: `e2e/journeys` → `dev.mote.remote.journeys.SpacesJourney` (one @Test per
 ## Main path `spaces` (Bluetooth HID, numbered cards)
 | # | Actor | Action (exact) | Expected observable (exact) | Seam |
 |---|---|---|---|---|
-| S1 | phone user | Look at Media | Caption "Spaces" / "swipe or tap a desktop"; 84 dp well with 4 cards: caps "Desktop 1, current", "Desktop 2", "Desktop 3", "Desktop 4" (texts "1"…"4" + "Desktop N"); lit card = 1 | faked: BT HID |
-| S2 | phone user | Tap "Desktop 3" | Lit card moves to 3 at once ("Desktop 3, current"); FakeTransport `Tap("right", 1)`, then 300 ms later `Tap("right", 1)` (2 steps, `BtSpaces.STEP_MS`) | faked: BT HID |
-| S3 | phone user | Tap "Desktop 1" | `Tap("left", 1)` ×2, 300 ms apart; lit card 1 | faked: BT HID |
-| S4 | phone user | Tap mode rail "Macros"; tap cap "Spaces: choose a desktop" | Sheet: "Spaces" (headline), button "Close"; "Swipe the row or tap a desktop to jump to it. The lit card is the desktop you are on."; captions "OVER BLUETOOTH" / "NUMBERED"; carousel (112 dp cards); hint: "Jump straight to a desktop. On the Mac, turn on Switch to Desktop 1-9 in System Settings, Keyboard Shortcuts, Mission Control. Until then Mote steps with ⌃← and ⌃→." + cap "Done" + text "Remind me later" | faked: BT HID |
-| S5 | phone user | Tap "Remind me later" | Hint gone for this sheet only; close ("Close") and reopen → hint shown again | faked: BT HID |
-| S6 | phone user | Tap "Done" | Hint gone; `spacesHintDone = true` persisted (DataStore `mote_settings`, `spaces_hint_done`); never shown again | faked: BT HID |
+| S1 | phone user | Look at Media | Caption "Spaces" / "swipe or tap a desktop"; 84 dp well with 4 cards: caps "Desktop 1, current", "Desktop 2", "Desktop 3", "Desktop 4" (texts "1"…"4" + "Desktop N"); lit card = 1 | faked: BT HID transport (FakeTransport) |
+| S2 | phone user | Tap "Desktop 3" | Lit card moves to 3 at once ("Desktop 3, current"); FakeTransport `Tap("right", 1)`, then 300 ms later `Tap("right", 1)` (2 steps, `BtSpaces.STEP_MS`) | faked: BT HID transport (FakeTransport) |
+| S3 | phone user | Tap "Desktop 1" | `Tap("left", 1)` ×2, 300 ms apart; lit card 1 | faked: BT HID transport (FakeTransport) |
+| S4 | phone user | Tap mode rail "Macros"; tap cap "Spaces: choose a desktop" | Sheet: "Spaces" (headline), button "Close"; "Swipe the row or tap a desktop to jump to it. The lit card is the desktop you are on."; captions "OVER BLUETOOTH" / "NUMBERED"; carousel (112 dp cards); hint: "Jump straight to a desktop. On the Mac, turn on Switch to Desktop 1-9 in System Settings, Keyboard Shortcuts, Mission Control. Until then Mote steps with ⌃← and ⌃→." + cap "Done" + text "Remind me later" | faked: BT HID transport (FakeTransport) |
+| S5 | phone user | Tap "Remind me later" | Hint gone for this sheet only; close ("Close") and reopen → hint shown again | faked: BT HID transport (FakeTransport) |
+| S6 | phone user | Tap "Done" | Hint gone; `spacesHintDone = true` persisted (DataStore `mote_settings`, `spaces_hint_done`); never shown again | faked: BT HID transport (FakeTransport) |
 
 ## Postconditions
 - `BtSpaces.current` = last tapped (memory only). `spacesHintDone` per S5/S6. No helper involved.
@@ -29,9 +29,9 @@ Test: `e2e/journeys` → `dev.mote.remote.journeys.SpacesJourney` (one @Test per
 Preconditions delta: Settings "Use ⌃1–⌃9 shortcuts" on (switch contentDescription "Use control 1 to 9 shortcuts").
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Desktop 3" | One `Tap("3", 1)` | faked: BT HID |
-| B2 | phone user | Open the Spaces sheet | No hint (shown only while the switch is off) | faked: BT HID |
-| B3 | phone user | Settings › Desktops = 12, tap "Desktop 12" from 3 | `Tap("right", 1)` ×9 (⌃N only for N ≤ 9) | faked: BT HID |
+| B1 | phone user | Tap "Desktop 3" | One `Tap("3", 1)` | faked: BT HID transport (FakeTransport) |
+| B2 | phone user | Open the Spaces sheet | No hint (shown only while the switch is off) | faked: BT HID transport (FakeTransport) |
+| B3 | phone user | Settings › Desktops = 12, tap "Desktop 12" from 3 | `Tap("right", 1)` ×9 (⌃N only for N ≤ 9) | faked: BT HID transport (FakeTransport) |
 
 ### `spaces.helper`: with the helper, thumbnails (from S1; artboard j5-s2, j5-s4)
 Preconditions delta: helper paths P1/P3.

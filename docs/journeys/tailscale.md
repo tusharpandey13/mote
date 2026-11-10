@@ -33,10 +33,10 @@ Notation: `<Mac>` = saved host name. `TS0` = a saved, selected-able host whose o
 | B1 | phone user | Tap "Not now" | sheet closes; host stays selected; pill LED amber (`WsStatus.Connecting`), badge "TAILSCALE"; WsTransport keeps retrying with backoff | faked |
 
 ### `tailscale.not-installed` (from S2; coverage "not-installed variant text-only")
-Preconditions delta: no Tailscale app (the emulator default).
+Preconditions delta: no Tailscale app (the emulator default); `TS0` seeded by instant pairing + `Net.addAddress(hostId, "mac.example.ts.net")` (routes Wi-Fi + Tailscale); Wi-Fi OFF.
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Use <Mac>" | "Tailscale is off" / "Turn it on to reach <Mac>." / "Tailscale isn't installed on this phone." / buttons "Get Tailscale", "Not now" | real |
+| B1 | phone user | Pill › tap "Use <Mac>" | "Tailscale is off" / "Turn it on to reach <Mac>." / "Tailscale isn't installed on this phone." / buttons "Get Tailscale", "Not now" | faked: saved host seeded by instant pairing + Net.addAddress(hostId, "mac.example.ts.net"); no Tailscale app on the emulator |
 | B2 | phone user | Tap "Get Tailscale" | `market://details?id=com.tailscale.ipn`; without a store, `https://play.google.com/store/apps/details?id=com.tailscale.ipn` in a browser | real (store/browser UI UNDEFINED) |
 
 ### `tailscale.open-fails` (from S4b; not drawn)
@@ -48,13 +48,13 @@ Preconditions delta: no Tailscale app (the emulator default).
 Preconditions delta: `TS0` has `lan` + `tailnet`, Wi-Fi ON.
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Tap "Use <Mac>" | no Tailscale sheet (`needsTailscalePrompt` false: on Wi-Fi with a Wi-Fi route); connects on the LAN address; badge "WI-FI" | real |
-| B2 | (variant) | Wi-Fi OFF | Tailscale sheet as S2 | real for Wi-Fi state; faked VPN |
+| B1 | phone user | Tap "Use <Mac>" | no Tailscale sheet (`needsTailscalePrompt` false: on Wi-Fi with a Wi-Fi route); pill "Device: <Mac> via Wi-Fi. Tap to choose" | faked: saved host seeded by instant pairing + Net.addAddress(hostId, "mac.example.ts.net"); no Tailscale app on the emulator |
+| B2 | (variant) | Wi-Fi OFF, tap "Use <Mac>" | "Tailscale is off" sheet (not-installed variant on the emulator) | faked: saved host seeded by instant pairing + Net.addAddress(hostId, "mac.example.ts.net"); no Tailscale app on the emulator |
 
 ### `tailscale.launch-no-prompt`: app opened with the tailnet host already selected (not drawn)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Launch Mote, VPN off | no Tailscale sheet (prompt only on pick / Connect / Enter address / pair); pill LED amber, badge "TAILSCALE" (`!onWifi && TAILNET in routes`), "Connecting…" in the Devices row | real for UI; faked VPN state |
+| B1 | phone user | Wi-Fi off, Home and back to Mote, VPN off | no Tailscale sheet (prompt only on pick / Connect / Enter address / pair); pill contentDescription "Device: <Mac> via Tailscale. Tap to choose", badge "TAILSCALE" (`!onWifi && TAILNET in routes`, while not Ready) | faked: needs the LAN address to be unreachable off Wi-Fi: the emulator's mobile data still reaches 10.0.2.2, the socket goes Ready there and the pill says "via Wi-Fi" (missing fake) |
 | B2 | phone user | Turn VPN on outside Mote | default-network callback `kick()`s the socket → connects, badge "TAILSCALE" | faked |
 
 ### `tailscale.helper-refuses`: "Allow Tailscale connections" off on the Mac (not drawn)

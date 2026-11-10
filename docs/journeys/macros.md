@@ -8,12 +8,13 @@ Test: `e2e/journeys` → `dev.mote.remote.journeys.MacrosJourney` (one @Test per
 - P2. Phone: Wi-Fi on. No Tailscale.
 - P3. Mac / helper: `MoteHelper --dry-run --headless --no-ble --memory-store --port N --stdin-control`. Not paused.
 - P4. Network: same LAN.
+- UI-only branches (`macros.edit`, `macros.invalid`, `macros.media-full`) and `macros.bt` run with the Bluetooth fixture instead (`TestSeam.transport = FakeTransport(Caps.HID)`, one bonded host, Bluetooth permissions granted): nothing they assert depends on the transport.
 
 ## Main path `macros` (record a shortcut, star it, run it from Media)
 | # | Actor | Action (exact) | Expected observable (exact) | Seam |
 |---|---|---|---|---|
 | S1 | phone user | Tap mode rail "Macros" (click label "Switch to Macros") | MacrosScreen: "Macros", cap "Edit"; "Tap to run. Spaces opens a desktop carousel. Use Edit to change or star."; 3-column grid: "Spaces: choose a desktop" (2 columns, text "swipe or tap a desktop"), then caps by name "Return" (hint "⏎"), "Spotlight" ("⌘space"), "Escape" ("esc"), "Mission Control" ("⌃↑"), "Screenshot area" ("⇧⌘4"), "Open Safari" ("5 steps"), "Lock" ("⌃⌘Q"), "Force quit" ("⌥⌘esc"), "Hide others" ("⌥⌘H"), then "New macro". Star icons contentDescription "Favourite" (Spaces, Return) / "Not favourite" | real |
-| S2 | phone user | Tap "New macro" | Sheet "New macro": field "Name"; icon caps "Icon <name>" (selected `apps`); "Action" with toggles "Shortcut" (on) / "Click at point"; "Shortcut" well text " + key"; toggles "⌃ ctrl", "⌥ opt", "⇧ shift", "⌘ cmd"; field "Type a key (letter, digit, symbol)"; special-key toggles "⏎", "esc", "⇥", "space", "⌫", "del", "↑", "↓", "←", "→", "home", "end", "pg up", "pg dn", "F1"…"F12"; toggles "★ Favourite", "Confirm before run"; primary "Add a name and a key" | real |
+| S2 | phone user | Tap "New macro" | Sheet "New macro": field "Name"; icon caps "Icon <name>" (selected `apps`); section head "ACTION" (SectionHead upper-cases) with toggles "Shortcut" (on) / "Click at point"; head "SHORTCUT", well text " + key"; toggles "⌃ ctrl", "⌥ opt", "⇧ shift", "⌘ cmd"; field "Type a key (letter, digit, symbol)"; special-key toggles "⏎", "esc", "⇥", "space", "⌫", "del", "↑", "↓", "←", "→", "home", "end", "pg up", "pg dn", "F1"…"F12"; toggles "★ Favourite", "Confirm before run"; primary "Add a name and a key" | real |
 | S3 | phone user | Type `Area shot` into "Name"; tap "⌘ cmd", "⇧ shift"; type `4` into "Type a key (letter, digit, symbol)" | Well text "⇧⌘4"; primary label "Save" | real |
 | S4 | phone user | Tap "★ Favourite"; tap "Save" | Sheet closes; tile "Area shot" (hint "⇧⌘4", star "Favourite") appended after "Hide others"; persisted `macros_json` v3 with `{"name":"Area shot","icon":"apps","star":true,"confirm":false,"pointer":false,"kind":"steps","steps":[{"t":"chord","mods":["shift","cmd"],"key":"4"}]}` | real |
 | S5 | phone user | Tap mode rail "Media" | Favourites strip: "Return", "Area shot", dashed "Add favourite" (2 free slots → icon + text) | real |
@@ -41,10 +42,10 @@ Test: `e2e/journeys` → `dev.mote.remote.journeys.MacrosJourney` (one @Test per
 Preconditions delta: `TestSeam.transport = FakeTransport(Caps.HID)`, BT host selected.
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | "New macro" | Under the Action toggles: "Click at point needs a Mac with Mote Helper (Wi-Fi or Tailscale). On Bluetooth hosts it is skipped." | faked: BT HID |
-| B2 | phone user | Tap "Click at point" | No change (toggle ignored while `caps.clickAt` false) | faked: BT HID |
-| B3 | phone user | Run "Area shot" | `SetMods(0,0)`, `TapAwait("4", 10)` | faked: BT HID |
-| B4 | phone user | Run a click macro saved earlier over the helper | No call; Toast "1 characters skipped (not on US layout)" (see macros-D3) | faked: BT HID; Toast: UNDEFINED (not in the a11y tree reliably) |
+| B1 | phone user | "New macro" | Under the Action toggles: "Click at point needs a Mac with Mote Helper (Wi-Fi or Tailscale). On Bluetooth hosts it is skipped." | faked: BT HID transport (FakeTransport) |
+| B2 | phone user | Tap "Click at point" | No change (toggle ignored while `caps.clickAt` false) | faked: BT HID transport (FakeTransport) |
+| B3 | phone user | Run "Area shot" | `SetMods(0,0)`, `TapAwait("4", 10)` | faked: BT HID transport (FakeTransport) |
+| B4 | phone user | Run a click macro saved earlier over the helper (test: seeded into DataStore `mote` `macros_json` before launch) | Only `SetMods(0,0)`, no `ClickAt`; Toast "1 characters skipped (not on US layout)" (see macros-D3) | faked: BT HID transport (FakeTransport); Toast: UNDEFINED (not in the a11y tree reliably) |
 
 ### `macros.pointer`: Screenshot area (pointer macro) (from S1; not drawn)
 | # | Actor | Action | Expected observable | Seam |
@@ -78,7 +79,7 @@ Preconditions delta: `TestSeam.transport = FakeTransport(Caps.HID)`, BT host sel
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
 | B1 | phone user | Tap "Open Safari" (helper) | `DRY key usage=44 mods=8`, (250 ms) `[mote] DRY text "Safari"`, (150 ms) `DRY key usage=40 mods=0` (each `action=tap`) | real |
-| B2 | phone user | Same over BT | `TapAwait("space", 8)`, `TypeText("Safari")`, `TapAwait("return", 0)`; no Toast (all US-typeable) | faked: BT HID |
+| B2 | phone user | Same over BT | `TapAwait("space", 8)`, `TypeText("Safari")`, `TapAwait("return", 0)`; no Toast (all US-typeable) | faked: BT HID transport (FakeTransport) |
 
 ## Disagreements → DEFECTS.md
 - `macros-D1` (S1): subtitle copy differs; artboard adds "reorder" (not implemented) and "Shortcuts are set for MacBook Pro." (not in code); Spaces tile hint "tap to pick a desktop" vs code "swipe or tap a desktop"; "Open Safari" hint "3 steps" vs code "5 steps" (two Delay steps count).
