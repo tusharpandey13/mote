@@ -10,6 +10,10 @@ final class FakeBackend: SecretBackend {
     var mode = Mode.normal
     var reads = 0, interactiveReads = 0, writes = 0, deletes = 0
     var failWrites = false
+    var failAccounts: Set<String> = []   // writes to these accounts (by name) fail
+    var failDeletes = false
+    var persistMismatch = false          // the item stays unreadable without UI even after a rewrite
+    var updateFixes = false              // an in-place write makes the item readable ("Always Allow" added our partition)
     var readKeys: [String] = []
     func key(_ s: String, _ a: String) -> String { s + "/" + a }
     func read(service: String, account: String, interactive: Bool) throws -> Data? {
@@ -26,13 +30,16 @@ final class FakeBackend: SecretBackend {
     }
     func write(service: String, account: String, data: Data, label: String) -> Bool {
         writes += 1
-        if failWrites { return false }
-        items[key(service, account)] = data; return true
+        if failWrites || failAccounts.contains(account) { return false }
+        items[key(service, account)] = data
+        if updateFixes && account == Vault.account { mode = .normal }
+        return true
     }
     func delete(service: String, account: String) -> Bool {
         deletes += 1
+        if failDeletes { return false }
         items[key(service, account)] = nil
-        mode = .normal   // a fresh item is ours again
+        if !persistMismatch && account == Vault.account { mode = .normal }   // a fresh item is ours again
         return true
     }
 }
@@ -57,11 +64,11 @@ struct VaultTests {
         let b = stale()
         let before = b.items
         let v = Vault(service: svc, memoryOnly: false, backend: b)
-        #expect(b.readKeys == [b.key(svc, "secrets.v3")])
+        #expect(b.readKeys == [b.key(svc, "secrets.v3"), b.key(svc, "secrets.v3.pending")])   // only our two accounts
         #expect(v.secrets == Secrets())                 // nothing carried over: the user re-pairs
         #expect(b.items.count == before.count + 1 && b.items[b.key(svc, "secrets.v2")] == before[b.key(svc, "secrets.v2")])
         _ = Vault(service: svc, memoryOnly: false, backend: b)
-        #expect(Set(b.readKeys) == [b.key(svc, "secrets.v3")])
+        #expect(Set(b.readKeys) == [b.key(svc, "secrets.v3"), b.key(svc, "secrets.v3.pending")])
     }
 
     @Test func authErrorIsNotPresentAndNeverRetriedOrOverwritten() {

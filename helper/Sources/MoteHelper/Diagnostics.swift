@@ -108,6 +108,7 @@ enum Diag {
         // keychain
         let k = i.keychain
         if k.memoryOnly { f["keychain"] = .off("memory store: nothing is kept between runs") }
+        else if k.ephemeral && k.ephemeralReason == "reading" { f["keychain"] = .unknown("Reading Keychain…") }
         else if k.readResult == "error" || (k.ephemeral && k.ephemeralReason != "corrupt") { f["keychain"] = .blocked("keychain-unreadable", fix: "repair-keychain", "Pairings aren't being saved: Keychain unavailable (secrets.v3 read returned \(k.readStatus ?? 0), interactive read \(k.interactiveRead)); nothing is trusted automatically this run") }
         else if k.readResult == "unreadable" { f["keychain"] = .blocked("keychain-corrupt", fix: "repair-keychain", "Pairings aren't being saved: secrets.v3 is corrupt") }
         else if k.readResult == "found" || k.readResult == "notfound" { f["keychain"] = .ok(k.readResult == "found" ? "secrets.v3 read" : "secrets.v3 created") }
@@ -285,7 +286,7 @@ enum Diag {
         i.bleEnabled = config.ble
         i.noBonjour = config.noBonjour
         if !config.memoryStore && !config.usesFakeKeychain {
-            i.keychain.partitionAtWrite = UserDefaults.standard.string(forKey: Vault.partitionKey)
+            i.keychain.partitionAtWrite = UserDefaults.standard.string(forKey: Vault.partitionKey(config.keychainService))
             i.keychain.writeStatus = KeychainBackend.lastWriteStatus.map(Int.init)
             if let c = cachedCount, Date().timeIntervalSince(c.at) < 30 { i.keychain.itemCount = c.n }
             else { let n = keychainItemCount(service: config.keychainService); cachedCount = (Date(), n); i.keychain.itemCount = n }

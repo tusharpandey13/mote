@@ -13,12 +13,16 @@ struct SetupActions {
     /// Vault in ephemeral mode (pairings not saved) and its Repair (asks for confirmation itself).
     var keychainEphemeral: () -> Bool = { false }
     var repairKeychain: () -> Void = {}
+    /// The one interactive read is running ("Reading Keychain…"), and the non-destructive "Try reading again".
+    var keychainReading: () -> Bool = { false }
+    var retryKeychain: () -> Void = {}
 }
 
 /// Live model behind the Setup window: re-reads every permission once a second while it is open.
 final class SetupModel: ObservableObject {
     @Published private(set) var rows: [PermRow] = []
     @Published private(set) var keychainEphemeral = false
+    @Published private(set) var keychainReading = false
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
     private(set) var requested: Set<Perm> = []
     let actions: SetupActions
@@ -38,6 +42,8 @@ final class SetupModel: ObservableObject {
         if new != rows { rows = new; onChange?() }
         let eph = actions.keychainEphemeral()
         if eph != keychainEphemeral { keychainEphemeral = eph }
+        let rd = actions.keychainReading()
+        if rd != keychainReading { keychainReading = rd }
         let login = SMAppService.mainApp.status == .enabled
         if login != launchAtLogin { launchAtLogin = login }
     }
@@ -129,11 +135,14 @@ struct SetupView: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Keychain").font(.system(size: 14, weight: .semibold)).foregroundColor(Tok.onSurface)
-                Text("Pairings aren't being saved: Keychain unavailable. Every phone needs your Allow until this is repaired.")
+                Text(model.keychainReading ? "Reading Keychain…" : "Pairings aren't being saved: Keychain unavailable. Every phone needs your Allow until this is repaired.")
                     .font(.system(size: 12)).foregroundColor(Tok.muted).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
-            Button("Repair") { model.actions.repairKeychain() }.buttonStyle(AccentButton())
+            if !model.keychainReading {
+                Button("Try reading Keychain again") { model.actions.retryKeychain() }.buttonStyle(AccentButton())
+                Button("Repair") { model.actions.repairKeychain() }.buttonStyle(AccentButton())
+            }
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 12).fill(Tok.surface))

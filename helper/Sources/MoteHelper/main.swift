@@ -72,7 +72,9 @@ if !config.headless {
             }
         },
         keychainEphemeral: { hub.vault.ephemeral },
-        repairKeychain: { KeychainRepair.confirmAndRepair(hub) }))
+        repairKeychain: { KeychainRepair.confirmAndRepair(hub) },
+        keychainReading: { hub.vault.reading },
+        retryKeychain: { hub.retryKeychainRead() }))
     menu?.openSetup = { setup?.show() }
     // No permission prompt at launch: the Setup window explains each one and asks on a click.
     if !config.dryRun && SetupWindow.shouldAutoOpen(force: config.openSetup) { setup?.show() }
@@ -120,7 +122,9 @@ if config.stdinControl {
                     case "screen-lab-on": hub.settings.labsLiveScreen = true
                     case let c where c.hasPrefix("display "): hub.spaces.fakeActivate(Int(c.dropFirst(8)) ?? 0)
                     case let c where c.hasPrefix("displays "): hub.spaces.fakeReplug(String(c.dropFirst(9)))
-                    case "repair-keychain": hub.repairKeychain()   // tests: the confirmed Repair
+                    // tests: the confirmed Repair / the retry; only against a simulated or non-default Keychain service
+                    case "repair-keychain" where config.usesFakeKeychain || config.keychainService != "dev.mote.helper": hub.repairKeychain()
+                    case "reread-keychain" where config.usesFakeKeychain || config.keychainService != "dev.mote.helper": hub.retryKeychainRead()
                     case "tailscale on": hub.settings.allowTailscale = true
                     case "tailscale off": hub.settings.allowTailscale = false
                     case let c: log("stdin-control: unknown command '\(c)'")
@@ -136,4 +140,6 @@ diagFile?.start()
 Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in Events.shared.flushInput() }
 signal(SIGTERM) { _ in ev(.lifecycle, "terminate", ["signal": "TERM"]); exit(0) }
 signal(SIGINT) { _ in ev(.lifecycle, "terminate", ["signal": "INT"]); exit(0) }
+// The one interactive Keychain read (if due) runs after launch, off the main thread: the menu and listener are up meanwhile.
+DispatchQueue.main.async { hub.vault.startInteractiveRead() }
 app.run()

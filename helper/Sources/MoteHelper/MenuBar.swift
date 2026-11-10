@@ -82,8 +82,12 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         _ = add("Mote Helper: \(status)")
         if !hub.inputReady { _ = add("Finish setup…", #selector(showSetup)) }
         if hub.vault.ephemeral {   // owner decision U6: say so, and offer the fix
-            _ = add("Pairings aren't being saved: Keychain unavailable")
-            _ = add("Keychain: Repair…", #selector(repairKeychain))
+            if hub.vault.reading { _ = add("Reading Keychain…") }
+            else {
+                _ = add("Pairings aren't being saved: Keychain unavailable")
+                _ = add("Try reading Keychain again", #selector(retryKeychain))
+                _ = add("Keychain: Repair…", #selector(repairKeychain))
+            }
         }
         if hub.liveScreen.streaming {
             _ = add("● Sharing screen with \(hub.liveScreen.viewerName)")
@@ -176,6 +180,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     // MARK: actions
 
     @objc func showSetup() { ev(.ui, "menu.item", ["item": "setup"]); openSetup?() }
+    @objc func retryKeychain() { ev(.ui, "menu.item", ["item": "retryKeychain"]); hub.retryKeychainRead() }
     @objc func repairKeychain() { ev(.ui, "menu.item", ["item": "repairKeychain"]); KeychainRepair.confirmAndRepair(hub) }
     @objc func showDiagnostics() { ev(.ui, "menu.item", ["item": "diagnostics"]); openDiagnostics?() }
 

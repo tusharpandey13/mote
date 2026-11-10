@@ -19,6 +19,7 @@ enum FakeKeychainState: String {
 final class FakeKeychain: SecretBackend {
     let state: FakeKeychainState
     private var item: Data?
+    private var pending: Data?   // the backup account: ours, always readable and writable
     private var healthy: Bool   // true once the item is ours again (rewritten or repaired)
 
     /// Fixed 32-byte identity so tests can tell "seed key" from "minted key".
@@ -40,6 +41,7 @@ final class FakeKeychain: SecretBackend {
     }
 
     func read(service: String, account: String, interactive: Bool) throws -> Data? {
+        if account == Vault.pendingAccount { ev(.keychain, "read", ["account": account, "status": pending == nil ? -25300 : 0, "interactive": interactive, "fake": true]); return pending }
         let r: Result<Data?, KeychainError>
         if healthy { r = .success(item) }
         else {
@@ -56,6 +58,7 @@ final class FakeKeychain: SecretBackend {
     }
 
     func write(service: String, account: String, data: Data, label: String) -> Bool {
+        if account == Vault.pendingAccount { pending = data; ev(.keychain, "write", ["account": account, "status": 0, "ok": true, "fake": true]); return true }
         let ok = healthy
         if ok { item = data }
         ev(.keychain, "write", ["account": account, "status": ok ? 0 : -25308, "ok": ok, "fake": true])
@@ -63,6 +66,7 @@ final class FakeKeychain: SecretBackend {
     }
 
     func delete(service: String, account: String) -> Bool {
+        if account == Vault.pendingAccount { pending = nil; ev(.keychain, "write", ["account": account, "status": 0, "ok": true, "op": "delete", "fake": true]); return true }
         item = nil; healthy = true
         ev(.keychain, "write", ["account": account, "status": 0, "ok": true, "op": "delete", "fake": true])
         return true

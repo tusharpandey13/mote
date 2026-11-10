@@ -80,7 +80,7 @@ async function scenario(state, flags, fn) {
   h.stderr.on('data', () => {});
   const evs = () => (fs.existsSync(events) ? fs.readFileSync(events, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
   const kc = (name) => evs().filter((e) => e.area === 'keychain' && e.event === name);
-  try { await up(p); await fn({ p, h, kc, evs }); } finally { h.kill(); }
+  try { await up(p); await sleep(300); await fn({ p, h, kc, evs }); } finally { h.kill(); }
 }
 const diag = async (ws) => ws.req({ t: 'diag' });
 
@@ -121,10 +121,15 @@ for (const state of ['denied', 'error']) {
     ok(r.hi.t === 'labs.pair.hi' && r.hi.ephemeral === true && r.hi.fp !== seedFp, `${state}: per-process identity marked ephemeral`);
     ok(r.d.t === 'labs.pair.pending', `${state}: valid proximity token AND same Tailscale owner are not enough: Allow needed`);
     r.ws.close();
-    ok(kc('ephemeral.enter').length === 1 && kc('write').filter((e) => e.fields.ok === true).length === 0, `${state}: ephemeral.enter, no Keychain write`);
+    ok(kc('ephemeral.enter').filter((e) => !e.fields.update).length === 1 && kc('write').filter((e) => e.fields.ok === true).length === 0, `${state}: ephemeral.enter, no Keychain write`);
     ok(kc('read').filter((e) => e.fields.interactive === true).length === (state === 'denied' ? 1 : 0),
       `${state}: ${state === 'denied' ? 'one interactive read' : 'no interactive read (a prompt cannot fix it)'}`);
     ok(evs().every((e) => !(e.area === 'session' && e.event === 'paired' && e.fields?.via !== 'approved')), `${state}: nobody paired`);
+    // A pinned phone whose pairing is not loaded: its own error code, it keeps its token.
+    const pw = await open(p); await pw.next();
+    const ae = await pw.req({ t: 'auth', id: 'nobody', mac: '00' });
+    ok(ae.t === 'err' && ae.code === 'keychain-unavailable' && ae.ephemeral === true, `${state}: auth gets err keychain-unavailable (ephemeral)`);
+    pw.close();
   });
   await scenario(state, ['--fake-approve'], async ({ p, h, kc }) => {
     const r = await attempt(p);
@@ -149,6 +154,21 @@ for (const state of ['denied', 'error']) {
     again.ws.close();
   });
 }
+
+// "Try reading Keychain again": denied first, the simulation then answers the retry (non-destructive, one interactive read).
+await scenario('denied', ['--fake-approve'], async ({ p, h, kc }) => {
+  const r = await attempt(p);
+  await r.ws.next(); await r.ws.next();   // ok (approved), authed
+  const d = await diag(r.ws);
+  ok(d.keychain.ephemeral === true && d.keychain.interactiveRead === 'denied', 'reread: denied first');
+  h.stdin.write('reread-keychain\n');
+  await sleep(600);
+  const d2 = await diag(r.ws);
+  ok(kc('reread').length === 1 && kc('read').filter((e) => e.fields.interactive === true).length === 2, 'reread: one more interactive read');
+  ok(d2.keychain.ephemeral === true && d2.keychain.interactiveRead === 'denied' && kc('write').filter((e) => e.fields.op === 'delete').length === 0,
+    'reread: still denied, nothing deleted');
+  r.ws.close();
+});
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(failed ? `${failed} FAILED` : 'ALL PASS');
