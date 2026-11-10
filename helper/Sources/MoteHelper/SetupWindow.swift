@@ -15,7 +15,8 @@ struct SetupActions {
 /// Live model behind the Setup window: re-reads every permission once a second while it is open.
 final class SetupModel: ObservableObject {
     @Published private(set) var rows: [PermRow] = []
-    @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @Published var launchAtLogin = LoginItem.status == .enabled
+    @Published var loginNeedsApproval = LoginItem.status == .requiresApproval
     private(set) var requested: Set<Perm> = []
     let actions: SetupActions
     var onChange: (() -> Void)?
@@ -32,8 +33,9 @@ final class SetupModel: ObservableObject {
         let enabled = Set(Perm.allCases.filter(actions.isEnabled))
         let new = PermissionModel.rows(states: st, enabled: enabled, requested: requested, perms: perms)
         if new != rows { rows = new; onChange?() }
-        let login = SMAppService.mainApp.status == .enabled
-        if login != launchAtLogin { launchAtLogin = login }
+        let ls = LoginItem.status
+        if (ls == .enabled) != launchAtLogin { launchAtLogin = ls == .enabled }
+        if (ls == .requiresApproval) != loginNeedsApproval { loginNeedsApproval = ls == .requiresApproval }
     }
 
     /// The row's button. Every macOS prompt the helper shows starts here (or at a feature toggle).
@@ -58,7 +60,7 @@ final class SetupModel: ObservableObject {
     }
 
     func setLaunchAtLogin(_ on: Bool) {
-        do { if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() } }
+        do { try LoginItem.set(on) }
         catch { log("launch at login: \(error)") }
         refresh()
     }
@@ -102,6 +104,12 @@ struct SetupView: View {
             VStack(spacing: 8) { ForEach(model.rows, id: \.perm) { row($0) } }
             Toggle("Open Mote Helper at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                 .toggleStyle(.switch).tint(Tok.accent).font(.system(size: 13)).foregroundColor(Tok.onSurface)
+            if model.loginNeedsApproval {
+                HStack {
+                    Text(LoginItem.caption(.requiresApproval) ?? "").font(.system(size: 12)).foregroundColor(Tok.muted)
+                    Button("Open Login Items") { LoginItem.openApproval() }
+                }
+            }
             HStack {
                 if model.rows.contains(where: \.relaunch) {
                     Button("Relaunch helper") { SetupModel.relaunch() }
@@ -146,6 +154,14 @@ struct SetupView: View {
 
     @ViewBuilder private func trailing(_ r: PermRow) -> some View {
         switch r.status {
+        case .ok where r.perm == .localNetwork:
+            // Inferred from our own Bonjour registration, so say "probably" and why (owner decision U7).
+            VStack(alignment: .trailing, spacing: 2) {
+                Label(PermissionModel.localNetworkLabel(r.status), systemImage: "checkmark.circle.fill").labelStyle(.titleAndIcon)
+                    .font(.system(size: 12, weight: .medium)).foregroundColor(Tok.ok)
+                Text(PermissionModel.localNetworkNote).font(.system(size: 11)).foregroundColor(Tok.muted)
+                    .multilineTextAlignment(.trailing).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 150, alignment: .trailing)
+            }
         case .ok:
             Label("Allowed", systemImage: "checkmark.circle.fill").labelStyle(.titleAndIcon)
                 .font(.system(size: 12, weight: .medium)).foregroundColor(Tok.ok)
@@ -154,6 +170,12 @@ struct SetupView: View {
                 .buttonStyle(AccentButton())
         case .optional:
             Button("Enable") { model.act(r) }
+        case .check where r.perm == .localNetwork:
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(PermissionModel.localNetworkLabel(r.status)).font(.system(size: 12, weight: .medium)).foregroundColor(Tok.muted)
+                Text(PermissionModel.localNetworkNote).font(.system(size: 11)).foregroundColor(Tok.muted)
+                    .multilineTextAlignment(.trailing).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 150, alignment: .trailing)
+            }
         case .check:
             // macOS has no API for this permission: say so instead of offering a button that can't change anything.
             Text("Can't check: macOS doesn't report this").font(.system(size: 11)).foregroundColor(Tok.muted)

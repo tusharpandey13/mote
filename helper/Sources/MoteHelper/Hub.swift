@@ -36,10 +36,12 @@ final class Hub {
         }
     }
 
-    private(set) var axTrusted = AXIsProcessTrusted()
+    private(set) var axTrusted = AXIsProcessTrusted()   // init applies --fake-ax-denied
 
     init(config: Config) {
         self.config = config
+        PermProbe.fakeAxDenied = config.dryRun && config.fakeAxDenied
+        if PermProbe.fakeAxDenied { axTrusted = false; log("fake: Accessibility denied") }
         self.vault = Vault(service: config.keychainService, memoryOnly: config.memoryStore)
         self.store = DeviceStore(vault: vault, path: \.devices)
         self.settings = Settings(config: config)
@@ -64,7 +66,7 @@ final class Hub {
     }
 
     /// Accessibility doesn't matter in dry-run (nothing is posted).
-    var inputReady: Bool { axTrusted || config.dryRun }
+    var inputReady: Bool { axTrusted || (config.dryRun && !PermProbe.fakeAxDenied) }
 
     func add(_ s: Session) { sessions.append(s); onChange?() }
     func remove(_ s: Session) {

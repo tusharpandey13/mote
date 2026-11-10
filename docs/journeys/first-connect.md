@@ -17,7 +17,7 @@ One tap on "Connect to <name>" trusts the phone with no Mac-side action when the
 | Install | fresh both sides / phone reinstalled (helper still trusts old phone key) / helper reinstalled (new identity) |
 | Phone Nearby devices | granted / not asked (NeedBluetooth) / denied / permanently denied / Android < 12 (no BLE proximity) |
 | Mac Bluetooth | allowed + advertising / denied / off |
-| Helper settings | instant pairing on (default) / off / Require approval on / Allow Tailscale on (code default) / off |
+| Helper settings | instant pairing on (default) / off / Require approval on / Allow Tailscale on / off (default) |
 | Distance | next to Mac / far (RSSI or no token) / token from previous window (stale) / replayed (bad-proximity) |
 | Network | same LAN / LAN without mDNS / tailnet only / unreachable |
 | Phone state on helper | unknown / trusted / blocked |
@@ -59,4 +59,4 @@ One tap on "Connect to <name>" trusts the phone with no Mac-side action when the
 - D-FC-2 ConnectException copy says "Applications"; install.sh installs to `~/Applications`.
 - D-FC-3 `Vault.update` saves regardless of `readResult`. With `error`, `SecItemUpdate` under UIFail either fails (trust kept in memory only; the log line "kept in memory until the next launch" is then right) or succeeds and overwrites the old blob (mac-update-D1). Which one happens for a foreign-partition item is unverified (L1 fixture needed).
 - D-FC-4 Blocked list is lost with an unreadable Keychain: a blocked phone near the Mac is trusted again.
-- D-FC-5 protocol.md §4 says "Allow Tailscale connections" defaults off; `Config.swift` defaults it on when unset (pairing.md agrees with code).
+- D-FC-5 protocol.md §4 says "Allow Tailscale connections" defaults off; `Config.swift` defaults it on when unset (pairing.md agrees with code). FIXED (U11): code and pairing.md now default it off; an upgrader who never set it loses tailnet access until they tick the menu item (Advanced › Allow Tailscale connections); `lifecycle/setting{key:allowTailscale,default:true}` is logged at launch in that case.

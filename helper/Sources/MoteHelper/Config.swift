@@ -26,6 +26,9 @@ struct Config {
     var fakeTailscaleOwner: String? = nil // tests: every peer is a tailnet node owned by this ("self" = this Mac's owner) (needs --dry-run)
     var fakeContext: String? = nil // Labs tests: read the frontmost-app context from this JSON file (needs --dry-run)
     var fakeNowPlaying = false     // Labs tests: a synthetic now-playing session (needs --dry-run)
+    var fakeAxDenied = false   // tests: Accessibility reads as not granted, even in --dry-run (U16; needs --dry-run)
+    var updateURL: String? = nil     // tests: --update-url URL, the GitHub "latest release" endpoint stand-in (needs --dry-run)
+    var updateCheckNow = false       // tests: --update-check-now ignores the once-a-day limit (needs --dry-run)
     var fakeScreen = false    // tests: Labs live screen streams synthetic frames of a fake display (needs --dry-run; turns the lab on)
     var diag = false          // --diag: print the diagnostics snapshot (JSON) and exit; no prompts, no UI, no writes
     var dataDir: URL? = nil   // --data-dir DIR: where the running helper writes diag.json / diag-events.jsonl (default ~/Library/Application Support/dev.mote.helper; none with --memory-store)
@@ -47,6 +50,9 @@ struct Config {
             case "--allow-tailscale": c.allowTailscale = true
             case "--stdin-control": c.stdinControl = true
             case "--fake-screen": c.fakeScreen = true
+            case "--fake-ax-denied": c.fakeAxDenied = true
+            case "--update-url": c.updateURL = it.next()
+            case "--update-check-now": c.updateCheckNow = true
             case "--labs-tv": c.labsTv = true
             case "--labs-pairing": c.instantPairing = true
             case "--no-instant-pairing": c.instantPairing = false
@@ -77,7 +83,7 @@ struct Config {
                 MoteHelper --diag [--data-dir DIR]   (print the running helper's diagnostics snapshot, else this process's own, as JSON and exit; never prompts)
                 MoteHelper [--setup] [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale] [--events FILE] [--data-dir DIR]
-                          [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying] [--fake-screen]   (tests, need --dry-run; port 0 = any free port)
+                          [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying] [--fake-screen] [--fake-ax-denied] [--update-url URL] [--update-check-now]   (tests, need --dry-run; port 0 = any free port)
                           [--no-instant-pairing | --labs-pairing] [--require-approval]   (instant pairing: off / force on; approval prompts)
                           [--fake-proximity] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID|timeout]   (instant pairing tests, need --dry-run)
                           [--fake-bt-pair | --fake-bt-pair-fail REASON]   (Bluetooth HID setup without Bluetooth, needs --dry-run)
@@ -101,8 +107,8 @@ final class Settings {
     var onChange: (() -> Void)?
 
     /// "Allow Tailscale connections": accept tailnet peers (100.64/10, fd7a:115c:a1e0::/48) and
-    /// MagicDNS (*.ts.net) or tailnet-literal Host headers. Default on (an explicit off is kept);
-    /// with --memory-store (tests) off unless --allow-tailscale.
+    /// MagicDNS (*.ts.net) or tailnet-literal Host headers. Default OFF when never set (protocol.md section 4;
+    /// before 0.7 an unset value meant on). Menu: "Allow Tailscale connections". --memory-store (tests): off unless --allow-tailscale.
     var allowTailscale: Bool {
         didSet {
             guard allowTailscale != oldValue else { return }
@@ -145,7 +151,12 @@ final class Settings {
             hostId = randomHex(8)
             defaults?.set(hostId, forKey: "hostId")
         }
-        allowTailscale = config.allowTailscale ?? defaults.map { $0.object(forKey: "allowTailscale") as? Bool ?? true } ?? false
+        let storedTs = defaults?.object(forKey: "allowTailscale") as? Bool
+        allowTailscale = config.allowTailscale ?? storedTs ?? false
+        if config.allowTailscale == nil, defaults != nil, storedTs == nil {
+            // Unset (never chosen): off since 0.7. Recorded so an upgraded user can see why tailnet phones stopped connecting.
+            ev(.lifecycle, "setting", ["key": "allowTailscale", "on": false, "default": true])
+        }
         shareSpaceThumbnails = (defaults?.object(forKey: "shareSpaceThumbnails") as? Bool) ?? (config.dryRun && config.fakeSpaces != nil)
         labsLiveScreen = (config.fakeScreen && config.dryRun) || (defaults?.bool(forKey: "labsLiveScreen") ?? false)
     }

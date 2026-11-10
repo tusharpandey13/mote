@@ -82,7 +82,7 @@ final class InstantPairing: NSObject {
         if enabled, !c.dryRun, let d = defaults, !d.bool(forKey: "loginApplied") {
             d.set(true, forKey: "loginApplied")
             if !d.bool(forKey: "labsLoginApplied"), SMAppService.mainApp.status != .enabled {
-                do { try SMAppService.mainApp.register(); log("instant pairing: launch at login on") } catch { log("instant pairing: launch at login failed: \(error)") }
+                do { try LoginItem.set(true); log("instant pairing: launch at login on") } catch { log("instant pairing: launch at login failed: \(error)") }
             }
         }
     }

@@ -47,11 +47,11 @@ Gaps: L1 is nearly empty (no recorded TCC/Keychain/NetService fixtures); Mac-sid
 
 ## Cross-cutting defects (top)
 1. Keychain partition change (every Mote Helper Local build; any identity switch) makes `secrets.v3` unreadable with no prompt and no UI; the helper mints a new identity each launch, trusted and blocked lists are lost; `docs/signing.md` promises one prompt (D-UP-1, D-RC-1, D-FC-3, D-FC-4, D-SM-1).
-2. install.sh resets only Accessibility and ScreenCapture on a DR change; Bluetooth/Automation go stale (D-INS-1).
+2. (fixed, U9) install.sh now resets Accessibility, ScreenCapture, BluetoothAlways and AppleEvents on a DR change (D-INS-1).
 3. POST_NOTIFICATIONS is never asked on the helper path, and the phase-1b media notification vanishes 30 s after backgrounding (D-SP-3, D-DU-3).
 4. B1/B2: Screen Recording and Local Network rows rest on weak signals (preflight, Bonjour inference); root causes unverified (SM-11, SM-14).
 5. Test seams: no fake for Accessibility denied or Keychain error; phase-1 drafts cite `--fake-ax-denied` and `--store-file`, which do not exist (D-SM-2).
-6. `docs/protocol.md` §4 says Allow Tailscale defaults off; code defaults on (D-FC-5).
+6. `docs/protocol.md` §4 says Allow Tailscale defaults off; code defaulted on (D-FC-5; fixed, U11: off).
 7. `e2e/journeys/report.mjs` parses `| S<n> |` rows and takes the last column as Seam; phase-2 rows use `<PREFIX>-<n>` and end with Status, and `permissions.md` / `UNDEFINED.md` are not excluded. Phase 4 must adapt it.
 
 Per-file defects: J1 4, J2 7, J3 5, J4 5, J5 6, J6 4, J7 4 (35, incl. carried phase-1 draft defects).

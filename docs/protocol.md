@@ -207,13 +207,16 @@ Rules for reading it: every value is a fact the helper read without UI, or a con
   "sessions": [ { "deviceName", "transport": "Wi-Fi"|"Bluetooth", "authed", "connectedS",
                   "protocol": {"helper": "1.5", "client": string|null, "clientApp": string|null},
                   "subscriptions": {"spaces","context","nowPlaying","bridge","diag"}, "liveScreenViewer": bool } ],
-  "labs": { "liveScreen": {"enabled","streaming","viewer"}, "context": {"enabled"}, "nowPlaying": {"enabled","source"},
+  "labs": { "liveScreen": {"enabled","streaming","viewer"}, "context": {"enabled"}, "nowPlaying": {"enabled","source"} /* core, on by default since 0.7; menu "Share now playing" */,
             "tvMode": {"enabled","showing"}, "bridge": {"enabled","status","connected"}, "spaceThumbnails": {"enabled"}, "instantPairing": {"enabled"} },
+  "update": { "enabled": bool, "current": string, "latest": string|null, "available": bool, "checkedAt": unix ms|null, "last": "never"|"ok"|"error: <reason>" } | null,
   "events": { "head": <last seq>, "buffered": n, "capacity": 5000 }
 }
 ```
 
 `<perm>` is one of `accessibility`, `bluetooth`, `localNetwork`, `screenRecording`, `automation`. `features` keys: `input`, `keychain`, `wifi`, `bonjour`, `bluetooth`, `tailscale`, `spaceThumbnails`, `labs.liveScreen`, `labs.context`, `labs.nowPlaying`, `labs.tvMode`, `labs.bridge`. `state`: `ok` works; `blocked` wanted but something stops it (`blockedBy` and `fix` set); `off` the user (or a flag) turned it off, or nothing uses it; `unknown` the helper cannot tell.
+
+`update` (helper 0.7+) is the daily release check: the helper asks GitHub `releases/latest` at most once a day (no auth, nothing downloaded), shows "Mote Helper X.Y.Z is available" in the menu when `latest` is newer than `current`, and the user can turn it off under Advanced. Failures are silent: the `lifecycle/update.check` event carries `result: error` and `reason`. Test flags (need `--dry-run`): `--update-url URL`, `--update-check-now`; `--fake-ax-denied` makes Accessibility read as not granted (`state.ax` false, `key` -> `err ax`). The Setup window labels `localNetwork` "Probably allowed" / "Unknown" (never "Allowed"), because macOS lets no app read it.
 
 `localNetwork` is the one permission with no macOS API: its `state` is inferred from the Bonjour registration of the helper's own listener (registered = `ok`; `PolicyDenied` -65570 = `blocked`; anything else `unknown`), and `inferred` is true. `api`/`raw` are the unmodified OS answers (e.g. `CGPreflightScreenCaptureAccess` / `"false"`), so a "granted but the app says no" case can be diagnosed from the snapshot alone.
 
@@ -242,7 +245,7 @@ Areas and events (a unit test keeps this table equal to the code):
 
 | Area | Events |
 |---|---|
-| `lifecycle` | `start`, `ready`, `terminate`, `setting`, `diag.cli` |
+| `lifecycle` | `start`, `ready`, `terminate`, `setting`, `diag.cli`, `login.item`, `update.check` |
 | `signing` | `identity`, `error` |
 | `permission` | `check`, `change`, `request` |
 | `keychain` | `read`, `write`, `partition` |
@@ -297,7 +300,7 @@ The helper turns network messages into keystrokes and clicks on the Mac, so an u
 
 ### Tailscale
 
-Menu > "Allow Tailscale connections" (persisted, default off; `--allow-tailscale` forces it on for one run). When on:
+Menu > Advanced > "Allow Tailscale connections" (persisted, default off when never set, which since 0.7 also covers an upgrader who never chose;  `--allow-tailscale` forces it on for one run). When on:
 
 - peers in 100.64/10 and `fd7a:115c:a1e0::/48` are accepted, and `Host` may be a MagicDNS name (`*.ts.net`) or a tailnet IP literal;
 - the menu shows `http://<tailnet host>:8790` when it can detect it (MagicDNS name from the Tailscale CLI, else the `utun` 100.x address), and the pairing link carries `ts=`.

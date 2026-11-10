@@ -81,6 +81,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             : hub.config.dryRun ? "Ready (dry run: logging only)" : "Ready"
         _ = add("Mote Helper: \(status)")
         if !hub.inputReady { _ = add("Finish setup…", #selector(showSetup)) }
+        if let t = updater?.menuTitle { _ = add(t + "…", #selector(openRelease)) }
         if hub.liveScreen.streaming {
             _ = add("● Sharing screen with \(hub.liveScreen.viewerName)")
             _ = add("Stop sharing screen", #selector(stopScreen))
@@ -152,8 +153,12 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             sub(adv, "Require approval for new devices", #selector(toggleRequireApproval), state: ip.requireApproval)
             sub(adv, "This Mac's key: \(groupedFingerprint(ip.fp))")
         }
+        hub.labs.compactMap { $0 as? LabsContext }.flatMap { $0.nowPlayingMenuItems() }.forEach(adv.addItem)
+        if let u = updater { sub(adv, "Check for updates daily", #selector(toggleUpdateCheck), state: u.enabled) }
         sub(adv, "Pair with code (web remote)…", #selector(startPairing))
-        sub(adv, "Open at login", #selector(toggleLogin), state: SMAppService.mainApp.status == .enabled)
+        let loginStatus = LoginItem.status
+        if let c = LoginItem.caption(loginStatus) { sub(adv, c + "…", #selector(openLoginApproval)) }
+        else { sub(adv, "Open at login", #selector(toggleLogin), state: loginStatus == .enabled) }
         submenu("Advanced", adv)
 
         let labs = NSMenu()   // Labs (previews, off by default)
@@ -223,10 +228,13 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         if a.runModal() == .alertFirstButtonReturn { hub.revokeAll() }
     }
 
+    @objc func openRelease() { updater?.openReleasePage() }
+    @objc func toggleUpdateCheck() { ev(.ui, "menu.item", ["item": "toggleUpdateCheck"]); updater?.enabled.toggle() }
+    @objc func openLoginApproval() { LoginItem.openApproval() }
+
     @objc func toggleLogin() { ev(.ui, "menu.item", ["item": "toggleLogin"]);
         do {
-            if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() }
-            else { try SMAppService.mainApp.register() }
+            try LoginItem.set(LoginItem.status != .enabled)
         } catch {
             let a = NSAlert(error: error)
             a.runModal()

@@ -17,7 +17,9 @@ ev(.signing, signing.error == nil ? "identity" : "error", signing.json)
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)   // menu-bar only (also LSUIElement in Info.plist)
 
+if !config.dryRun { LoginItem.reconcile() }
 let hub = Hub(config: config)
+updater = Updater(config: config)
 var diagnostics: DiagnosticsWindow?
 let labsContext = LabsContext(hub: hub)
 hub.labs.append(labsContext)
@@ -76,6 +78,8 @@ if !config.headless {
     if !config.dryRun && SetupWindow.shouldAutoOpen(force: config.openSetup) { setup?.show() }
 }
 hub.onChange = refresh
+updater?.onChange = refresh
+updater?.start()
 web?.onChange = { refresh(); hub.instantPairing.printInfoIfReady() }
 hub.instantPairing.port = { web?.port ?? 0 }
 hub.instantPairing.onNewDevice = { name, via, fp in menu?.showNewDevice(name: name, via: via, fp: fp) }
@@ -118,6 +122,10 @@ if config.stdinControl {
                     case "screen-lab-on": hub.settings.labsLiveScreen = true
                     case let c where c.hasPrefix("display "): hub.spaces.fakeActivate(Int(c.dropFirst(8)) ?? 0)
                     case let c where c.hasPrefix("displays "): hub.spaces.fakeReplug(String(c.dropFirst(9)))
+                    case "nowplaying on": labsContext.setNowPlayingEnabled(true)
+                    case "nowplaying off": labsContext.setNowPlayingEnabled(false)
+                    case "updates on": updater?.enabled = true
+                    case "updates off": updater?.enabled = false
                     case "tailscale on": hub.settings.allowTailscale = true
                     case "tailscale off": hub.settings.allowTailscale = false
                     case let c: log("stdin-control: unknown command '\(c)'")

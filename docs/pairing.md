@@ -100,7 +100,7 @@ In order:
 
 On every new trust (steps 3-5) the menu-bar app shows a **non-blocking** floating notice at the top right, "<Phone> connected to Mote.", with the route (Bluetooth proximity / Tailscale / approved) and one **Block** button; it disappears after 15 s and needs no action. Block removes the key, adds its fingerprint and name to a persistent blocked list (Keychain account `blocked`) and revokes its open sessions (`err revoked`). The helper menu's Trusted phones submenu lists trusted phones (with Block) and blocked ones (with **Unblock**, which lets the phone connect again by proximity or Tailscale). "Revoke all devices" clears the trust list and the blocked list. The 6-digit code window moved to Advanced › Pair with code (web remote). Headless runs log `labs: new device <name> via <via> (k:<fp>)` (dry-run also prints `NEW DEVICE: {json}`).
 
-Helper defaults that make "nothing on the Mac" work: instant pairing on, "Allow Tailscale connections" on unless the user turned it off, "Launch at login" turned on once at the first launch.
+Helper defaults that make "nothing on the Mac" work: instant pairing on, "Allow Tailscale connections" OFF until the user turns it on in the menu (so Tailscale auto-trust and tailnet addresses need that one switch; upgraders who never set it lose tailnet access until they do), "Launch at login" turned on once at the first launch.
 
 ## 5. Phone: discovery, first run and reconnects
 
