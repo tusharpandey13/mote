@@ -4,7 +4,8 @@ import android.Manifest
 import android.media.session.MediaController
 import android.media.session.PlaybackState
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.mote.remote.labs.Labs
+import dev.mote.remote.data.UiPrefs
+import kotlinx.coroutines.runBlocking
 import dev.mote.remote.labs.context.NpNotifPlan
 import dev.mote.remote.labs.context.NpNotifier
 import org.junit.Rule
@@ -12,7 +13,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Phase 1b: the Android media notification for the Mac's now playing (Labs › Smart remote).
+ * The Android media notification (core, Settings › Media notification; no Labs gate): the Mac's now playing over Mote
+ * Helper (U3), a mediaPlayback foreground service while it plays (U2), transport-only over Bluetooth (U1), public on the lock screen (U20).
  * Asserted through `dumpsys notification` / `dumpsys media_session`; the buttons are a MediaController on the
  * app's own session token (the callbacks the system UI would call), and the helper's `DRY ...` lines show what
  * reached the Mac.
@@ -25,7 +27,7 @@ class NpNotificationJourney {
 
     private fun notif() = j.shell("dumpsys notification --noredact")
     private fun posted() = notif().let { d ->
-        d.split("NotificationRecord").drop(1).firstOrNull { "pkg=${j.ctx.packageName}" in it && "channel=nowplaying" in it }
+        d.split("NotificationRecord").drop(1).firstOrNull { "pkg=${j.ctx.packageName}" in it && "channel=nowplaying" in it && "id=2147483647" !in it }
     }
     private fun sessions() = j.shell("dumpsys media_session")
 
@@ -41,7 +43,6 @@ class NpNotificationJourney {
         j.path("np-notification")
         j.shell("cmd statusbar collapse")
         val (mac, name) = j.dlHelper("--fake-nowplaying")
-        j.dlLabs(Labs.SMART_REMOTE)
         j.dlConnect(mac, name)
 
         // Notifications are not allowed yet (Android 13+): nothing is posted, the panel asks in context, Diagnostics says why.
@@ -74,6 +75,11 @@ class NpNotificationJourney {
             if (md.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) != "Fake Song") throw AssertionError("metadata title")
             if (md.getLong(android.media.MediaMetadata.METADATA_KEY_DURATION) != 300_000L) throw AssertionError("duration")
         }
+        j.step("N3b") { // U2 + U20: a mediaPlayback foreground service holds it; the channel shows on the lock screen
+            val svc = j.shell("dumpsys activity services ${j.ctx.packageName}/dev.mote.remote.service.NpService")
+            if ("isForeground=true" !in svc || "types=0x00000002" !in svc) throw AssertionError("NpService is not a mediaPlayback FGS:\n${svc.take(1500)}")
+            if ("vis=PUBLIC" !in svc) throw AssertionError("notification not public on the lock screen:\n${svc.take(1500)}")
+        }
         j.step("N4") {
             val tc = controller().transportControls
             mac.mark(); tc.skipToNext(); mac.await("DRY consumer next")
@@ -98,43 +104,65 @@ class NpNotificationJourney {
         }
     }
 
-    @Test fun labOff() {
-        j.path("np-notification.lab-off")
+    @Test fun settingOff() {
+        j.path("np-notification.setting-off")
         j.grant(Manifest.permission.POST_NOTIFICATIONS)
         val (mac, name) = j.dlHelper("--fake-nowplaying")
-        j.dlLabs(Labs.SMART_REMOTE)
         j.dlConnect(mac, name)
         waitUntil("notification posted") { posted() != null }
         j.step("B1") {
-            j.dlLabs(Labs.SMART_REMOTE, on = false)
-            waitUntil("notification removed when the lab is turned off") { posted() == null }
+            runBlocking { UiPrefs.update(j.ctx) { it.copy(mediaNotification = false) } }
+            waitUntil("notification removed when the setting is turned off") { posted() == null }
+            waitUntil("plan: setting-off") { (NpNotifier.plan.value as? NpNotifPlan.Hide)?.reason == "setting-off" }
         }
     }
 
-    @Test fun backgroundTimeout() {
+    /** U2: the foreground service keeps the socket (and the notification) beyond the 30 s background close. */
+    @Test fun backgroundKeepsPlaying() {
         j.path("np-notification.background")
         j.grant(Manifest.permission.POST_NOTIFICATIONS)
         val (mac, name) = j.dlHelper("--fake-nowplaying")
-        j.dlLabs(Labs.SMART_REMOTE)
         j.dlConnect(mac, name)
         waitUntil("notification posted") { posted() != null }
         j.step("B2") {
-            // The app closes the helper socket 30 s after it leaves the screen (no foreground service): the session ends with it.
             j.closeActivity()
-            waitUntil("notification removed after the socket closed", 60_000) { posted() == null }
+            Thread.sleep(40_000) // past Net's 30 s background close
+            if (posted() == null) throw AssertionError("notification gone after 40 s in the background while playing")
+            mac.mark(); controller().transportControls.skipToNext(); mac.await("DRY consumer next")
         }
     }
 
+    /** U2: paused for the timeout (shortened here) stops the service and removes the notification. */
+    @Test fun pausedTimeout() {
+        j.path("np-notification.paused")
+        j.grant(Manifest.permission.POST_NOTIFICATIONS)
+        NpNotifier.pausedStopMs = 4_000
+        val (mac, name) = j.dlHelper("--fake-nowplaying")
+        j.dlConnect(mac, name)
+        waitUntil("notification posted") { posted() != null }
+        j.step("B4") {
+            // The fake Mac doesn't toggle on play/pause: deliver the paused state the way the helper would.
+            val now = System.currentTimeMillis()
+            dev.mote.remote.labs.LabsBus.deliver("""{"t":"labs.np","enabled":true,"source":"mediaremote","seek":["mediaremote"],"now":$now,"np":{"title":"Fake Song","artist":"Mote Labs","app":"Music","duration":300,"elapsed":30,"rate":0,"at":$now}}""")
+            waitUntil("paused state reaches the notification") { controller().playbackState?.state == PlaybackState.STATE_PAUSED }
+            waitUntil("removed after the paused timeout", 20_000) { posted() == null }
+            waitUntil("plan: idle-timeout") { (NpNotifier.plan.value as? NpNotifPlan.Hide)?.reason == "idle-timeout" }
+            val svc = j.shell("dumpsys activity services ${j.ctx.packageName}/dev.mote.remote.service.NpService")
+            if ("isForeground=true" in svc) throw AssertionError("service still foreground:\n${svc.take(800)}")
+        }
+    }
+
+    /** U1: Bluetooth only: "Mote · Bluetooth" with transport buttons and no metadata. */
     @Test fun bluetoothOnly() {
         j.path("np-notification.bluetooth")
         j.grant(Manifest.permission.POST_NOTIFICATIONS)
-        j.dlLabs(Labs.SMART_REMOTE)
         j.dlBluetoothOnly()
         j.step("B3", "faked: TestSeam.transport = FakeTransport (HID caps)") {
-            j.expect("SMART REMOTE", timeoutMs = 8_000)
-            waitUntil("plan: no helper") { (NpNotifier.plan.value as? NpNotifPlan.Hide)?.reason == "no-helper" }
-            Thread.sleep(1_500)
-            if (posted() != null) throw AssertionError("a notification over Bluetooth only")
+            waitUntil("bluetooth notification") { posted() != null }
+            val n = posted()!!
+            if ("Mote · Bluetooth" !in n) throw AssertionError("title:\n$n")
+            if (controller().playbackState!!.actions and PlaybackState.ACTION_SKIP_TO_NEXT == 0L) throw AssertionError("no next action")
+            if (controller().metadata?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST) != null) throw AssertionError("metadata over Bluetooth")
         }
     }
 }
