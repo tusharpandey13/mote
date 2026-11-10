@@ -1,4 +1,4 @@
-# Mote helper protocol, v1.4
+# Mote helper protocol, v1.5
 
 One JSON message protocol shared by both transports of the Mote Helper (macOS menu-bar app):
 
@@ -6,6 +6,8 @@ One JSON message protocol shared by both transports of the Mote Helper (macOS me
 - **BLE**: GATT service on the Mac (the helper is the peripheral, the phone is the central). Same JSON, fragmented (see [BLE framing](#ble-framing)).
 
 All messages are JSON objects with a type field `t`. Unknown fields are ignored. Unknown `t` gets an `err`. The protocol version is announced in `hello` (`"v": 1`); a peer that sees a different major version closes the connection. Minor versions only add optional fields, so `v` stays 1.
+
+Changes in 1.5 (backward compatible): diagnostics, see [2.1](#21-diagnostics-v15). New `diag` (request, returns a snapshot of permissions, signing, transports and features with a `state` / `blockedBy` / `fix` each), `diag.subscribe` / `diag.events` (live event stream with replay), the envelope fields `corr` (echoed on replies, stamped on events) and `step`, and an optional `client {app, proto}`. A 1.4 helper answers the new messages with `err unknown`.
 
 Changes in 1.4 (backward compatible): Spaces per display. `spaces` gains `displays` (each display's Space list), `display` (the active display) and `shared`; the 1.3 `count` / `current` / `thumbs` now follow the active display instead of the main display. `spaces.thumb` and `spaces.goto` take an optional `display`; the `spaces.thumb` reply carries it. `spaces` is also pushed when the active display changes. A 1.3 helper ignores `display` (it means the main display there).
 
@@ -165,6 +167,94 @@ macOS Spaces ("desktops") per display, for the app's Spaces carousel. All four m
 - They travel like every other message: **unencrypted on Wi-Fi/LAN** (anyone who can sniff the network can see them) and WireGuard-encrypted over Tailscale. Only authenticated sessions get them.
 - They are kept **in memory only**, never written to disk (no cache file; a persisted cache wasn't needed because the helper recaptures on the next visit). Quitting the helper, "Clear Space thumbnails", turning "Share Space thumbnails" off, and "Revoke all devices" drop them.
 - Turn "Share Space thumbnails" off (or deny Screen Recording) to get the numbered-card carousel without pictures.
+
+## 2.1 Diagnostics (v1.5)
+
+Three additions, all optional and backward compatible. A helper older than 1.5 answers `diag` / `diag.subscribe` with `err {code: "unknown"}`; a client treats that as "no diagnostics" and must not retry. Both new messages need `authed` (before that: `err unauth`).
+
+### Envelope: `corr`, `step`, `client`
+
+Any client message may carry `corr` (string, 1-64 printable ASCII chars; anything else is ignored). The helper (a) echoes it as `corr` on every direct reply to that message (including `err`), and (b) stamps it on every event it emits while handling that message. Pushed messages not caused by a client message carry no `corr`. `step` (same rules) is the client's journey step name; the helper stamps it on events as `journeyStep`. Clients use one `corr` per user action to join the Android and helper logs.
+
+`auth` and `diag` / `diag.subscribe` may carry `client: {app, proto}` (`app` ≤ 64 printable ASCII chars such as `"mote-android"`, `proto` ≤ 16 chars such as `"1.5"`). The helper only shows them in `sessions[]` of the snapshot.
+
+### `diag` (client -> helper)
+
+`{"t":"diag","corr":"c1","client":{"app":"mote-android","proto":"1.5"}}`. Reply: the snapshot, `{"t":"diag","v":1,"corr":"c1", ...}`. `MoteHelper --diag` prints the same object (see below) and the menu item "Diagnostics…" shows it.
+
+Rules for reading it: every value is a fact the helper read without UI, or a conclusion drawn from facts. Never a secret. `null` = not applicable / not known. Unknown keys must be ignored. Never show a Grant / Open Settings button for state `unknown`; show "Can't check: macOS doesn't report this".
+
+```
+{
+  "t": "diag", "v": 1, "at": <unix ms>, "source": "ws" | "cli" | "menu" | "setup",
+  "running": bool,            // false only for `MoteHelper --diag` (a CLI process, not the running helper): runtime sections are "unknown"
+  "helper": { "version", "protocol": "1.5", "pid", "uptimeS", "dryRun", "headless", "memoryStore", "port", "hostId", "macOS": "15.1.0", "arch": "arm64"|"x86_64" },
+  "features": { "<name>": { "state": "ok"|"blocked"|"off"|"unknown", "blockedBy": code|null, "fix": code|null, "detail": string|null } },
+  "signing": { "identity": "developer-id"|"apple-development"|"mote-local"|"self-signed"|"adhoc"|"other"|"unknown",
+               "adhoc", "hardenedRuntime", "identifier", "teamId", "cdhash", "designatedRequirement", "authorities": [string],
+               "bundlePath", "executablePath", "quarantined", "translocated", "expectedKeychainPartition": "teamid:<T>"|"cdhash:<h>"|null, "error"?: OSStatus },
+  "permissions": { "<perm>": { "state","blockedBy","fix","detail" /* as a feature */,
+                     "api": string, "raw": string, "apiState": "granted"|"denied"|"notDetermined"|"unknown",
+                     "checkedAt": unix ms, "ms": number, "detail": {string: string},
+                     "inferred"?: true, "inferredFrom"?: string, "applies"?: bool } },
+  "keychain": { "service", "account", "memoryOnly", "readStatus": OSStatus|null, "readResult": "found"|"notfound"|"error"|"unreadable"|"memory",
+                "writeStatus": OSStatus|null, "itemCount": int|null, "partitionAtWrite": string|null, "expectedPartition": string|null,
+                "partitionMatchesSigning": bool|null },
+  "transports": { "wifi": {"listening": bool|null, "state", "port", "error", "connections", "accepted", "refused"},
+                  "bonjour": {"state", "errorCode", "type": "_mote._tcp", "disabled"},
+                  "ble": {"enabled", "status", "advertising"},
+                  "tailscale": {"allowed", "name", "address"} },
+  "sessions": [ { "deviceName", "transport": "Wi-Fi"|"Bluetooth", "authed", "connectedS",
+                  "protocol": {"helper": "1.5", "client": string|null, "clientApp": string|null},
+                  "subscriptions": {"spaces","context","nowPlaying","bridge","diag"}, "liveScreenViewer": bool } ],
+  "labs": { "liveScreen": {"enabled","streaming","viewer"}, "context": {"enabled"}, "nowPlaying": {"enabled","source"},
+            "tvMode": {"enabled","showing"}, "bridge": {"enabled","status","connected"}, "spaceThumbnails": {"enabled"}, "instantPairing": {"enabled"} },
+  "events": { "head": <last seq>, "buffered": n, "capacity": 5000 }
+}
+```
+
+`<perm>` is one of `accessibility`, `bluetooth`, `localNetwork`, `screenRecording`, `automation`. `features` keys: `input`, `keychain`, `wifi`, `bonjour`, `bluetooth`, `tailscale`, `spaceThumbnails`, `labs.liveScreen`, `labs.context`, `labs.nowPlaying`, `labs.tvMode`, `labs.bridge`. `state`: `ok` works; `blocked` wanted but something stops it (`blockedBy` and `fix` set); `off` the user (or a flag) turned it off, or nothing uses it; `unknown` the helper cannot tell.
+
+`localNetwork` is the one permission with no macOS API: its `state` is inferred from the Bonjour registration of the helper's own listener (registered = `ok`; `PolicyDenied` -65570 = `blocked`; anything else `unknown`), and `inferred` is true. `api`/`raw` are the unmodified OS answers (e.g. `CGPreflightScreenCaptureAccess` / `"false"`), so a "granted but the app says no" case can be diagnosed from the snapshot alone.
+
+`blockedBy` codes: `accessibility-not-granted`, `bluetooth-not-granted`, `bluetooth-denied`, `bluetooth-off`, `local-network-denied`, `screen-recording-not-granted`, `automation-not-granted`, `input-paused`, `keychain-unreadable`, `keychain-corrupt`, `listener-waiting`, `listener-failed`, `bonjour-failed`.
+
+`fix` codes (what a UI may offer): `grant-accessibility`, `grant-bluetooth`, `grant-screen-recording`, `grant-automation` (macOS shows its own prompt), `open-bluetooth-settings`, `open-local-network-settings`, `open-automation-settings` (open the System Settings pane), `turn-bluetooth-on`, `resume-input`, `enable-lab`, `enable-tailscale-setting`, `repair-keychain`, `free-port`, `restart-helper`.
+
+### `diag.subscribe` / `diag.events` (event stream)
+
+`{"t":"diag.subscribe","on":true,"since":0,"corr":"c2"}` starts the stream (`on:false` stops it; closing the connection also stops it). `since` (optional): replay buffered events with `seq > since` first (at most the newest 1000); without it only new events are sent. The helper acknowledges with a `diag.events` message that holds the replay (possibly empty) and `"subscribed": true`, `head` (last `seq` at that moment), `capacity`. After that, events arrive as `diag.events` batches (flushed every 100 ms, at most 100 events per message, oldest first):
+
+`{"t":"diag.events","events":[<event>,...],"head":N,"subscribed"?:bool,"capacity"?:5000,"dropped"?:n}`
+
+`dropped` is present when the helper had to discard `n` events for this client because it fell behind (the 1000-event outbox overflowed). `seq` is strictly increasing with no reuse; a gap in `seq` means events were dropped or coalesced. `diag.events` messages are never themselves logged as events.
+
+Event object (the same JSON is written one per line to `--events <file>`):
+
+```
+{ "t": <unix ms>, "seq": <int>, "side": "helper", "area": <area>, "event": <name>,
+  "journeyStep"?: string, "corr": string|null, "fields": { ... } }
+```
+
+`fields` carry sizes, counts, status codes and names; never secrets (tokens, keys, nonces, pairing codes, typed keys, message payloads). Events go to a 5000-event ring buffer, to `os_log` (subsystem `dev.mote.helper`, category = area; `log stream --predicate 'subsystem == "dev.mote.helper"'`) and to subscribers. High-rate events (`protocol.in` / `protocol.out`, `labs.push`, `labs.stream`) are coalesced to at most one per second per key; the next one carries `fields.skipped`. Input is never logged per event: `input.summary` every 5 s with `fields.counts`.
+
+Areas and events (a unit test keeps this table equal to the code):
+
+| Area | Events |
+|---|---|
+| `lifecycle` | `start`, `ready`, `terminate`, `setting`, `diag.cli` |
+| `signing` | `identity`, `error` |
+| `permission` | `check`, `change`, `request` |
+| `keychain` | `read`, `write`, `partition` |
+| `discovery` | `bonjour.attempt`, `bonjour.registered`, `bonjour.failed`, `ble.state`, `ble.advertising`, `ble.failed`, `tailnet.detect` |
+| `transport` | `listen.state`, `conn.accepted`, `conn.refused`, `conn.closed`, `ws.upgrade`, `ws.refused`, `ble.central`, `http.response` |
+| `session` | `open`, `authed`, `auth.failed`, `paired`, `pair.failed`, `closed`, `revoked` |
+| `protocol` | `in`, `out`, `error`, `bad`, `diag.subscribe` |
+| `input` | `summary`, `blocked`, `macro` |
+| `labs` | `toggle`, `subscribe`, `push`, `stream` |
+| `ui` | `setup.shown`, `setup.closed`, `setup.button`, `menu.opened`, `menu.item`, `diagnostics.shown`, `diagnostics.copied`, `pairing.shown`, `newdevice.shown` |
+
+The Android app emits the same event shape with `side: "android"` into its own log (areas and names are its own); the shared `corr` joins both sides.
 
 ## 3. BLE transport
 
