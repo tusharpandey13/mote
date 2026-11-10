@@ -20,9 +20,9 @@ final class InstantPairing: NSObject {
 
     private unowned let hub: Hub
     private let store: LabsKeyStore
-    private let identity: Curve25519.Signing.PrivateKey
+    private var identity: Curve25519.Signing.PrivateKey
     private let defaults: UserDefaults?
-    let fp: String
+    private(set) var fp: String
     /// Real WebSocket port (with --port 0 only known once the listener is up).
     var port: () -> UInt16 = { 0 }
     /// A NEW device was trusted (name, via, fp): main.swift shows the menu bar's notice panel.
@@ -44,6 +44,8 @@ final class InstantPairing: NSObject {
     private var infoPrinted = false
     private var infoCache: Data?
     private var alertOpen = false
+    /// The fingerprint this Mac advertised on its previous launch (UserDefaults; nil on the first run / memory store).
+    private var previousFp: String?
 
     /// On by default. Kill switch: UserDefaults `instantPairingDisabled` (read at launch) or --no-instant-pairing.
     let enabled: Bool
@@ -58,6 +60,9 @@ final class InstantPairing: NSObject {
             hub.onChange?()
         }
     }
+
+    /// Every new phone needs the user's Allow: the setting, or the Vault is in ephemeral mode (Vault.swift, owner decision U6).
+    var needsApproval: Bool { requireApproval || hub.vault.ephemeral }
 
     var trustedCount: Int { store.keys.count }
 
@@ -77,6 +82,8 @@ final class InstantPairing: NSObject {
         fakeOwner = c.dryRun ? c.fakeTailscaleOwner : nil
         fakeProximity = c.dryRun && c.fakeProximity
         super.init()
+        previousFp = defaults?.string(forKey: lastFpKey)
+        if !hub.vault.ephemeral && !c.dryRun { defaults?.set(fp, forKey: lastFpKey) }   // a per-process key is never remembered as "the" key
         log("instant pairing: \(enabled ? "on" : "off")\(requireApproval ? ", require approval" : "") (key \(fp.prefix(8)))")
         // Once, at the first real launch: Launch at login, so the Mac is always discoverable.
         if enabled, !c.dryRun, let d = defaults, !d.bool(forKey: "loginApplied") {
@@ -85,6 +92,18 @@ final class InstantPairing: NSObject {
                 do { try LoginItem.set(true); log("instant pairing: launch at login on") } catch { log("instant pairing: launch at login failed: \(error)") }
             }
         }
+    }
+
+    /// Per Keychain service: a test service never overwrites the real Mac's remembered key.
+    private var lastFpKey: String { "lastAdvertisedFp." + hub.config.keychainService }
+
+    /// The Vault left ephemeral mode: its secrets (including this Mac's key) were replaced by the Keychain's. Re-derive the key.
+    func reloadIdentity() {
+        identity = store.identity()
+        fp = labsFingerprint(identity.publicKey.rawRepresentation)
+        infoCache = nil
+        log("instant pairing: key reloaded from the Keychain (key \(fp.prefix(8)))")
+        hub.onChange?()
     }
 
     // MARK: BLE info
@@ -167,14 +186,19 @@ final class InstantPairing: NSObject {
         let name = raw.isEmpty ? "Phone" : raw
         let proof = labsHelperProof(hostId: hub.settings.hostId, nonce: s.nonce, cn: cn, pub: pubHex)
         guard let mySig = try? identity.signature(for: Data(proof.utf8)) else { return }
-        s.send(["t": "labs.pair.hi", "pub": identity.publicKey.rawRepresentation.hexString, "fp": fp, "sig": mySig.hexString,
-                "host": Host.computerName, "hostId": hub.settings.hostId])
+        var hi: [String: Any] = ["t": "labs.pair.hi", "pub": identity.publicKey.rawRepresentation.hexString, "fp": fp, "sig": mySig.hexString,
+                                 "host": Host.computerName, "hostId": hub.settings.hostId]
+        // Hints for the phone's copy; its pinned fp stays the authority. `newKey` is best effort (compares with the PREVIOUS launch only).
+        if hub.vault.ephemeral { hi["ephemeral"] = true }
+        if let prev = previousFp, prev != fp { hi["newKey"] = true }
+        s.send(hi)
         let cfp = labsFingerprint(pubRaw)
         // Trust decisions, in order (docs/pairing.md section 4). A stale / bad token still
         // falls through to the Tailscale check; only its deny reason is kept.
         if store.isBlocked(cfp) { denied(s, "blocked"); return }
         if store.keys.contains(where: { $0.fp == cfp }) { accept(s, fp: cfp, name: name, via: "trusted"); return }
-        if requireApproval { ask(s, fp: cfp, pub: pubHex, name: name); return }
+        // Vault unreadable (ephemeral): the blocked list is unknown, so no automatic trust of any kind: only an explicit Allow.
+        if needsApproval { ask(s, fp: cfp, pub: pubHex, name: name); return }
         var failure = "far"
         if let p = m["prox"] {
             switch (p as? String).map(proximity.verify) ?? .bad {
@@ -291,7 +315,8 @@ final class InstantPairing: NSObject {
         NSApp.activate(ignoringOtherApps: true)
         let a = NSAlert()
         a.messageText = "Allow “\(name)” to control this Mac?"
-        a.informativeText = "It will be able to type, click and move the pointer, like a keyboard and mouse.\n\nVia \(route)\nKey \(groupedFingerprint(cfp))\n\nDeny if you didn't just tap Connect on this phone."
+        let unsaved = hub.vault.ephemeral ? "Pairings aren't being saved: Keychain unavailable. You will be asked again after a restart.\n\n" : ""
+        a.informativeText = unsaved + "It will be able to type, click and move the pointer, like a keyboard and mouse.\n\nVia \(route)\nKey \(groupedFingerprint(cfp))\n\nDeny if you didn't just tap Connect on this phone."
         a.addButton(withTitle: "Allow")
         a.addButton(withTitle: "Deny")
         a.alertStyle = .warning

@@ -38,11 +38,21 @@ final class Hub {
 
     private(set) var axTrusted = AXIsProcessTrusted()   // init applies --fake-ax-denied
 
-    init(config: Config) {
+    /// `defaults`: where the Vault's once-per-identity gate lives. nil = the real UserDefaults with the real Keychain, a per-process
+    /// gate with `--fake-keychain` (tests pass a private suite to share a gate between two launches).
+    init(config: Config, defaults: UserDefaults? = nil) {
         self.config = config
         PermProbe.fakeAxDenied = config.dryRun && config.fakeAxDenied
         if PermProbe.fakeAxDenied { axTrusted = false; log("fake: Accessibility denied") }
-        self.vault = Vault(service: config.keychainService, memoryOnly: config.memoryStore)
+        if config.fakeKeychain != nil && !config.dryRun { log("--fake-keychain needs --dry-run; ignoring it") }
+        if config.usesFakeKeychain, let st = config.fakeKeychain {
+            self.vault = Vault(service: config.keychainService, memoryOnly: false, backend: FakeKeychain(state: st), defaults: defaults,
+                              identity: "fake-keychain", deferInteractive: true)
+        } else {
+            // Under --dry-run the interactive read never runs: a --keychain-service test item from an old build would prompt.
+            self.vault = Vault(service: config.keychainService, memoryOnly: config.memoryStore, defaults: defaults ?? .standard,
+                               allowInteractive: !config.dryRun, deferInteractive: true)
+        }
         self.store = DeviceStore(vault: vault, path: \.devices)
         self.settings = Settings(config: config)
         self.injector = Injector(dryRun: config.dryRun)
@@ -58,11 +68,14 @@ final class Hub {
         // Accessibility can be granted at any time in System Settings; poll and tell clients.
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self else { return }
+            self.vault.retryIfNeeded()
             let now = PermProbe.check(.accessibility).state == .granted
             if now != self.axTrusted { self.axTrusted = now; self.broadcastState(); self.onChange?() }
         }
         instantPairing = InstantPairing(hub: self)
         bt = BtPair(hub: self)
+        vault.onChange = { [weak self] in self?.onChange?() }
+        vault.onLeaveEphemeral = { [weak self] in self?.instantPairing?.reloadIdentity() }
     }
 
     /// Accessibility doesn't matter in dry-run (nothing is posted).
@@ -90,6 +103,21 @@ final class Hub {
         let subs = authedSessions.filter { $0.spacesSub }
         if !subs.isEmpty { ev(.labs, "push", coalesce: "spaces", ["lab": "spaces", "sessions": subs.count]) }
         for s in subs { s.send(st) }
+    }
+
+    /// "Keychain: Repair" (menu / Setup, after the user's confirmation): delete `secrets.v3` and create a fresh one.
+    @discardableResult
+    func repairKeychain() -> Bool {
+        let ok = vault.repair()
+        log("keychain: repair \(ok ? "done; phones must pair again" : "failed; still not saving pairings")")
+        onChange?()
+        return ok
+    }
+
+    /// "Try reading Keychain again" (menu / Setup): non-destructive; one interactive read off the main thread.
+    func retryKeychainRead() {
+        log("keychain: reading again")
+        vault.tryReadAgain()
     }
 
     func revokeAll() {
@@ -254,8 +282,9 @@ final class Session {
         close()
     }
 
-    private func err(_ code: String, _ msg: String, ref: String? = nil, retryAfter: Int? = nil) {
+    private func err(_ code: String, _ msg: String, ref: String? = nil, retryAfter: Int? = nil, ephemeral: Bool = false) {
         var m: [String: Any] = ["t": "err", "code": code, "msg": msg]
+        if ephemeral { m["ephemeral"] = true }
         if let ref { m["ref"] = ref }
         if let retryAfter { m["retryAfter"] = retryAfter }
         ev(.protocolMsg, "error", coalesce: "err.\(code)", ["code": code, "ref": ref ?? NSNull()])
@@ -362,10 +391,13 @@ final class Session {
         if let wait = hub.limiter.retryAfter(peer) { err("rate", "too many attempts", ref: "auth", retryAfter: wait); return }
         guard let id = m["id"] as? String, let mac = m["mac"] as? String,
               let d = hub.store.verify(id: id, nonce: nonce, macHex: mac) else {
-            hub.limiter.fail(peer)
+            if !hub.vault.ephemeral { hub.limiter.fail(peer) }   // an unloaded pairing is not a guessing attempt
             log("auth failed from \(peer)")
-            ev(.session, "auth.failed", ["transport": transport])
-            err("auth", "Unknown device or bad credentials", ref: "auth")
+            ev(.session, "auth.failed", ["transport": transport, "ephemeral": hub.vault.ephemeral])
+            // Vault unreadable: the pairing may simply not be loaded. The client keeps its token (docs/protocol.md).
+            if hub.vault.ephemeral {
+                err("keychain-unavailable", "This Mac can't read its saved pairings right now", ref: "auth", ephemeral: true)
+            } else { err("auth", "Unknown device or bad credentials", ref: "auth") }
             return
         }
         hub.store.touch(d.id)

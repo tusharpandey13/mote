@@ -10,11 +10,19 @@ struct SetupActions {
     var startBluetooth: () -> Void = {}
     var isEnabled: (Perm) -> Bool = { _ in false }
     var enable: (Perm) -> Void = { _ in }
+    /// Vault in ephemeral mode (pairings not saved) and its Repair (asks for confirmation itself).
+    var keychainEphemeral: () -> Bool = { false }
+    var repairKeychain: () -> Void = {}
+    /// The one interactive read is running ("Reading Keychain…"), and the non-destructive "Try reading again".
+    var keychainReading: () -> Bool = { false }
+    var retryKeychain: () -> Void = {}
 }
 
 /// Live model behind the Setup window: re-reads every permission once a second while it is open.
 final class SetupModel: ObservableObject {
     @Published private(set) var rows: [PermRow] = []
+    @Published private(set) var keychainEphemeral = false
+    @Published private(set) var keychainReading = false
     @Published var launchAtLogin = LoginItem.status == .enabled
     @Published var loginNeedsApproval = LoginItem.status == .requiresApproval
     private(set) var requested: Set<Perm> = []
@@ -33,6 +41,10 @@ final class SetupModel: ObservableObject {
         let enabled = Set(Perm.allCases.filter(actions.isEnabled))
         let new = PermissionModel.rows(states: st, enabled: enabled, requested: requested, perms: perms)
         if new != rows { rows = new; onChange?() }
+        let eph = actions.keychainEphemeral()
+        if eph != keychainEphemeral { keychainEphemeral = eph }
+        let rd = actions.keychainReading()
+        if rd != keychainReading { keychainReading = rd }
         let ls = LoginItem.status
         if (ls == .enabled) != launchAtLogin { launchAtLogin = ls == .enabled }
         if (ls == .requiresApproval) != loginNeedsApproval { loginNeedsApproval = ls == .requiresApproval }
@@ -101,7 +113,10 @@ struct SetupView: View {
                 Text("Set up Mote Helper").font(.system(size: 20, weight: .semibold)).foregroundColor(Tok.onSurface)
                 Text(headline).font(.system(size: 13)).foregroundColor(Tok.muted)
             }
-            VStack(spacing: 8) { ForEach(model.rows, id: \.perm) { row($0) } }
+            VStack(spacing: 8) {
+                ForEach(model.rows, id: \.perm) { row($0) }
+                if model.keychainEphemeral { keychainRow }
+            }
             Toggle("Open Mote Helper at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                 .toggleStyle(.switch).tint(Tok.accent).font(.system(size: 13)).foregroundColor(Tok.onSurface)
             if model.loginNeedsApproval {
@@ -122,6 +137,23 @@ struct SetupView: View {
         .padding(22)
         .frame(width: 500)
         .background(Tok.bg)
+    }
+
+    private var keychainRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Keychain").font(.system(size: 14, weight: .semibold)).foregroundColor(Tok.onSurface)
+                Text(model.keychainReading ? "Reading Keychain…" : "Pairings aren't being saved: Keychain unavailable. Every phone needs your Allow until this is repaired.")
+                    .font(.system(size: 12)).foregroundColor(Tok.muted).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            if !model.keychainReading {
+                Button("Try reading Keychain again") { model.actions.retryKeychain() }.buttonStyle(AccentButton())
+                Button("Repair") { model.actions.repairKeychain() }.buttonStyle(AccentButton())
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Tok.surface))
     }
 
     private var ready: Bool { !model.rows.contains { $0.perm.tier == .required && $0.status != .ok } }

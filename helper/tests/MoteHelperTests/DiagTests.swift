@@ -91,6 +91,19 @@ struct DiagTests {
         #expect((p["keychain"] as! [String: Any])["partitionMatchesSigning"] as? Bool == true)
     }
 
+    @Test func ephemeralVaultIsBlockedWithRepair() {
+        let s = input { $0.keychain.readResult = "error"; $0.keychain.readStatus = -25308; $0.keychain.ephemeral = true
+                        $0.keychain.ephemeralReason = "denied"; $0.keychain.interactiveRead = "denied" }
+        let f = feat(s, "keychain"), k = s["keychain"] as! [String: Any]
+        #expect(f["state"] as? String == "blocked" && f["blockedBy"] as? String == "keychain-unreadable" && f["fix"] as? String == "repair-keychain")
+        #expect((f["detail"] as? String)?.hasPrefix("Pairings aren't being saved: Keychain unavailable") == true)
+        #expect(k["ephemeral"] as? Bool == true && k["interactiveRead"] as? String == "denied" && k["ephemeralReason"] as? String == "denied")
+        let c = input { $0.keychain.readResult = "unreadable"; $0.keychain.ephemeral = true; $0.keychain.ephemeralReason = "corrupt" }
+        #expect(feat(c, "keychain")["blockedBy"] as? String == "keychain-corrupt")
+        let ok = input { $0.keychain.readResult = "found" }
+        #expect(feat(ok, "keychain")["state"] as? String == "ok" && (ok["keychain"] as! [String: Any])["ephemeral"] as? Bool == false)
+    }
+
     @Test func labsAndSessions() {
         let s = input {
             $0.contextLab = true; $0.nowPlayingStatus = "mediaremote"; $0.tvLab = false

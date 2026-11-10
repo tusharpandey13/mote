@@ -30,11 +30,15 @@ struct Config {
     var updateURL: String? = nil     // tests: --update-url URL, the GitHub "latest release" endpoint stand-in (needs --dry-run)
     var updateCheckNow = false       // tests: --update-check-now ignores the once-a-day limit (needs --dry-run)
     var fakeScreen = false    // tests: Labs live screen streams synthetic frames of a fake display (needs --dry-run; turns the lab on)
+    var fakeKeychain: FakeKeychainState? = nil // tests: simulate the secrets.v3 read: found|notfound|partitionmismatch|denied|error (needs --dry-run)
     var diag = false          // --diag: print the diagnostics snapshot (JSON) and exit; no prompts, no UI, no writes
     var dataDir: URL? = nil   // --data-dir DIR: where the running helper writes diag.json / diag-events.jsonl (default ~/Library/Application Support/dev.mote.helper; none with --memory-store)
     var eventsFile: String? = nil // --events FILE: append every event as one JSON line
     var noBonjour = false     // chaos: don't advertise _mote._tcp (stands in for blocked multicast; needs --dry-run)
     var fakeNowPlayingReader: String? = nil // chaos: run this executable as the now-playing reader instead of perl (needs --dry-run)
+
+    /// `--fake-keychain` is honoured only with `--dry-run` (it replaces the real Keychain item with a simulation).
+    var usesFakeKeychain: Bool { dryRun && fakeKeychain != nil }
 
     static func parse(_ args: [String]) -> Config {
         var c = Config()
@@ -71,6 +75,7 @@ struct Config {
             case "--fake-context": c.fakeContext = it.next()
             case "--fake-nowplaying": c.fakeNowPlaying = true
             case "--no-bonjour": c.noBonjour = true
+            case "--fake-keychain": if let v = it.next() { c.fakeKeychain = FakeKeychainState(arg: v) }
             case "--diag": c.diag = true
             case "--data-dir": if let v = it.next() { c.dataDir = URL(fileURLWithPath: v, isDirectory: true) }
             case "--events": c.eventsFile = it.next()
@@ -87,6 +92,7 @@ struct Config {
                           [--no-instant-pairing | --labs-pairing] [--require-approval]   (instant pairing: off / force on; approval prompts)
                           [--fake-proximity] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID|timeout]   (instant pairing tests, need --dry-run)
                           [--fake-bt-pair | --fake-bt-pair-fail REASON]   (Bluetooth HID setup without Bluetooth, needs --dry-run)
+                          [--fake-keychain found|notfound|partitionmismatch|denied|error]   (simulated Keychain read, needs --dry-run)
                           [--no-bonjour] [--fake-nowplaying-reader EXE]   (chaos, need --dry-run)
                 """)
                 exit(0)
