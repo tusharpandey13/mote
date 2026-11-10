@@ -10,11 +10,15 @@ struct SetupActions {
     var startBluetooth: () -> Void = {}
     var isEnabled: (Perm) -> Bool = { _ in false }
     var enable: (Perm) -> Void = { _ in }
+    /// Vault in ephemeral mode (pairings not saved) and its Repair (asks for confirmation itself).
+    var keychainEphemeral: () -> Bool = { false }
+    var repairKeychain: () -> Void = {}
 }
 
 /// Live model behind the Setup window: re-reads every permission once a second while it is open.
 final class SetupModel: ObservableObject {
     @Published private(set) var rows: [PermRow] = []
+    @Published private(set) var keychainEphemeral = false
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
     private(set) var requested: Set<Perm> = []
     let actions: SetupActions
@@ -32,6 +36,8 @@ final class SetupModel: ObservableObject {
         let enabled = Set(Perm.allCases.filter(actions.isEnabled))
         let new = PermissionModel.rows(states: st, enabled: enabled, requested: requested, perms: perms)
         if new != rows { rows = new; onChange?() }
+        let eph = actions.keychainEphemeral()
+        if eph != keychainEphemeral { keychainEphemeral = eph }
         let login = SMAppService.mainApp.status == .enabled
         if login != launchAtLogin { launchAtLogin = login }
     }
@@ -99,7 +105,10 @@ struct SetupView: View {
                 Text("Set up Mote Helper").font(.system(size: 20, weight: .semibold)).foregroundColor(Tok.onSurface)
                 Text(headline).font(.system(size: 13)).foregroundColor(Tok.muted)
             }
-            VStack(spacing: 8) { ForEach(model.rows, id: \.perm) { row($0) } }
+            VStack(spacing: 8) {
+                ForEach(model.rows, id: \.perm) { row($0) }
+                if model.keychainEphemeral { keychainRow }
+            }
             Toggle("Open Mote Helper at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                 .toggleStyle(.switch).tint(Tok.accent).font(.system(size: 13)).foregroundColor(Tok.onSurface)
             HStack {
@@ -114,6 +123,20 @@ struct SetupView: View {
         .padding(22)
         .frame(width: 500)
         .background(Tok.bg)
+    }
+
+    private var keychainRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Keychain").font(.system(size: 14, weight: .semibold)).foregroundColor(Tok.onSurface)
+                Text("Pairings aren't being saved: Keychain unavailable. Every phone needs your Allow until this is repaired.")
+                    .font(.system(size: 12)).foregroundColor(Tok.muted).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Button("Repair") { model.actions.repairKeychain() }.buttonStyle(AccentButton())
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Tok.surface))
     }
 
     private var ready: Bool { !model.rows.contains { $0.perm.tier == .required && $0.status != .ok } }

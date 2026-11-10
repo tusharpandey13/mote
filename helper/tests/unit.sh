@@ -16,7 +16,7 @@ for DEV in "$(xcode-select -p 2>/dev/null || true)" /Library/Developer/CommandLi
 done
 LOG="$(mktemp -t mote-unit)"
 set +e
-swift test --package-path "$HERE" --scratch-path "$HERE/.build/test" ${args[@]+"${args[@]}"} "$@" 2>&1 | tee "$LOG"
+swift test --no-parallel --package-path "$HERE" --scratch-path "$HERE/.build/test" ${args[@]+"${args[@]}"} "$@" 2>&1 | tee "$LOG"
 rc=${PIPESTATUS[0]}
 set -e
 if [ "$rc" -eq 0 ] && ! grep -q "Test run with [1-9][0-9]* tests" "$LOG"; then echo "unit.sh: no tests ran" >&2; rc=1; fi

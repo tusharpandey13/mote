@@ -70,7 +70,9 @@ if !config.headless {
             case .automation: labsContext.setEnabled(true)
             default: break
             }
-        }))
+        },
+        keychainEphemeral: { hub.vault.ephemeral },
+        repairKeychain: { KeychainRepair.confirmAndRepair(hub) }))
     menu?.openSetup = { setup?.show() }
     // No permission prompt at launch: the Setup window explains each one and asks on a click.
     if !config.dryRun && SetupWindow.shouldAutoOpen(force: config.openSetup) { setup?.show() }
@@ -118,6 +120,7 @@ if config.stdinControl {
                     case "screen-lab-on": hub.settings.labsLiveScreen = true
                     case let c where c.hasPrefix("display "): hub.spaces.fakeActivate(Int(c.dropFirst(8)) ?? 0)
                     case let c where c.hasPrefix("displays "): hub.spaces.fakeReplug(String(c.dropFirst(9)))
+                    case "repair-keychain": hub.repairKeychain()   // tests: the confirmed Repair
                     case "tailscale on": hub.settings.allowTailscale = true
                     case "tailscale off": hub.settings.allowTailscale = false
                     case let c: log("stdin-control: unknown command '\(c)'")

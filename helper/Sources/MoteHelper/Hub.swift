@@ -40,7 +40,12 @@ final class Hub {
 
     init(config: Config) {
         self.config = config
-        self.vault = Vault(service: config.keychainService, memoryOnly: config.memoryStore)
+        if config.fakeKeychain != nil && !config.dryRun { log("--fake-keychain needs --dry-run; ignoring it") }
+        if config.usesFakeKeychain, let st = config.fakeKeychain {
+            self.vault = Vault(service: config.keychainService, memoryOnly: false, backend: FakeKeychain(state: st), identity: "fake-keychain")
+        } else {
+            self.vault = Vault(service: config.keychainService, memoryOnly: config.memoryStore, defaults: .standard)
+        }
         self.store = DeviceStore(vault: vault, path: \.devices)
         self.settings = Settings(config: config)
         self.injector = Injector(dryRun: config.dryRun)
@@ -88,6 +93,15 @@ final class Hub {
         let subs = authedSessions.filter { $0.spacesSub }
         if !subs.isEmpty { ev(.labs, "push", coalesce: "spaces", ["lab": "spaces", "sessions": subs.count]) }
         for s in subs { s.send(st) }
+    }
+
+    /// "Keychain: Repair" (menu / Setup, after the user's confirmation): delete `secrets.v3` and create a fresh one.
+    @discardableResult
+    func repairKeychain() -> Bool {
+        let ok = vault.repair()
+        log("keychain: repair \(ok ? "done; phones must pair again" : "failed; still not saving pairings")")
+        onChange?()
+        return ok
     }
 
     func revokeAll() {

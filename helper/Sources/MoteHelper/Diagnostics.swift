@@ -55,6 +55,7 @@ struct KeychainInfo {
     var readStatus: Int? = nil, readResult = "memory", writeStatus: Int? = nil
     var itemCount: Int? = nil
     var partitionAtWrite: String? = nil
+    var ephemeral = false, ephemeralReason: String? = nil, interactiveRead = "none"
 }
 
 enum Diag {
@@ -107,8 +108,8 @@ enum Diag {
         // keychain
         let k = i.keychain
         if k.memoryOnly { f["keychain"] = .off("memory store: nothing is kept between runs") }
-        else if k.readResult == "error" { f["keychain"] = .blocked("keychain-unreadable", fix: "repair-keychain", "secrets.v3 read returned \(k.readStatus ?? 0); pairings stay in memory this run") }
-        else if k.readResult == "unreadable" { f["keychain"] = .blocked("keychain-corrupt", fix: "repair-keychain") }
+        else if k.readResult == "error" || (k.ephemeral && k.ephemeralReason != "corrupt") { f["keychain"] = .blocked("keychain-unreadable", fix: "repair-keychain", "Pairings aren't being saved: Keychain unavailable (secrets.v3 read returned \(k.readStatus ?? 0), interactive read \(k.interactiveRead)); nothing is trusted automatically this run") }
+        else if k.readResult == "unreadable" { f["keychain"] = .blocked("keychain-corrupt", fix: "repair-keychain", "Pairings aren't being saved: secrets.v3 is corrupt") }
         else if k.readResult == "found" || k.readResult == "notfound" { f["keychain"] = .ok(k.readResult == "found" ? "secrets.v3 read" : "secrets.v3 created") }
         else { f["keychain"] = .unknown("not read in this process") }
 
@@ -194,6 +195,7 @@ enum Diag {
             "service": k.service, "account": k.account, "memoryOnly": k.memoryOnly,
             "readStatus": k.readStatus.map { $0 as Any } ?? NSNull(), "readResult": k.readResult,
             "writeStatus": k.writeStatus.map { $0 as Any } ?? NSNull(), "itemCount": k.itemCount.map { $0 as Any } ?? NSNull(),
+            "ephemeral": k.ephemeral, "ephemeralReason": k.ephemeralReason ?? NSNull(), "interactiveRead": k.interactiveRead,
             "partitionAtWrite": k.partitionAtWrite ?? NSNull(), "expectedPartition": i.signing.expectedPartition ?? NSNull(),
             "partitionMatchesSigning": (k.partitionAtWrite != nil && i.signing.expectedPartition != nil) ? (k.partitionAtWrite == i.signing.expectedPartition) as Any : NSNull(),
         ]
@@ -279,10 +281,10 @@ enum Diag {
         // The Setup window polls once a second: its checks are not logged one by one (the change events still are).
         for p in Perm.allCases { i.perms[p] = PermProbe.check(p, force: source != "setup" && source != "running") }
         i.keychain.service = config.keychainService
-        i.keychain.memoryOnly = config.memoryStore
+        i.keychain.memoryOnly = config.memoryStore && !config.usesFakeKeychain
         i.bleEnabled = config.ble
         i.noBonjour = config.noBonjour
-        if !config.memoryStore {
+        if !config.memoryStore && !config.usesFakeKeychain {
             i.keychain.partitionAtWrite = UserDefaults.standard.string(forKey: Vault.partitionKey)
             i.keychain.writeStatus = KeychainBackend.lastWriteStatus.map(Int.init)
             if let c = cachedCount, Date().timeIntervalSince(c.at) < 30 { i.keychain.itemCount = c.n }
@@ -303,7 +305,7 @@ enum Diag {
         i.contextLab = UserDefaults.standard.bool(forKey: "labs.context.enabled")
         i.tvLab = UserDefaults.standard.bool(forKey: "labs.tvMode")
         i.bridgeLab = UserDefaults.standard.bool(forKey: "labsBridge")
-        if !config.memoryStore {
+        if !config.memoryStore && !config.usesFakeKeychain {
             var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: config.keychainService,
                                     kSecAttrAccount as String: Vault.account, kSecMatchLimit as String: kSecMatchLimitOne]
             q[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail   // attributes only (no kSecReturnData): never prompts
@@ -334,6 +336,9 @@ enum Diag {
         i.paused = hub.paused; i.inputReady = hub.inputReady
         i.keychain.readStatus = hub.vault.readStatus.map(Int.init)
         i.keychain.readResult = hub.vault.readResult
+        i.keychain.ephemeral = hub.vault.ephemeral
+        i.keychain.ephemeralReason = hub.vault.ephemeralReason
+        i.keychain.interactiveRead = hub.vault.interactiveRead
         if let w = web {
             i.listenerState = w.listenerState; i.listenerError = w.listenerError; i.listenerPort = w.port.map(Int.init)
             i.connections = w.openConnections; i.accepted = w.accepted; i.refused = w.refused

@@ -4,17 +4,37 @@ import Testing
 
 /// In-memory stand-in for the Keychain; counts reads so "one prompt at most" is checkable.
 final class FakeBackend: SecretBackend {
+    enum Mode { case normal, mismatch, deniedInteractive, error }
     var items: [String: Data] = [:]
-    var denied: Set<String> = []
-    var reads = 0, writes = 0
+    var denied: Set<String> = []     // any read throws userCanceled (-128): a failure no prompt can fix
+    var mode = Mode.normal
+    var reads = 0, interactiveReads = 0, writes = 0, deletes = 0
+    var failWrites = false
     var readKeys: [String] = []
     func key(_ s: String, _ a: String) -> String { s + "/" + a }
-    func read(service: String, account: String) throws -> Data? {
+    func read(service: String, account: String, interactive: Bool) throws -> Data? {
         reads += 1; readKeys.append(key(service, account))
-        if denied.contains(key(service, account)) { throw KeychainError(status: -128) }   // userCanceled
+        if interactive { interactiveReads += 1 }
+        if denied.contains(key(service, account)) { throw KeychainError(status: -128) }
+        switch mode {
+        case .normal: break
+        case .mismatch: if !interactive { throw KeychainError(status: -25308) }
+        case .deniedInteractive: throw KeychainError(status: interactive ? -128 : -25308)
+        case .error: throw KeychainError(status: -34018)
+        }
         return items[key(service, account)]
     }
-    func write(service: String, account: String, data: Data, label: String) -> Bool { writes += 1; items[key(service, account)] = data; return true }
+    func write(service: String, account: String, data: Data, label: String) -> Bool {
+        writes += 1
+        if failWrites { return false }
+        items[key(service, account)] = data; return true
+    }
+    func delete(service: String, account: String) -> Bool {
+        deletes += 1
+        items[key(service, account)] = nil
+        mode = .normal   // a fresh item is ours again
+        return true
+    }
 }
 
 struct VaultTests {

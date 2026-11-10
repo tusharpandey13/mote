@@ -81,6 +81,10 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
             : hub.config.dryRun ? "Ready (dry run: logging only)" : "Ready"
         _ = add("Mote Helper: \(status)")
         if !hub.inputReady { _ = add("Finish setup…", #selector(showSetup)) }
+        if hub.vault.ephemeral {   // owner decision U6: say so, and offer the fix
+            _ = add("Pairings aren't being saved: Keychain unavailable")
+            _ = add("Keychain: Repair…", #selector(repairKeychain))
+        }
         if hub.liveScreen.streaming {
             _ = add("● Sharing screen with \(hub.liveScreen.viewerName)")
             _ = add("Stop sharing screen", #selector(stopScreen))
@@ -172,6 +176,7 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
     // MARK: actions
 
     @objc func showSetup() { ev(.ui, "menu.item", ["item": "setup"]); openSetup?() }
+    @objc func repairKeychain() { ev(.ui, "menu.item", ["item": "repairKeychain"]); KeychainRepair.confirmAndRepair(hub) }
     @objc func showDiagnostics() { ev(.ui, "menu.item", ["item": "diagnostics"]); openDiagnostics?() }
 
     @objc func copyURL(_ sender: NSMenuItem) {
@@ -350,5 +355,25 @@ final class MenuBar: NSObject, NSMenuDelegate, NSWindowDelegate {
         let img = NSImage(size: rep.size)
         img.addRepresentation(rep)
         return img
+    }
+}
+
+/// "Keychain: Repair" confirmation (menu and Setup): deleting the item cannot be undone and phones must pair again.
+enum KeychainRepair {
+    static func confirmAndRepair(_ hub: Hub) {
+        NSApp.activate(ignoringOtherApps: true)
+        let a = NSAlert()
+        a.messageText = "Repair the Keychain item?"
+        a.informativeText = "Mote can't read its saved pairings (the Mac's Keychain item was made by a different build). Repair deletes that item and creates a new one. Every phone must pair with this Mac again. This can't be undone."
+        a.addButton(withTitle: "Delete and recreate")
+        a.addButton(withTitle: "Cancel")
+        a.alertStyle = .warning
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        if !hub.repairKeychain() {
+            let f = NSAlert()
+            f.messageText = "Couldn't repair the Keychain item"
+            f.informativeText = "Pairings still aren't being saved. Check the login keychain in Keychain Access (service “\(hub.config.keychainService)”)."
+            f.runModal()
+        }
     }
 }
