@@ -37,6 +37,7 @@ cd android
 ### Tests
 
 - `net/ProtoTest`, `net/HostsTest`: message encoding, HMAC (RFC 4231 and a `node:crypto` vector), host grouping, the connect fallback order, address and pairing-link parsing.
+- `labs/context/NpNotifPolicyTest`, `NpNotifIntegrationTest`: when the now-playing media notification shows (pure plan) and its inputs against the dry-run helper with a fake reader (docs/labs/context.md).
 - `net/HelperIntegrationTest`: starts the built helper (`helper/build.sh` first) with `--dry-run --headless --no-ble --memory-store --open-pairing` on a free port, then pairs, authenticates and sends input through `WsTransport`, asserting the helper's `DRY ...` log lines (coalesced moves, ordering, Unicode text, brightness, clickAt, wrong token / code). Nothing is injected. It is skipped if no helper binary is found; point it elsewhere with `MOTE_HELPER=/path/to/MoteHelper`. Run only it: `./gradlew :app:testDebugUnitTest --tests '*HelperIntegrationTest'`.
 
 ### Release signing

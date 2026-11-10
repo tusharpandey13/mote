@@ -26,6 +26,15 @@ Every message needs an authenticated session. `*.sub` messages are reads, so pau
 
 **Debounce.** A context has to stay the same for 250 ms before it is pushed. Only changes are pushed. The helper checks focus and the front app every 400 ms while a client is subscribed, and right away on `didActivateApplication`. It reads the browser tab at most once a second, on a background queue.
 
+## Now-playing notification (Android)
+
+While the Smart remote lab is on and the phone is linked to a helper (Wi-Fi / Tailscale) that reports now playing, the app posts a media notification (a plain `MediaSession` + `MediaStyle`, no foreground service): title, artist, art, previous / play-pause / next and, on Android 13+, a seek bar. Its buttons send the same `consumer` and `labs.np.seek` messages as the Media screen. It is removed when nothing plays, the lab is turned off, or the helper link ends. There is no foreground service, so the link (and the notification) ends 30 s after the app leaves the screen.
+
+- **Bluetooth only (no helper): no notification.** There is no metadata or seek over HID. UNDEFINED for the owner: transport buttons without metadata, or none.
+- **Android 13+ notification permission:** asked in context, from a row under the now-playing card, with a sentence saying why. Denied: no notification, and Settings › Diagnostics shows "Now-playing notification: blocked: notifications are not allowed for Mote".
+- Events (`notification`: `show`, `update`, `hide` with `reason`, `blocked`, `action`): see the Events catalog.
+- Tests: `NpNotifPolicyTest` (L0), `NpNotifIntegrationTest` (dry-run helper with a fake reader), `NpNotificationJourney` (emulator: `dumpsys notification` / `media_session`, MediaController callbacks, the helper's `DRY consumer` / `DRY labs seek` lines). Lock screen, Bluetooth headset buttons and tapping the shade's buttons are L4 (manual).
+
 ## How the helper reads context
 
 - **Front app:** `NSWorkspace.frontmostApplication`.
