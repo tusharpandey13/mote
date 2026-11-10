@@ -180,14 +180,14 @@ Any client message may carry `corr` (string, 1-64 printable ASCII chars; anythin
 
 ### `diag` (client -> helper)
 
-`{"t":"diag","corr":"c1","client":{"app":"mote-android","proto":"1.5"}}`. Reply: the snapshot, `{"t":"diag","v":1,"corr":"c1", ...}`. `MoteHelper --diag` prints the same object (see below) and the menu item "Diagnostics…" shows it.
+`{"t":"diag","corr":"c1","client":{"app":"mote-android","proto":"1.5"}}`. Reply: the snapshot, `{"t":"diag","v":1,"corr":"c1", ...}`. `MoteHelper --diag` prints the same object (see below; `source` is `"running"` with `pid` and `writtenAt` when it relays the running helper's snapshot file, else `"cli"` with a `note`) and the menu item "Diagnostics…" shows it.
 
 Rules for reading it: every value is a fact the helper read without UI, or a conclusion drawn from facts. Never a secret. `null` = not applicable / not known. Unknown keys must be ignored. Never show a Grant / Open Settings button for state `unknown`; show "Can't check: macOS doesn't report this".
 
 ```
 {
-  "t": "diag", "v": 1, "at": <unix ms>, "source": "ws" | "cli" | "menu" | "setup",
-  "running": bool,            // false only for `MoteHelper --diag` (a CLI process, not the running helper): runtime sections are "unknown"
+  "t": "diag", "v": 1, "at": <unix ms>, "source": "ws" | "cli" | "menu" | "setup" | "running",
+  "running": bool,            // false only for `MoteHelper --diag` falling back to its own probe (a CLI process, not the running helper): runtime sections are "unknown", and a `note` explains why the running helper's file was not used. `source: "running"` adds `pid` and `writtenAt` (unix ms): the running helper writes this snapshot to `~/Library/Application Support/dev.mote.helper/diag.json` (0600) at launch, on change (debounced 1 s) and every 30 s, and `--diag` relays it if the pid is alive and the file is < 60 s old; TCC answers are per process, so this is the only way to see the running app's view from a shell
   "helper": { "version", "protocol": "1.5", "pid", "uptimeS", "dryRun", "headless", "memoryStore", "port", "hostId", "macOS": "15.1.0", "arch": "arm64"|"x86_64" },
   "features": { "<name>": { "state": "ok"|"blocked"|"off"|"unknown", "blockedBy": code|null, "fix": code|null, "detail": string|null } },
   "signing": { "identity": "developer-id"|"apple-development"|"mote-local"|"self-signed"|"adhoc"|"other"|"unknown",

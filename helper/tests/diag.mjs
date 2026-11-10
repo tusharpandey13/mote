@@ -26,8 +26,9 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) fai
   ok(d && d.signing && 'identity' in d.signing && 'expectedKeychainPartition' in d.signing, '--diag: signing section');
 }
 
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mote-diag-data-'));
 const eventsFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mote-diag-')), 'events.jsonl');
-const args = ['--dry-run', '--headless', '--no-ble', '--memory-store', '--open-pairing', '--port', '0', '--events', eventsFile];
+const args = ['--dry-run', '--headless', '--no-ble', '--memory-store', '--open-pairing', '--port', '0', '--events', eventsFile, '--data-dir', dataDir];
 if (!args.includes('--dry-run')) throw new Error('refusing to run the helper without --dry-run');
 const proc = spawn(BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 let code, port;
@@ -112,6 +113,18 @@ try {
   await a.until((m) => m.t === 'pong', 2000);
   const after = await a.next(400);
   ok(after === null || after.t !== 'diag.events', 'no events after unsubscribe');
+  // --diag while the helper runs: its own snapshot from the data dir (permissions as the running app sees them).
+  await new Promise((r) => setTimeout(r, 1500));   // debounced write (~1 s) after the session events
+  const live = spawnSync(BIN, ['--diag', '--data-dir', dataDir], { encoding: 'utf8', timeout: 15000 });
+  let ld = null; try { ld = JSON.parse(live.stdout); } catch {}
+  ok(ld && ld.source === 'running' && ld.running === true && ld.pid === proc.pid && Math.abs(Date.now() - ld.writtenAt) < 30000, '--diag with a running helper: source=running, its pid, writtenAt');
+  ok(ld && ld.sessions.some((x) => x.authed && x.protocol.clientApp === 'mote-test'), '--diag with a running helper: shows the live session');
+  ok(ld && ld.features.wifi.state === 'ok', '--diag with a running helper: runtime sections known');
+  const dj = path.join(dataDir, 'diag.json'), dev = path.join(dataDir, 'diag-events.jsonl');
+  ok(fs.existsSync(dj) && (fs.statSync(dj).mode & 0o777) === 0o600 && (fs.statSync(dev).mode & 0o777) === 0o600, 'diag.json and diag-events.jsonl are mode 0600');
+  const evl = fs.readFileSync(dev, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  ok(evl.length > 5 && evl.length <= 500 && evl.every((e) => e.seq && e.area), 'diag-events.jsonl: JSONL, <= 500 events');
+  ok(!fs.readFileSync(dj, 'utf8').includes(p.token), 'diag.json holds no token');
   a.close();
 
   // --events file: JSONL, same schema
@@ -121,6 +134,12 @@ try {
   ok(lines.some((e) => e.area === 'lifecycle' && e.event === 'start') && lines.some((e) => e.area === 'session' && e.event === 'paired'), '--events file: lifecycle.start and session.paired');
   const text = fs.readFileSync(eventsFile, 'utf8');
   ok(!text.includes(p.token) && !text.includes(code) && !text.includes(hello.nonce), '--events file holds no token, pairing code or nonce');
+  // helper gone: the file is stale or its pid dead, so --diag falls back to its own probe with a note.
+  const gone = new Promise((r) => proc.once('exit', r));
+  stop(); await gone;
+  const cli = spawnSync(BIN, ['--diag', '--data-dir', dataDir], { encoding: 'utf8', timeout: 15000 });
+  let cd = null; try { cd = JSON.parse(cli.stdout); } catch {}
+  ok(cd && cd.source === 'cli' && cd.running === false && /not running/.test(cd.note || ''), '--diag after the helper exited: source=cli with a note');
 } finally { stop(); }
 console.log(failed ? `${failed} FAILED` : 'diag: all passed');
 process.exit(failed ? 1 : 0);

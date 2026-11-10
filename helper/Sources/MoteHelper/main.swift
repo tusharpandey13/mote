@@ -9,7 +9,7 @@ ev(.lifecycle, "start", ["dryRun": config.dryRun, "headless": config.headless, "
 // query, code-signing info. Never creates the Hub, the listener, Bluetooth or any window.
 if config.diag {
     ev(.lifecycle, "diag.cli")
-    print(Diag.json(Diag.cliSnapshot(config: config)))
+    print(Diag.json(DiagFile.cliOutput(config: config)))
     exit(0)
 }
 let signing = SigningInfo.current()
@@ -43,6 +43,10 @@ func startBLE() {
         menu?.ble = ble
 }
 hub.snapshotProvider = { Diag.snapshot(hub: hub, web: web, ble: ble, source: $0) }
+var diagFile: DiagFile?
+if let dir = DiagFile.dir(for: config) {
+    diagFile = DiagFile(dir: dir) { hub.snapshot(source: "running") }
+}
 if PermProbe.check(.bluetooth, force: true).state == .granted { startBLE() }
 
 if !config.headless {
@@ -125,6 +129,7 @@ if config.stdinControl {
 }
 
 ev(.lifecycle, "ready", ["wifi": web != nil, "hostId": hub.settings.hostId])
+diagFile?.start()
 Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in Events.shared.flushInput() }
 signal(SIGTERM) { _ in ev(.lifecycle, "terminate", ["signal": "TERM"]); exit(0) }
 signal(SIGINT) { _ in ev(.lifecycle, "terminate", ["signal": "INT"]); exit(0) }

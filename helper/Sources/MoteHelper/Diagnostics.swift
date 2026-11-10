@@ -277,7 +277,7 @@ enum Diag {
         if cachedSigning == nil { cachedSigning = SigningInfo.current() }
         i.signing = cachedSigning!
         // The Setup window polls once a second: its checks are not logged one by one (the change events still are).
-        for p in Perm.allCases { i.perms[p] = PermProbe.check(p, force: source != "setup") }
+        for p in Perm.allCases { i.perms[p] = PermProbe.check(p, force: source != "setup" && source != "running") }
         i.keychain.service = config.keychainService
         i.keychain.memoryOnly = config.memoryStore
         i.bleEnabled = config.ble
