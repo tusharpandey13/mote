@@ -27,6 +27,7 @@ Mote: Android phone as a Bluetooth remote for a Mac. Public repo: github.com/tus
   ```
   Never inject real input in tests: always `--dry-run`; use `--memory-store` or `--keychain-service NAME`.
 - E2E (web remote + helper in `--dry-run`, and `site/install.sh`): `cd e2e/web && npm ci && npm test`. See `e2e/web/README.md`.
+- User journeys (specs `docs/journeys/<id>.md`, defects `docs/journeys/DEFECTS.md`): `e2e/journeys/run.sh [journey-id|journey-id#path|all]` boots its own headless emulator (`mote-journeys`, `emulator-5562`; aborts on any non-emulator target), installs `dev.mote.remote.dev`, drives dry-run helpers and writes `e2e/journeys/REPORT.md` (screenshots in `/tmp/mote-journeys/`). See `e2e/journeys/README.md`. Update the spec when a journey changes; a step is only "pass" if asserted for real ("faked" = against a labelled seam).
 - Site: the deployed layout is `site/` plus `design/mote-v1/*` copied to `design/` (see `.github/workflows/pages.yml`). Locally: `mkdir -p /tmp/mote-site/mote/design && cp -R site/. /tmp/mote-site/mote/ && cp -R design/mote-v1/. /tmp/mote-site/mote/design/ && python3 -m http.server -d /tmp/mote-site 8000`, open `http://localhost:8000/mote/`.
 
 ## Release
