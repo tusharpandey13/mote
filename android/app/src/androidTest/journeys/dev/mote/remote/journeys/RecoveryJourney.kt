@@ -5,6 +5,8 @@ import dev.mote.remote.hid.Host
 import dev.mote.remote.net.Net
 import dev.mote.remote.net.Selection
 import dev.mote.remote.net.WsStatus
+import dev.mote.remote.ui.DENIED_TITLE
+import dev.mote.remote.ui.denialText
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,13 +58,14 @@ class RecoveryJourney {
             j.dWs(10_000, "Failed(revoked)") { it is WsStatus.Failed && it.code == "revoked" }
             j.expect(dPill(name, "Wi-Fi"))
             j.expectNot("Not paired: pair again")
-            // ~4 s after the refusal `rediscover` sweeps, finds the Mac and re-selects it: the refused handshake is retried (recovery-D5)
+            // ~4 s after the refusal `rediscover` re-selects the Mac once; the refused handshake lands as Denied (B6, recovery-D5)
             mac.await("labs: denied \\(far\\)", 20_000)
-            j.dWs(10_000, "Failed(auth)") { it is WsStatus.Failed && it.code == "auth" }
+            j.dWs(10_000, "Denied(far)") { it is WsStatus.Denied && it.reason == "far" }
+            j.expect(DENIED_TITLE)
         }
         j.step("S4") {
             j.tap(dPill(name, "Wi-Fi"))
-            j.expect(revokedCopy)
+            j.expect(denialText("far"))
             j.expect("Use $name")
             j.expect("Add a Mac")
         }
@@ -101,9 +104,10 @@ class RecoveryJourney {
         j.step("B1") {
             j.dRelaunch()
             mac.await("labs: denied \\(far\\)", 15_000)
-            j.dWs(10_000, "Failed(auth)") { it is WsStatus.Failed && it.code == "auth" }
+            j.dWs(10_000, "Denied(far)") { it is WsStatus.Denied && it.reason == "far" }
+            j.expect(DENIED_TITLE)
             j.tap(dPill(name, "Wi-Fi"), timeoutMs = 10_000)
-            j.expect(revokedCopy)
+            j.expect(denialText("far"))
         }
         j.step("B2") {
             j.tap("Add a Mac")
@@ -141,17 +145,19 @@ class RecoveryJourney {
         val hostId = Net.saved.value.first().hostId
         mac.stdin("revoke"); mac.await("all devices revoked")
         j.step("B1", "faked: adapter + FakeTransport") {
-            // rediscover re-selects the Mac every ~4-5 s, which restarts watchForFallback's 15 s timer: no fallback
+            // B6: Denied backs off 30 s, no silent loop; the Denied status is not "unreachable" for the fallback timer
             mac.mark()
             Thread.sleep(25_000)
             val denied = mac.lines(mac.from).count { Regex("labs: denied \\(far\\)").containsMatchIn(it) }
             if (dSelectedBt(bt.address)) throw AssertionError("fell back to Bluetooth after the refusal")
-            if (denied < 3) throw AssertionError("expected the refused handshake retried ≥ 3 times in 25 s, saw $denied")
+            if (denied > 1) throw AssertionError("expected at most 1 further refused handshake in 25 s (no silent loop), saw $denied")
+            j.dWs(5_000, "Denied(far)") { it is WsStatus.Denied && it.reason == "far" }
+            j.expect(DENIED_TITLE)
             j.expect(dPill(name, "Wi-Fi"))
         }
         j.step("B2", "faked: same") {
             if (Net.selection.value != Selection.Helper(hostId)) throw AssertionError("selection ${Net.selection.value}")
-            j.dWs(10_000, "Failed or Connecting") { it is WsStatus.Failed || it is WsStatus.Connecting }
+            j.dWs(10_000, "Denied") { it is WsStatus.Denied }
         }
     }
 
@@ -197,7 +203,7 @@ class RecoveryJourney {
         }
         j.step("B2", D_PROX) {
             mac.mark()
-            j.dWs(10_000, "Failed") { it is WsStatus.Failed }
+            j.dWs(10_000, "Failed or Denied") { it is WsStatus.Failed || it is WsStatus.Denied }
             forgetAndConnect(name)
             mac.await("labs: trusted \\Q$phone\\E via nearby", 15_000)
             mac.from = 0

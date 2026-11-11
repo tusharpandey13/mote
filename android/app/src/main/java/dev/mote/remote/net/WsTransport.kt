@@ -165,6 +165,7 @@ class WsTransport(
                             _status.value = WsStatus.Denied(e.code)
                             backoff = deniedBackoff; deniedBackoff = (deniedBackoff * 2).coerceAtMost(DENIED_MAX_BACKOFF)
                             keepStatus = true
+                            wake.tryReceive() // a kick queued before the denial (addAddress) must not skip the backoff
                         }
                     }
                 } catch (e: Exception) {

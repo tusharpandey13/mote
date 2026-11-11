@@ -203,7 +203,7 @@ object InstantPairing {
     /** Helper unreachable for 15 s and the Mac is linked to a Bluetooth HID host: use Bluetooth. */
     private suspend fun watchForFallback() {
         Net.wsStatus.collectLatest { st ->
-            if (st is WsStatus.Ready || st is WsStatus.Idle) return@collectLatest
+            if (!shouldRediscover(st)) return@collectLatest
             val ws = Net.active.value as? WsTransport ?: return@collectLatest
             if (_records.value[ws.hostId] == null) return@collectLatest
             val h = Net.saved.value.firstOrNull { it.hostId == ws.hostId } ?: return@collectLatest
@@ -238,9 +238,12 @@ object InstantPairing {
      * The Mac's LAN IP changed (DHCP) and Bonjour is blocked: when a trusted Mac doesn't answer for
      * [REDISCOVER_MS], sweep the LAN once per outage and add the address it answers at.
      */
+    /** B6: a denial is not a lost address (nor a reason for the Bluetooth fallback). `addAddress` kicks the transport past its 30 s denied backoff, so sweeping on Denied would retry silently every ~4 s. */
+    fun shouldRediscover(st: WsStatus) = st !is WsStatus.Ready && st !is WsStatus.Idle && st !is WsStatus.Denied
+
     private suspend fun rediscover() {
         Net.wsStatus.collectLatest { st ->
-            if (st is WsStatus.Ready || st is WsStatus.Idle) return@collectLatest
+            if (!shouldRediscover(st)) return@collectLatest
             val ws = Net.active.value as? WsTransport ?: return@collectLatest
             if (_records.value[ws.hostId] == null) return@collectLatest
             delay(REDISCOVER_MS)
