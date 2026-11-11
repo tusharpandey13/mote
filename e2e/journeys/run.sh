@@ -22,7 +22,10 @@ die() { echo "run.sh: $*" >&2; exit 2; }
 pascal() { echo "$1" | awk -F- '{for(i=1;i<=NF;i++) printf "%s%s", toupper(substr($i,1,1)), substr($i,2)}'; }
 
 # ---- selector: fail before booting anything ----
-if [ "$TARGET" != all ]; then
+if [ "$TARGET" != all ] && [[ "$TARGET" == *,* ]]; then
+  # a,b,c: several journeys in ONE gradle invocation, in that order (reproduces order-dependent leaks)
+  for id in ${TARGET//,/ }; do [ -f "$ROOT/android/app/src/androidTest/journeys/dev/mote/remote/journeys/$(pascal "$id")Journey.kt" ] || die "no journey class $(pascal "$id")Journey"; done
+elif [ "$TARGET" != all ]; then
   id="${TARGET%%#*}"; method=""; [[ "$TARGET" == *"#"* ]] && method="#${TARGET#*#}"
   # The selector must name a real class (and @Test method): otherwise Gradle runs nothing and exits 0.
   cls="$ROOT/android/app/src/androidTest/journeys/dev/mote/remote/journeys/$(pascal "$id")Journey.kt"
@@ -99,6 +102,9 @@ if [ "$TARGET" = all ]; then
   RUNS+=("$P.package=dev.mote.remote.journeys $P.notClass=$not")
   for o in $ORDERED; do RUNS+=("$P.class=dev.mote.remote.journeys.$(pascal "$o")Journey $P.clearPackageData=false"); done
   : >"$OUT/results.jsonl"
+elif [[ "$TARGET" == *,* ]]; then
+  cl=""; for id in ${TARGET//,/ }; do cl="${cl:+$cl,}dev.mote.remote.journeys.$(pascal "$id")Journey"; done
+  RUNS+=("$P.class=$cl")
 else
   extra=""; [[ " $ORDERED " == *" $id "* ]] && extra=" $P.clearPackageData=false"
   RUNS+=("$P.class=dev.mote.remote.journeys.$(pascal "$id")Journey$method$extra")
