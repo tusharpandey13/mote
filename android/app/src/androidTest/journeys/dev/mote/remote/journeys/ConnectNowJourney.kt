@@ -24,7 +24,8 @@ class ConnectNowJourney {
     private fun toRemote() {
         j.grant(*B_BT_PERMS)
         if (Build.VERSION.SDK_INT >= 33) j.grant(Manifest.permission.POST_NOTIFICATIONS)
-        j.launch(transport = FakeTransport(), adapter = MutableStateFlow(TestSeam.Adapter(supported = true, enabled = true)))
+        // Every path enters the address by hand: the sweep must find nothing (S2 "Looking…", S3 "No Macs found").
+        j.launch(sweepPort = NO_HELPER_PORT, transport = FakeTransport(), adapter = MutableStateFlow(TestSeam.Adapter(supported = true, enabled = true)))
         j.bToBluetoothRemote()
     }
 

@@ -10,6 +10,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
 import dev.mote.remote.diag.Events
+import dev.mote.remote.hid.TestSeam
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +45,10 @@ class Discovery(context: Context) {
         if (listener != null || nsd == null) {
             if (nsd == null) Events.log("discovery", "nsd.failed", "reason" to "no NsdManager")
             return
+        }
+        // tests: no NSD (the emulator would see the dev Mac's real helper); still a timed scan window
+        if (TestSeam.noBonjour) {
+            main.removeCallbacks(timeout); _scanning.value = true; main.postDelayed(timeout, durationMs); return
         }
         Events.log("discovery", "nsd.start", "durationMs" to durationMs)
         lock = wifi?.createMulticastLock("mote-nsd")?.apply { setReferenceCounted(false); runCatching { acquire() } }
