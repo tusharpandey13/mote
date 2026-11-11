@@ -120,7 +120,13 @@ class Finder(context: Context, private val scope: CoroutineScope) {
 @Suppress("DEPRECATION") // allNetworks: the default network may be a VPN (Tailscale)
 fun wifiAddr(c: Context): WifiAddr? = runCatching {
     val cm = c.getSystemService(ConnectivityManager::class.java)
-    cm.allNetworks.firstNotNullOfOrNull { n ->
+    // During a Wi-Fi reconnect Android lists the old (lingering) and the new Wi-Fi network; allNetworks order is
+    // arbitrary, and sockets bound to the old one fail at once (sweep "no Mac", journeys). Prefer the active
+    // network (when it isn't the VPN), then a validated one; an unvalidated LAN without internet still qualifies.
+    val active = cm.activeNetwork
+    cm.allNetworks.sortedByDescending { n ->
+        (if (n == active) 2 else 0) + (if (cm.getNetworkCapabilities(n)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true) 1 else 0)
+    }.firstNotNullOfOrNull { n ->
         val caps = cm.getNetworkCapabilities(n) ?: return@firstNotNullOfOrNull null
         if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return@firstNotNullOfOrNull null
         if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && !caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) return@firstNotNullOfOrNull null
