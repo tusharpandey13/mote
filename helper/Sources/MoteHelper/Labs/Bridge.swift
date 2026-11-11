@@ -263,7 +263,7 @@ final class Bridge {
     /// Menu › Labs › "Forget browser extension" (and Revoke all devices).
     func forget() {
         store.revokeAll()
-        for c in conns.values where c.authed { c.err("revoked", "The extension was forgotten on the Mac"); c.conn.cancel() }
+        for c in conns.values where c.authed { c.revoke("The extension was forgotten on the Mac") }
         log("bridge: extension forgotten")
         changed()
     }
@@ -462,6 +462,16 @@ private final class BridgeConn {
         if let ref { m["ref"] = ref }
         if let retryAfter { m["retryAfter"] = retryAfter }
         send(m)
+    }
+
+    /// Sends `err revoked` and a close frame, then cancels once they are written (at most 2 s later).
+    /// A plain cancel() drops what is still queued, so the extension would never learn why (same as WebServer.cancelAfterFlush).
+    func revoke(_ msg: String) {
+        err("revoked", msg)
+        sendFrame(8, Data([0x03, 0xE8]))
+        let c = conn
+        c.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in c.cancel() })
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { c.cancel() }
     }
 
     private func close(_ code: UInt16) { sendFrame(8, Data([UInt8(code >> 8), UInt8(code & 0xff)])); conn.cancel() }
