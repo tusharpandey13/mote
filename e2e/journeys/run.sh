@@ -19,6 +19,20 @@ CTL_PORT="${MJ_CONTROLLER_PORT:-8799}"
 TARGET="${1:-all}"
 
 die() { echo "run.sh: $*" >&2; exit 2; }
+pascal() { echo "$1" | awk -F- '{for(i=1;i<=NF;i++) printf "%s%s", toupper(substr($i,1,1)), substr($i,2)}'; }
+
+# ---- selector: fail before booting anything ----
+if [ "$TARGET" != all ]; then
+  id="${TARGET%%#*}"; method=""; [[ "$TARGET" == *"#"* ]] && method="#${TARGET#*#}"
+  # The selector must name a real class (and @Test method): otherwise Gradle runs nothing and exits 0.
+  cls="$ROOT/android/app/src/androidTest/journeys/dev/mote/remote/journeys/$(pascal "$id")Journey.kt"
+  [ -f "$cls" ] || die "no journey class $(pascal "$id")Journey (expected ${cls#"$ROOT"/})"
+  [ -z "$method" ] || grep -Eq "@Test[[:space:]]+fun[[:space:]]+${method#\#}[[:space:]]*\(" "$cls" \
+    || die "no @Test method '${method#\#}' in $(pascal "$id")Journey"
+  # A class without a spec (e.g. np-notification) still runs; REPORT.md has no section for it (report.mjs
+  # walks the specs), so its outcome is the gradle exit code, junit XML and results.jsonl.
+  [ -f "$ROOT/docs/journeys/$id.md" ] || echo "run.sh: warning: no spec docs/journeys/$id.md (running $(pascal "$id")Journey anyway; not in REPORT.md, see gradle exit / $OUT/junit)" >&2
+fi
 
 # ---- guard: only ever an emulator ----
 [[ "$SERIAL" =~ ^emulator-[0-9]+$ ]] || die "refusing serial '$SERIAL': only emulator-* targets are allowed"
@@ -74,7 +88,6 @@ fi
 # later test gets a real cold start after an earlier one paired: they run in their own Gradle
 # invocation with clearPackageData=false (Gradle reinstalls the app, so they start from a clean install).
 ORDERED="core-connect"
-pascal() { echo "$1" | awk -F- '{for(i=1;i<=NF;i++) printf "%s%s", toupper(substr($i,1,1)), substr($i,2)}'; }
 P=-Pandroid.testInstrumentationRunnerArguments
 RUNS=()   # one entry per gradle invocation: space-separated -P args
 if [ "$TARGET" = all ]; then
@@ -83,8 +96,6 @@ if [ "$TARGET" = all ]; then
   for o in $ORDERED; do RUNS+=("$P.class=dev.mote.remote.journeys.$(pascal "$o")Journey $P.clearPackageData=false"); done
   : >"$OUT/results.jsonl"
 else
-  id="${TARGET%%#*}"; method=""; [[ "$TARGET" == *"#"* ]] && method="#${TARGET#*#}"
-  [ -f "$ROOT/docs/journeys/$id.md" ] || die "no spec docs/journeys/$id.md"
   extra=""; [[ " $ORDERED " == *" $id "* ]] && extra=" $P.clearPackageData=false"
   RUNS+=("$P.class=dev.mote.remote.journeys.$(pascal "$id")Journey$method$extra")
   # drop this journey's previous results (all paths, or the one path)
