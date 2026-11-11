@@ -198,7 +198,9 @@ class LiveScreenJourney {
         j.path("live-screen.link-drop")
         setup(); streaming()
         j.step("B2") {
-            j.wifi(false)
+            // On the emulator 10.0.2.2 is reachable over mobile data too, so Wi-Fi off alone keeps the socket up;
+            // a real link drop means no network at all (resetNetwork() turns data back on for the next test).
+            j.wifi(false); j.shell("svc data disable")
             mac.await("screen: stopped \\((timeout|gone)\\)", 15_000)
             j.expect("Connecting to the Mac…", timeoutMs = 60_000)
         }
