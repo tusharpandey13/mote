@@ -50,7 +50,11 @@ for _ in $(seq 1 720); do mkdir "$LOCK" 2>/dev/null && break; sleep 5; done
 STARTED_EMU=0; CTL_PID=""
 cleanup() {
   [ -n "$CTL_PID" ] && kill "$CTL_PID" 2>/dev/null || true
-  if [ "$STARTED_EMU" = 1 ] && [ "${MJ_KEEP_EMULATOR:-0}" != 1 ]; then "$ADB" -s "$SERIAL" emu kill >/dev/null 2>&1 || true; fi
+  if [ "$STARTED_EMU" = 1 ] && [ "${MJ_KEEP_EMULATOR:-0}" != 1 ]; then
+    "$ADB" -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+    # emu kill is async: wait until the device is gone, or the next run sees a dying "device" and fails its first adb shell
+    for _ in $(seq 1 30); do "$ADB" devices | grep -q "^$SERIAL[[:space:]]" || break; sleep 1; done
+  fi
   rmdir "$LOCK" 2>/dev/null || true
 }
 trap cleanup EXIT
