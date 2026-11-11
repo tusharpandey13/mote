@@ -208,9 +208,12 @@ class MacrosJourney {
             for (n in names) {
                 val idx = listOf("Spotlight", "Escape", "Mission Control", "Screenshot area", "Open Safari", "Lock", "Force quit", "Hide others")
                     .filter { it !in starred }.indexOf(n)
-                j.compose.onAllNodes(hasContentDescription("Not favourite") and hasClickAction())[idx].performSemanticsAction(SemanticsActions.OnClick)
+                val notFav = hasContentDescription("Not favourite") and hasClickAction()
+                val before = j.compose.onAllNodes(notFav).fetchSemanticsNodes().size
+                j.compose.onAllNodes(notFav)[idx].performSemanticsAction(SemanticsActions.OnClick)
                 starred += n
-                j.compose.waitForIdle()
+                // the star flips after the DataStore round-trip, not on waitForIdle: wait for it, or the next index is stale
+                j.compose.waitUntil(5_000) { j.compose.onAllNodes(notFav).fetchSemanticsNodes().size == before - 1 }
             }
             j.cClick("Done")
         }

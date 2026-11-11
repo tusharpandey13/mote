@@ -108,7 +108,9 @@ object Macros {
         return out
     }
 
-    suspend fun save(c: Context, list: List<Macro>) = Prefs.setMacrosJson(c, encode(list))
+    /** Applies [f] to the stored list atomically (see [Prefs.updateMacrosJson]). */
+    suspend fun update(c: Context, f: (List<Macro>) -> List<Macro>) =
+        Prefs.updateMacrosJson(c) { json -> encode(f(json?.let(::load) ?: defaults)) }
 
     fun encode(list: List<Macro>): String = JSONObject()
         .put("v", VERSION)

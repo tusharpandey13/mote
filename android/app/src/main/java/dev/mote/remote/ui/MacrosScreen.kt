@@ -74,7 +74,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun MacrosScreen(macros: List<Macro>, run: (Macro) -> Unit, save: (List<Macro>) -> Unit) {
+fun MacrosScreen(macros: List<Macro>, run: (Macro) -> Unit, update: ((List<Macro>) -> List<Macro>) -> Unit) {
     val c = LocalMote.current
     var editMode by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Macro?>(null) }
@@ -107,7 +107,7 @@ fun MacrosScreen(macros: List<Macro>, run: (Macro) -> Unit, save: (List<Macro>) 
                     }
                     run {
                         Box(Modifier.align(Alignment.TopEnd).size(40.dp).let {
-                            if (editMode) it.clickable { save(macros.map { x -> if (x.id == m.id) x.copy(star = !x.star) else x }) } else it
+                            if (editMode) it.clickable { update { l -> l.map { x -> if (x.id == m.id) x.copy(star = !x.star) else x } } } else it
                         }, contentAlignment = Alignment.Center) {
                             MIcon(if (m.star) "starFill" else "star", if (m.star) c.accent else c.subtle, size = 16.dp,
                                 description = if (m.star) "Favourite" else "Not favourite")
@@ -134,8 +134,8 @@ fun MacrosScreen(macros: List<Macro>, run: (Macro) -> Unit, save: (List<Macro>) 
         MoteSheet(onDismiss = { editing = null }) { close ->
             MacroEditor(
                 target, isNew,
-                onSave = { m -> save(if (isNew) macros + m else macros.map { if (it.id == m.id) m else it }); close() },
-                onDelete = if (isNew) null else ({ save(macros.filterNot { it.id == target.id }); close() }),
+                onSave = { m -> update { l -> if (isNew) l + m else l.map { if (it.id == m.id) m else it } }; close() },
+                onDelete = if (isNew) null else ({ update { l -> l.filterNot { it.id == target.id } }; close() }),
             )
         }
     }

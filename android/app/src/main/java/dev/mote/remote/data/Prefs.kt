@@ -38,4 +38,6 @@ object Prefs {
 
     fun macrosJson(c: Context): Flow<String?> = c.store.data.map { it.typed(MACROS) }
     suspend fun setMacrosJson(c: Context, json: String) { c.store.edit { it[MACROS] = json } }
+    /** Atomic read-modify-write: [f] sees the stored JSON, not a UI snapshot, so quick successive edits don't overwrite each other. */
+    suspend fun updateMacrosJson(c: Context, f: (String?) -> String) { c.store.edit { it[MACROS] = f(it.typed(MACROS)) } }
 }

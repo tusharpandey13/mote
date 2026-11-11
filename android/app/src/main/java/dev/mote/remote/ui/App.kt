@@ -235,7 +235,7 @@ private fun Root(theme: ThemeChoice) {
             if (m.pointer) { mode = Mode.MOUSE; pointerBanner = true }
         }
     }
-    val saveMacros: (List<Macro>) -> Unit = { list -> scope.launch { Macros.save(ctx, list) } }
+    val updateMacros: ((List<Macro>) -> List<Macro>) -> Unit = { f -> scope.launch { Macros.update(ctx, f) } }
 
     // Settings: clear sticky modifiers on mode switch; release them after 30 s without a change
     LaunchedEffect(mode) { if (settings.clearModsOnSwitch) Remote.setMods(Hid.Mods()) }
@@ -308,7 +308,7 @@ private fun Root(theme: ThemeChoice) {
                         onBannerDone = { pointerBanner = false; mode = Mode.MACROS },
                     )
                     Mode.KEYS -> Column(Modifier.fillMaxSize()) { AutoKeyboardChip(); Box(Modifier.weight(1f)) { KeysScreen() } }
-                    Mode.MACROS -> MacrosScreen(macros, runMacro, saveMacros)
+                    Mode.MACROS -> MacrosScreen(macros, runMacro, updateMacros)
                 } } }
             }
             ModeRail(mode) { mode = it }
