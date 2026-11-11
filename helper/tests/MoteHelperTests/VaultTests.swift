@@ -145,4 +145,19 @@ struct VaultTests {
         let s = try Vault.decoder.decode(Secrets.self, from: Data(#"{"v":1,"devices":[]}"#.utf8))
         #expect(s.trusted.isEmpty && s.identity == nil)
     }
+
+    @Test func revokeAllRemembersFingerprints() {
+        let b = FakeBackend()
+        let v = Vault(service: svc, memoryOnly: false, backend: b, identity: id)
+        let keys = LabsKeyStore(vault: v)
+        keys.add(LabsTrustedKey(fp: "a", pub: "p", name: "n", via: "nearby", created: date))
+        keys.revokeAll()
+        #expect(keys.keys.isEmpty && keys.isRevoked("a") && !keys.isRevoked("b"))
+        #expect(Vault(service: svc, memoryOnly: false, backend: b, identity: id).secrets.revoked == ["a"])
+        keys.add(LabsTrustedKey(fp: "a", pub: "p", name: "n", via: "nearby", created: date))
+        #expect(!keys.isRevoked("a"))
+        for i in 0..<70 { keys.add(LabsTrustedKey(fp: "k\(i)", pub: "p", name: "n", via: "nearby", created: date)) }
+        keys.revokeAll()
+        #expect(v.secrets.revoked.count == LabsKeyStore.revokedCap && v.secrets.revoked.last == "k69" && !keys.isRevoked("k0"))
+    }
 }

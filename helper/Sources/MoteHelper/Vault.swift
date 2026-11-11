@@ -17,6 +17,7 @@ struct Secrets: Codable, Equatable {
     var bridge: [Device] = []             // Labs › browser extension bridge pairings
     var trusted: [LabsTrustedKey] = []    // instant pairing: trusted phone keys
     var blocked: [LabsBlockedKey] = []    // instant pairing: blocked phone keys
+    var revoked: [String] = []            // instant pairing: fingerprints of revoked phones (oldest first, capped), so they get `revoked`, not `far`
     var identity: Data? = nil             // instant pairing: this Mac's Ed25519 private key (raw)
 
     init() {}
@@ -27,6 +28,7 @@ struct Secrets: Codable, Equatable {
         bridge = (try? c.decode([Device].self, forKey: .bridge)) ?? []
         trusted = (try? c.decode([LabsTrustedKey].self, forKey: .trusted)) ?? []
         blocked = (try? c.decode([LabsBlockedKey].self, forKey: .blocked)) ?? []
+        revoked = (try? c.decode([String].self, forKey: .revoked)) ?? []
         identity = try? c.decode(Data.self, forKey: .identity)
     }
 }

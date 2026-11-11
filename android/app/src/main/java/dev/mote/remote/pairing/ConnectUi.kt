@@ -208,6 +208,7 @@ fun pairFailure(e: Throwable, mac: String): String = when ((e as? HelperError)?.
     "stale" -> "The nearby check expired. Try again next to the Mac."
     "bad-proximity" -> "The nearby check failed. Try again next to the Mac."
     "blocked" -> "$mac blocked this phone. Unblock it with Revoke all devices in the Mote Helper menu."
+    "revoked" -> "$mac no longer trusts this phone. Remove this Mac, then add it again."
     "denied" -> "$mac didn't allow this phone."
     "busy" -> "$mac is answering another phone. Try again in a moment."
     "keychain-reading" -> "$mac is reading its Keychain; try again in a few seconds."

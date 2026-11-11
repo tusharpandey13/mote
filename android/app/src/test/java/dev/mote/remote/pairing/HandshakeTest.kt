@@ -95,6 +95,7 @@ class HandshakeTest {
         for (r in dev.mote.remote.net.DENIAL_CODES) assertTrue(r, dev.mote.remote.ui.denialText(r).length > 10)
         assertEquals("Bring the phone close to the Mac, with Bluetooth on.", dev.mote.remote.ui.denialText("far"))
         assertEquals("This Mac blocked this phone; unblock it in Mote Helper.", dev.mote.remote.ui.denialText("blocked"))
+        assertEquals("The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again.", dev.mote.remote.ui.denialText("revoked"))
     }
 
     @Test fun parsesHelperMessages() {

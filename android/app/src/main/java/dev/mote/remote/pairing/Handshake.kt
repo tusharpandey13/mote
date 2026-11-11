@@ -116,7 +116,7 @@ suspend fun labsHandshake(
     }
     return when (val st = machine.state) {
         is PairState.Done -> st
-        is PairState.Denied -> throw HelperError(st.reason, st.reason, st.retryAfter)
+        is PairState.Denied -> throw HelperError(st.reason, st.reason, st.retryAfter, denial = true)
         is PairState.Failed -> throw HelperError(st.code, st.msg, st.retryAfter)
         else -> throw HelperError("bad", "handshake ended in $st")
     }

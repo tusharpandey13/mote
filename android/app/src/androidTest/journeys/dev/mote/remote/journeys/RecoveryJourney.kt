@@ -59,13 +59,13 @@ class RecoveryJourney {
             j.expect(dPill(name, "Wi-Fi"))
             j.expectNot("Not paired: pair again")
             // ~4 s after the refusal `rediscover` re-selects the Mac once; the refused handshake lands as Denied (B6, recovery-D5)
-            mac.await("labs: denied \\(far\\)", 20_000)
-            j.dWs(10_000, "Denied(far)") { it is WsStatus.Denied && it.reason == "far" }
+            mac.await("labs: denied \\(revoked\\)", 20_000)
+            j.dWs(10_000, "Denied(revoked)") { it is WsStatus.Denied && it.reason == "revoked" }
             j.expect(DENIED_TITLE)
         }
         j.step("S4") {
             j.tap(dPill(name, "Wi-Fi"))
-            j.expect(denialText("far"))
+            j.expect(denialText("revoked"))
             j.expect("Use $name")
             j.expect("Add a Mac")
         }
@@ -103,11 +103,11 @@ class RecoveryJourney {
         mac.mark()
         j.step("B1") {
             j.dRelaunch()
-            mac.await("labs: denied \\(far\\)", 15_000)
-            j.dWs(10_000, "Denied(far)") { it is WsStatus.Denied && it.reason == "far" }
+            mac.await("labs: denied \\(revoked\\)", 15_000)
+            j.dWs(10_000, "Denied(revoked)") { it is WsStatus.Denied && it.reason == "revoked" }
             j.expect(DENIED_TITLE)
             j.tap(dPill(name, "Wi-Fi"), timeoutMs = 10_000)
-            j.expect(denialText("far"))
+            j.expect(denialText("revoked"))
         }
         j.step("B2") {
             j.tap("Add a Mac")
@@ -148,10 +148,10 @@ class RecoveryJourney {
             // B6: Denied backs off 30 s, no silent loop; the Denied status is not "unreachable" for the fallback timer
             mac.mark()
             Thread.sleep(25_000)
-            val denied = mac.lines(mac.from).count { Regex("labs: denied \\(far\\)").containsMatchIn(it) }
+            val denied = mac.lines(mac.from).count { Regex("labs: denied \\(revoked\\)").containsMatchIn(it) }
             if (dSelectedBt(bt.address)) throw AssertionError("fell back to Bluetooth after the refusal")
             if (denied > 1) throw AssertionError("expected at most 1 further refused handshake in 25 s (no silent loop), saw $denied")
-            j.dWs(5_000, "Denied(far)") { it is WsStatus.Denied && it.reason == "far" }
+            j.dWs(5_000, "Denied(revoked)") { it is WsStatus.Denied && it.reason == "revoked" }
             j.expect(DENIED_TITLE)
             j.expect(dPill(name, "Wi-Fi"))
         }

@@ -205,13 +205,13 @@ final class InstantPairing: NSObject {
         if store.keys.contains(where: { $0.fp == cfp }) { accept(s, fp: cfp, name: name, via: "trusted"); return }
         // Vault unreadable (ephemeral): the blocked list is unknown, so no automatic trust of any kind: only an explicit Allow.
         if needsApproval { ask(s, fp: cfp, pub: pubHex, name: name); return }
-        var failure = "far"
+        var failure = store.isRevoked(cfp) ? "revoked" : "far"
         if let p = m["prox"] {
             switch (p as? String).map(proximity.verify) ?? .bad {
             case .ok: trustNew(s, fp: cfp, pub: pubHex, name: name, via: "nearby"); return
-            case .stale: failure = "stale"
-            case .replay: failure = "stale"; log("labs: proximity token replayed by \(s.peer)")
-            case .bad: failure = "bad-proximity"; hub.limiter.fail(s.peer)
+            case .stale: if failure != "revoked" { failure = "stale" }
+            case .replay: if failure != "revoked" { failure = "stale" }; log("labs: proximity token replayed by \(s.peer)")
+            case .bad: if failure != "revoked" { failure = "bad-proximity" }; hub.limiter.fail(s.peer)
             }
         }
         sameTailscaleOwner(peer: s.peer) { [weak self] same in
@@ -482,8 +482,18 @@ final class LabsKeyStore {
     }
 
     func add(_ k: LabsTrustedKey) {
-        vault.update { s in s.trusted.removeAll { $0.fp == k.fp }; s.trusted.append(k) }
+        vault.update { s in s.trusted.removeAll { $0.fp == k.fp }; s.revoked.removeAll { $0 == k.fp }; s.trusted.append(k) }
     }
 
-    func revokeAll() { vault.update { $0.trusted = []; $0.blocked = [] } }
+    static let revokedCap = 64
+    func isRevoked(_ fp: String) -> Bool { vault.secrets.revoked.contains(fp) }
+
+    /// Forget every phone key and remember the trusted ones' fingerprints, so a phone that comes back hears `revoked`.
+    func revokeAll() {
+        vault.update { s in
+            for k in s.trusted { s.revoked.removeAll { $0 == k.fp }; s.revoked.append(k.fp) }
+            if s.revoked.count > LabsKeyStore.revokedCap { s.revoked.removeFirst(s.revoked.count - LabsKeyStore.revokedCap) }
+            s.trusted = []; s.blocked = []
+        }
+    }
 }

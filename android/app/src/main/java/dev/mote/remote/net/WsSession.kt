@@ -13,10 +13,10 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /** An `err` from the helper (code per docs/protocol.md), or a local protocol failure. */
-class HelperError(val code: String, message: String, val retryAfter: Int? = null) : IOException(message)
+class HelperError(val code: String, message: String, val retryAfter: Int? = null, val denial: Boolean = false) : IOException(message)
 
 /** Helper answers to `labs.pair.hello` that mean "this Mac does not accept this phone (now)" (B6). */
-val DENIAL_CODES = setOf("far", "stale", "bad-proximity", "blocked", "denied", "busy")
+val DENIAL_CODES = setOf("far", "stale", "bad-proximity", "blocked", "revoked", "denied", "busy")
 
 /** `keychain-reading`: the helper is still doing its one Keychain read at launch; retry after `retryAfter` s. */
 const val KEYCHAIN_READING = "keychain-reading"

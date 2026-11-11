@@ -64,7 +64,7 @@ Preconditions delta: saved host has `btAddress` (linked: a bonded host with the 
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
 | B1 | Mac user | stdin `revoke` (Revoke all) | phone session `err revoked`; pill LED red; Devices note "The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again." | faked: stdin `revoke` |
-| B2 | phone user | Home, then back to Mote | silent handshake gets `labs.pair.denied far` (or `labs.pair.pending` with Require approval → `revoked`) → `WsStatus.Failed("auth")`; same note; never a prompt from a reconnect | real |
+| B2 | phone user | Home, then back to Mote | silent handshake gets `labs.pair.denied revoked` (helper 0.7+; older helpers say `far`) (or `labs.pair.pending` with Require approval → `revoked`) → `WsStatus.Failed("auth")`; same note; never a prompt from a reconnect | real |
 
 ### `instant-pairing.same-window-second-phone` (docs/pairing.md §2; not drawn)
 | # | Actor | Action | Expected observable | Seam |

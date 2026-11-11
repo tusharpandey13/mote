@@ -102,7 +102,7 @@ class InstantPairingJourney {
         j.step("B2") {
             j.device.pressBack()
             j.bHomeAndReturn(1_500)
-            mac.await("labs: denied \\(far\\) ", 15_000)
+            mac.await("labs: denied \\(revoked\\) ", 15_000)
             j.tap("Device: $name", substring = true, timeoutMs = 8_000)
             j.expect(note, timeoutMs = 8_000)
             mac.assertNo("labs: prompt ", 500)

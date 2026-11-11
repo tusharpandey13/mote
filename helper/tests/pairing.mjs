@@ -204,6 +204,31 @@ await withHelper(++port, ['--stdin-control'], async (h) => {
   after.ws.close();
 });
 
+// --- Revoke all: the revoked phone is told `revoked` (not far/stale); a valid token still trusts it and clears the mark
+await withHelper(++port, ['--stdin-control'], async (h) => {
+  await roomInWindow(12);
+  const phone = keypair();
+  const r = await pairAttempt(port, phone, 'revoked phone', { prox: (await prox(port)).v });
+  ok(r.d.via === 'nearby', 'phone trusted via nearby');
+  h.stdin.write('revoke\n');
+  ok((await r.ws.next()).code === 'revoked', 'revoke: the open session gets err revoked');
+  const quiet = await pairAttempt(port, phone, 'revoked phone');
+  ok(quiet.d.t === 'labs.pair.denied' && quiet.d.reason === 'revoked', `revoked key without prox: denied revoked (${quiet.d.reason})`);
+  quiet.ws.close();
+  const stale = await pairAttempt(port, phone, 'revoked phone', { prox: (await prox(port, -2)).v });
+  ok(stale.d.t === 'labs.pair.denied' && stale.d.reason === 'revoked', `revoked key with a stale token: denied revoked (${stale.d.reason})`);
+  stale.ws.close();
+  const stranger = await pairAttempt(port, keypair(), 'stranger');
+  ok(stranger.d.reason === 'far', `another key still gets far (${stranger.d.reason})`);
+  stranger.ws.close();
+  const back = await pairAttempt(port, phone, 'revoked phone', { prox: (await prox(port, 1)).v });
+  ok(back.d.t === 'labs.pair.ok' && back.d.via === 'nearby', 'a valid token trusts the revoked phone again');
+  back.ws.close();
+  const known = await pairAttempt(port, phone, 'revoked phone');
+  ok(known.d.via === 'trusted', 'and it stays trusted');
+  known.ws.close();
+});
+
 // --- Tailscale same owner, no proximity token
 await withHelper(++port, ['--fake-tailscale-owner', 'self'], async (h) => {
   const r = await pairAttempt(port, keypair(), 'ts phone');

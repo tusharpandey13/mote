@@ -29,6 +29,7 @@ fun denialText(reason: String): String = when (reason) {
     "stale" -> "The nearby check expired. Bring the phone close to the Mac and try again."
     "bad-proximity" -> "The nearby check failed. Bring the phone close to the Mac and try again."
     "blocked" -> "This Mac blocked this phone; unblock it in Mote Helper."
+    "revoked" -> "The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again."
     "denied" -> "Someone at the Mac said no, or the Mac forgot this phone. Pair again, or ask for approval."
     "busy" -> "The Mac is answering another phone. Try again in a moment."
     else -> "The Mac refused this phone ($reason)."

@@ -156,11 +156,12 @@ class WsTransport(
                     throw e
                 } catch (e: HelperError) {
                     Events.log("transport", "connect.failed", "code" to e.code, "address" to s.address)
-                    when (e.code) {
+                    // `labs.pair.denied revoked` (e.denial) is a denial like `far`, not the `err revoked` that stops the loop.
+                    when (if (e.denial && e.code == "revoked") "denied:revoked" else e.code) {
                         "auth", "revoked", "keychain-unavailable" -> { session = null; s.close(); _status.value = WsStatus.Failed(e.code, e.message ?: ""); return }
                         "rate" -> backoff = (e.retryAfter ?: 60) * 1000L
                         KEYCHAIN_READING -> { _status.value = WsStatus.Reading; backoff = (e.retryAfter ?: 2) * 1000L; keepStatus = true }
-                        in DENIAL_CODES -> {
+                        in DENIAL_CODES, "denied:revoked" -> {
                             Events.log("pairing", "denied", "reason" to e.code)
                             _status.value = WsStatus.Denied(e.code)
                             backoff = deniedBackoff; deniedBackoff = (deniedBackoff * 2).coerceAtMost(DENIED_MAX_BACKOFF)
