@@ -128,4 +128,14 @@ class HostsTest {
         val rows3 = hostRows(emptyList(), emptyList(), listOf(Found("A", "id1", "10.0.0.5", 8790), Found("A (2)", "id1", "fe80::1", 8790)))
         assertEquals(1, rows3.size)
     }
+
+    @Test fun nearbyUnpairedOnePerHelper() {
+        // Bonjour conflict renames of one helper (same id), a helper without an id seen twice, a paired one
+        val found = listOf(
+            Found("Mac (2)", "id1", "192.168.1.7", 8787), Found("Mac", "id1", "192.168.1.7", 8787), Found("Mac (3)", "id1", "192.168.1.7", 8787),
+            Found("Old", null, "192.168.1.8", 8787), Found("Old (2)", null, "192.168.1.8", 8787), Found("Other", null, "192.168.1.8", 9000),
+            Found("Paired", mac.hostId, "192.168.1.9", 8787),
+        )
+        assertEquals(listOf("Mac (2)", "Old", "Other"), nearbyUnpaired(found, listOf(mac)).map { it.service })
+    }
 }
