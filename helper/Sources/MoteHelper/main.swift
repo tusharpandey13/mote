@@ -146,8 +146,15 @@ if config.stdinControl {
 ev(.lifecycle, "ready", ["wifi": web != nil, "hostId": hub.settings.hostId])
 diagFile?.start()
 Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in Events.shared.flushInput() }
-signal(SIGTERM) { _ in ev(.lifecycle, "terminate", ["signal": "TERM"]); exit(0) }
-signal(SIGINT) { _ in ev(.lifecycle, "terminate", ["signal": "INT"]); exit(0) }
+// TERM/INT on the main queue, not in a raw signal handler: ev() and exit() aren't async-signal-safe, and a
+// signal landing while a lock they need was held deadlocked the process (stray test helpers needed kill -9).
+let signalSources: [DispatchSourceSignal] = [(SIGTERM, "TERM"), (SIGINT, "INT")].map { sig, name in
+    signal(sig, SIG_IGN)
+    let src = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+    src.setEventHandler { ev(.lifecycle, "terminate", ["signal": name]); exit(0) }
+    src.resume()
+    return src
+}
 // The one interactive Keychain read (if due) runs after launch, off the main thread: the menu and listener are up meanwhile.
 DispatchQueue.main.async { hub.vault.startInteractiveRead() }
 app.run()
