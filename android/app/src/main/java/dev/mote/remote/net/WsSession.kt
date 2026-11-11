@@ -15,6 +15,12 @@ import java.util.concurrent.TimeUnit
 /** An `err` from the helper (code per docs/protocol.md), or a local protocol failure. */
 class HelperError(val code: String, message: String, val retryAfter: Int? = null) : IOException(message)
 
+/** Helper answers to `labs.pair.hello` that mean "this Mac does not accept this phone (now)" (B6). */
+val DENIAL_CODES = setOf("far", "stale", "bad-proximity", "blocked", "denied", "busy")
+
+/** `keychain-reading`: the helper is still doing its one Keychain read at launch; retry after `retryAfter` s. */
+const val KEYCHAIN_READING = "keychain-reading"
+
 /** Shared client: no Origin header (native client), WebSocket ping every 20 s so a dead Mac is noticed in ~40 s. */
 fun helperHttpClient(): OkHttpClient = OkHttpClient.Builder()
     .connectTimeout(3, TimeUnit.SECONDS)
@@ -111,12 +117,21 @@ class Pairing(val hello: Msg.Hello, val address: String, val deviceId: String, v
 
 /** Opens [host], pairs with [code] and closes. The caller then stores the credential and connects normally. */
 suspend fun pairWith(http: OkHttpClient, host: String, port: Int, code: String, deviceName: String): Pairing {
-    val s = WsSession.open(http, host, port)
-    try {
-        val p = s.pair(code, deviceName)
-        val token = Proto.hexToBytes(p.token)?.takeIf { it.size == 32 } ?: throw HelperError("bad", "Malformed token")
-        return Pairing(s.hello, host, p.id, token)
-    } finally {
-        s.close()
+    var tries = 0
+    while (true) {
+        val s = WsSession.open(http, host, port)
+        try {
+            val p = s.pair(code, deviceName)
+            val token = Proto.hexToBytes(p.token)?.takeIf { it.size == 32 } ?: throw HelperError("bad", "Malformed token")
+            return Pairing(s.hello, host, p.id, token)
+        } catch (e: HelperError) {
+            // The helper is still reading its Keychain: nothing was decided, so the same code is tried again.
+            if (e.code != KEYCHAIN_READING || ++tries > KEYCHAIN_RETRIES) throw e
+            kotlinx.coroutines.delay((e.retryAfter ?: 2) * 1000L)
+        } finally {
+            s.close()
+        }
     }
 }
+
+const val KEYCHAIN_RETRIES = 5

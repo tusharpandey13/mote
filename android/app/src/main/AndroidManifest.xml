@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- B8: see whether the other Mote build (release <-> Mote Dev) is installed; only one app can be the Bluetooth keyboard. -->
+    <queries>
+        <package android:name="dev.mote.remote" />
+        <package android:name="dev.mote.remote.dev" />
+    </queries>
+
     <!-- Not required: without Bluetooth HID the app still works over Wi-Fi / Tailscale with Mote Helper. -->
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 

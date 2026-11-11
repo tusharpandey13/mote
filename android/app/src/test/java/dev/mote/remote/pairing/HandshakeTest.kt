@@ -85,6 +85,18 @@ class HandshakeTest {
         assertEquals(PairState.Failed("unauth", "authenticate first"), e.onErr("unauth", "authenticate first"))
     }
 
+    @Test fun errKeepsRetryAfter() {  // keychain-reading / rate: retryAfter is not dropped
+        val m = machine()
+        m.onPair(hi())
+        assertEquals(PairState.Failed("keychain-reading", "reading", 2), m.onErr("keychain-reading", "reading", 2))
+    }
+
+    @Test fun denialReasonsReadInPlainWords() {  // B6
+        for (r in dev.mote.remote.net.DENIAL_CODES) assertTrue(r, dev.mote.remote.ui.denialText(r).length > 10)
+        assertEquals("Bring the phone close to the Mac, with Bluetooth on.", dev.mote.remote.ui.denialText("far"))
+        assertEquals("This Mac blocked this phone; unblock it in Mote Helper.", dev.mote.remote.ui.denialText("blocked"))
+    }
+
     @Test fun parsesHelperMessages() {
         assertEquals(PairMsg.Denied("rate", 30), PairProto.parse(JSONObject("""{"t":"labs.pair.denied","reason":"rate","retryAfter":30}""")))
         assertEquals(PairMsg.Pending(60), PairProto.parse(JSONObject("""{"t":"labs.pair.pending","timeout":60}""")))

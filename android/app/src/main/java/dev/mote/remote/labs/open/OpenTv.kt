@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import dev.mote.remote.hid.Consumer
 import dev.mote.remote.hid.Mod
+import dev.mote.remote.labs.Blockers
 import dev.mote.remote.labs.LabsBus
 import dev.mote.remote.net.Net
 import dev.mote.remote.net.Remote
@@ -49,9 +50,11 @@ object OpenTvProto {
 
     /** Message for a helper `err` about a labs request, else null. */
     fun errorText(o: JSONObject): String? {
-        if (o.optString("t") != "err" || !LabsBus.isLabs(o.optString("ref"))) return null
+        if (o.optString("t") != "err") return null
+        val ref = o.optString("ref").ifEmpty { null }
+        if (o.optString("code") == "disabled") return Blockers.helperLabDisabled(ref, "TV mode").text
+        if (!LabsBus.isLabs(ref)) return null
         return when (o.optString("code")) {
-            "disabled" -> "Turn on Labs › TV mode in the Mote Helper menu on the Mac."
             "bad" -> "The Mac refused that link: ${o.optString("msg").take(120)}"
             "tv-off" -> "TV mode is closed on the Mac."
             "paused" -> "Input is paused on the Mac."

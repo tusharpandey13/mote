@@ -229,7 +229,7 @@ fun linkLight(): LinkLight {
     return when {
         linked -> LinkLight.LIT
         active is dev.mote.remote.net.WsTransport ->
-            if (ws is dev.mote.remote.net.WsStatus.Connecting) LinkLight.CONNECTING else LinkLight.UNLIT
+            if (ws is dev.mote.remote.net.WsStatus.Connecting || ws is dev.mote.remote.net.WsStatus.Reading) LinkLight.CONNECTING else LinkLight.UNLIT
         !s.isConnected && s.selected != null && !s.unpaired && s.phase == dev.mote.remote.hid.Phase.READY -> LinkLight.CONNECTING
         s.phase == dev.mote.remote.hid.Phase.REGISTERING -> LinkLight.CONNECTING
         else -> LinkLight.UNLIT

@@ -196,8 +196,8 @@ object InstantPairing {
         if (HostKeyChange.isKeyMismatch(e.code, e.message)) {
             HostKeyChange.report(r.hostId, Net.saved.value.firstOrNull { it.hostId == r.hostId }?.name ?: "This Mac")
         }
-        // WsTransport stops on `auth`: wrong key, revoked or denied need the user, not a retry loop.
-        throw if (e.code in setOf("helper-key", "revoked", "denied", "unauth", "blocked", "far", "stale", "bad-proximity")) HelperError("auth", e.message ?: e.code) else e
+        // WsTransport stops on `auth`: wrong key or revoked need the user. Denials (far, blocked, ...) pass through: it shows a card and backs off.
+        throw if (e.code in setOf("helper-key", "revoked", "unauth")) HelperError("auth", e.message ?: e.code) else e
     }
 
     /** Helper unreachable for 15 s and the Mac is linked to a Bluetooth HID host: use Bluetooth. */

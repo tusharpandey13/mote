@@ -285,6 +285,7 @@ private fun Root(theme: ThemeChoice) {
             } }
             dev.mote.remote.pairing.KeyChangeCard()
             SearchingCard { deviceSheet = true }
+            DeniedCard { deviceSheet = true }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 AnimatedContent(
                     targetState = mode,
