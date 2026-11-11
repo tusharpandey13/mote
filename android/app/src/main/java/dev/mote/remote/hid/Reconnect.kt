@@ -15,6 +15,10 @@ object Reconnect {
     /** True when the saved host has been unpaired: show "Not paired" and never auto-connect to it. */
     fun unpaired(selected: String?, bonded: Set<String>): Boolean = selected != null && selected !in bonded
 
+    /** Bonded addresses, or null when they can't be known (no permission, adapter off): keep the last verdict then. */
+    fun bonded(env: BtEnv): Set<String>? =
+        if (env.supported && env.permitted && env.enabled) env.hosts.mapTo(HashSet()) { it.address } else null
+
     fun allowed(attempts: Int, nowMs: Long, pausedUntilMs: Long): Boolean =
         attempts < MAX_ATTEMPTS && nowMs >= pausedUntilMs
 }
