@@ -37,7 +37,7 @@ Preconditions delta: `lan_warning_seen = true`.
 ### `live-screen.warning-race`: first open sends start before the warning (from S2)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Fresh `labs_screen`; Menu › "Screen (preview)"; do not tap anything | Spec per code: `warned` starts as `true` (`collectAsState(initial = true)`), so if the socket is Ready on first composition the helper may log `[mote] screen: streaming to …` then `[mote] screen: stopped (stop) after 0 frames …` before the notice settles | real (timing-dependent; live-screen-D4) |
+| B1 | phone user | Fresh `labs_screen`; Menu › "Screen (preview)"; do not tap anything | The notice shows and NO stream starts (`warned` is null until DataStore answers; start is gated on a definite answer). Helper logs no `[mote] screen: streaming to …` | real |
 
 ### `live-screen.phone-pause`: Pause sharing on the phone (from S4)
 | # | Actor | Action | Expected observable | Seam |

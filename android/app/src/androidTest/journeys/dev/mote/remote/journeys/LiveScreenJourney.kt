@@ -36,13 +36,16 @@ class LiveScreenJourney {
         mac.mark()
     }
 
+    /** Compose only sees state changes on a frame; mac.await blocks the test thread, so pump first. */
+    private fun pump() { j.compose.waitForIdle() }
+
     private fun openPage() { j.tap("Menu"); j.tap("Screen (preview)"); j.expect("Screen", timeoutMs = 5_000) }
 
     /** Opens the page, acknowledges the LAN warning and waits for frames. */
     private fun streaming() {
         openPage(); j.tap("Show the screen", timeoutMs = 5_000)
-        mac.await("screen: streaming to \\Q$phone\\E via Wi-Fi")
-        j.expect(VIEWER, timeoutMs = 5_000); j.expectGone("Waiting for the first frame…", timeoutMs = 5_000)
+        j.expect(VIEWER, timeoutMs = 5_000)   // pumps Compose first: the pref write only reaches the UI on a frame, mac.await blocks the test thread
+        mac.await("screen: streaming to \\Q$phone\\E via Wi-Fi"); j.expectGone("Waiting for the first frame…", timeoutMs = 5_000)
     }
 
     @Test fun main() {
@@ -57,7 +60,7 @@ class LiveScreenJourney {
         }
         j.step("S3") {
             // from the setup mark: the live-screen-D4 race may already have logged this line for the same session (no second line on a restart)
-            j.tap("Show the screen"); mac.await("screen: streaming to \\Q$phone\\E via Wi-Fi"); j.expect(VIEWER, timeoutMs = 5_000)
+            j.tap("Show the screen"); j.expect(VIEWER, timeoutMs = 5_000); mac.await("screen: streaming to \\Q$phone\\E via Wi-Fi")
         }
         j.step("S4") {
             j.expect(VIEWER, timeoutMs = 5_000)
@@ -79,12 +82,12 @@ class LiveScreenJourney {
             mac.assertNo("DRY clickAt", 1_500)
             j.expectNot("Pinch to zoom", substring = true)
         }
-        j.step("S10") { j.device.pressBack(); mac.await("screen: stopped \\(stop\\) after \\d+ frames, \\d+ KiB, \\d+ dropped"); j.expect("Play or pause") }
+        j.step("S10") { j.device.pressBack(); pump(); mac.await("screen: stopped \\(stop\\) after \\d+ frames, \\d+ KiB, \\d+ dropped"); j.expect("Play or pause") }
     }
 
     @Test fun secondOpen() {
         j.path("live-screen.second-open")
-        setup(); streaming(); j.tap("Back"); mac.await("screen: stopped \\(stop\\)")
+        setup(); streaming(); j.tap("Back"); pump(); mac.await("screen: stopped \\(stop\\)")
         j.step("B1") { openPage(); j.expectNot(WARN); mac.await("screen: streaming to \\Q$phone\\E via Wi-Fi"); j.expect(VIEWER, timeoutMs = 5_000) }
     }
 
@@ -105,20 +108,20 @@ class LiveScreenJourney {
         j.path("live-screen.phone-pause")
         setup(); streaming()
         j.step("B1") {
-            j.tap("Pause sharing"); mac.await("screen: stopped \\(stop\\)")
+            j.tap("Pause sharing"); pump(); mac.await("screen: stopped \\(stop\\)")
             j.expect("Sharing paused"); j.expect("Resume sharing")
             j.dlTouch(VIEWER) { click(center) }; mac.assertNo("DRY clickAt", 1_000)
         }
-        j.step("B2") { j.tap("Resume sharing"); mac.await("screen: streaming to \\Q$phone\\E via Wi-Fi"); j.expectGone("Sharing paused") }
+        j.step("B2") { j.tap("Resume sharing"); pump(); mac.await("screen: streaming to \\Q$phone\\E via Wi-Fi"); j.expectGone("Sharing paused") }
     }
 
     @Test fun background() {
         j.path("live-screen.background")
         setup(); streaming()
-        j.step("B1") { j.device.pressHome(); mac.await("screen: stopped \\(stop\\)", 10_000) }
+        j.step("B1") { j.device.pressHome(); pump(); mac.await("screen: stopped \\(stop\\)", 10_000) }
         j.step("B2") {
             j.shell("am start -n dev.mote.remote.dev/dev.mote.remote.MainActivity")
-            mac.await("screen: streaming to \\Q$phone\\E via Wi-Fi", 10_000)
+            pump(); mac.await("screen: streaming to \\Q$phone\\E via Wi-Fi", 10_000)
             j.expect(VIEWER, timeoutMs = 5_000)
         }
     }

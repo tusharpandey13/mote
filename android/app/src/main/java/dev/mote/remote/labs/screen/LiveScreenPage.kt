@@ -114,7 +114,9 @@ fun LiveScreenPage(onBack: () -> Unit) {
     val btLinked by Remote.linked.collectAsState()
     LaunchedEffect(ws == null) { Blockers.note("live_screen", if (ws == null) Blockers.link(Blockers.Link(false, btLinked)) else null) }
     val plainLan = ready != null && routeOf(ready.address) != Route.TAILNET
-    val warned by remember { ScreenPrefs.warned(ctx) }.collectAsState(initial = true)
+    // null until DataStore has answered: never start (or flash the notice) on a guess; the stream is unencrypted.
+    val warnedState by remember { ScreenPrefs.warned(ctx) }.collectAsState(initial = null)
+    val warned = warnedState == true
     val scope = rememberCoroutineScope()
     var paused by remember { mutableStateOf(false) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -125,7 +127,7 @@ fun LiveScreenPage(onBack: () -> Unit) {
 
     // The stream: runs while linked, on screen, not paused and past the LAN warning. Cancelling it
     // (back, background, pause, link drop) sends `stop`; the helper also stops on its 2 s lease.
-    val streaming = ws != null && ready != null && visible && !paused && (!plainLan || warned)
+    val streaming = ws != null && ready != null && visible && !paused && warnedState != null && (!plainLan || warned)
     LaunchedEffect(ws, streaming, ready?.address) {
         if (!streaming || ws == null) return@LaunchedEffect
         v.message = null
@@ -181,7 +183,7 @@ fun LiveScreenPage(onBack: () -> Unit) {
         Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
             when {
                 ws == null -> Notice("Live screen needs Mote Helper", "${Blockers.link(Blockers.Link(false, btLinked))?.text}. Bluetooth can't carry the picture.")
-                plainLan && !warned -> Notice(
+                plainLan && warnedState == false -> Notice(
                     "Your screen travels unencrypted",
                     "On plain Wi-Fi, anyone on this network who can capture traffic could see the Mac's screen. Tailscale encrypts it. Frames are never saved.",
                     action = "Show the screen",
