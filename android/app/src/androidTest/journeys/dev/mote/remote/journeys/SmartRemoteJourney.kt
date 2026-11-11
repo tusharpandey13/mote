@@ -200,6 +200,8 @@ class SmartRemoteJourney {
     @Test fun helperLabOff() {
         j.path("smart-remote.helper-lab-off")
         setup(ctx = null, np = false)
+        // U3: now playing is core and on by default in the helper, so "both off" needs the Mac's switch turned off.
+        mac.mark(); mac.stdin("nowplaying off")
         j.step("B1") {
             j.expect("SMART REMOTE", timeoutMs = 8_000); j.expect("PREVIEW")
             j.expect("Turn on Labs › Context & now playing in the Mote Helper menu on the Mac")
@@ -264,7 +266,8 @@ class SmartRemoteJourney {
         j.step("B1") {
             j.dlToggleLabUi("Smart remote (preview)")
             j.expect("Play or pause", timeoutMs = 5_000)
-            j.expectNot("NETFLIX"); j.expectNot("PREVIEW"); j.expectNot("Fake Song")
+            j.expectNot("NETFLIX"); j.expectNot("PREVIEW")
+            j.expect("Fake Song") // U3: now playing is core; only the Smart remote panel and chip go
         }
     }
 }

@@ -122,7 +122,7 @@ Preconditions delta: helper without `--fake-screen`; stdin `screen-lab-on`.
 Preconditions delta: active transport is Bluetooth HID (`TestSeam.transport` FakeTransport with HID caps).
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Menu › "Screen (preview)" | header shows the wordmark instead of the pause icon; notice "Live screen needs Mote Helper" / "Connect to your Mac over Wi-Fi or Tailscale with Mote Helper. Bluetooth can't carry the picture." | faked: TestSeam.transport |
+| B1 | phone user | Menu › "Screen (preview)" | header shows the wordmark instead of the pause icon; notice "Live screen needs Mote Helper" / "Needs Wi-Fi or Tailscale; connected over Bluetooth. Bluetooth can't carry the picture." | faked: TestSeam.transport |
 
 ### `live-screen.tailscale`: Tailscale route skips the warning (from S2)
 | # | Actor | Action | Expected observable | Seam |

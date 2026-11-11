@@ -75,7 +75,7 @@ Preconditions delta: helper without `--fake-nowplaying`; file = Netflix (P3).
 | B3 | system | browser tab with no rule whose bundle == now-playing bundle | header "WEB MEDIA · <app>" | faked: needs new flag (fake now-playing `bundle` is fixed to `com.apple.Music`, `Context.swift:514`) |
 
 ### `smart-remote.helper-lab-off`: helper lab off (not drawn)
-Preconditions delta: helper started without `--fake-context`/`--fake-nowplaying` (lab defaults off with `--memory-store`).
+Preconditions delta: helper started without `--fake-context`/`--fake-nowplaying`, then stdin `nowplaying off` (now playing is core and on by default, U3; context defaults off with `--memory-store`).
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
 | B1 | system | phone subscribes | helper replies `{"t":"labs.ctx","enabled":false}`, `{"t":"labs.np","enabled":false}`; panel: "PREVIEW", "SMART REMOTE", hint "Turn on Labs › Context & now playing in the Mote Helper menu on the Mac." | real |
@@ -103,7 +103,7 @@ Preconditions delta: file `{"app":"Safari","bundle":"com.apple.Safari","browser"
 ### `smart-remote.lab-off-phone`: phone lab off (not drawn)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Settings › Labs switch "Smart remote (preview)" → Off | phone sends `labs.ctx.sub`/`labs.np.sub` `on:false`; SmartPanel and chip render nothing; Media back to the plain layout | real |
+| B1 | phone user | Settings › Labs switch "Smart remote (preview)" → Off | phone sends `labs.ctx.sub`/`labs.np.sub` `on:false`; SmartPanel and chip render nothing; Media back to the plain layout (the core now-playing card stays, U3) | real |
 
 ### `smart-remote.automation-ask`: browser tabs not decided yet (next-0.6; not drawn)
 Preconditions delta: file `{"app":"Safari","bundle":"com.apple.Safari","browser":true,"automation":"ask"}`.

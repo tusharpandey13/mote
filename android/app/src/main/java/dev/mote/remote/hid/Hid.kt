@@ -248,10 +248,13 @@ object Hid {
     private fun tryReconnect() {
         if (released) return
         val s = _state.value
-        val p = proxy ?: return
-        val bonded = runCatching { adapter?.bondedDevices.orEmpty().map { it.address }.toSet() }.getOrDefault(emptySet())
+        // Bonded set from Bt.snapshot (honours TestSeam.adapter), and "Not paired" is decided before
+        // the proxy check: with TestSeam.transport or a failed HID registration there is no proxy.
+        if (!::appContext.isInitialized) return
+        val bonded = Reconnect.bonded(Bt.snapshot(appContext)) ?: return
         val unpaired = Reconnect.unpaired(s.selected?.address, bonded)
         if (unpaired != s.unpaired) _state.update { it.copy(unpaired = unpaired) }
+        val p = proxy ?: return
         val target = Reconnect.target(s.selected?.address, plugged, bonded) ?: return
         if (!foreground || s.phase != Phase.READY || s.connected != null) return
         if (!Reconnect.allowed(attempts, System.currentTimeMillis(), pausedUntil)) return

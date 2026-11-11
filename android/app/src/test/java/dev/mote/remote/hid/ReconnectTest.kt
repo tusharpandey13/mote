@@ -24,6 +24,15 @@ class ReconnectTest {
         assertFalse(Reconnect.unpaired(null, emptySet()))
     }
 
+    @Test fun bondedOnlyKnownWithPermissionAndAdapterOn() {
+        val hosts = listOf(Host(mac, "Mac"))
+        assertEquals(setOf(mac), Reconnect.bonded(BtEnv(supported = true, permitted = true, enabled = true, hosts = hosts)))
+        assertEquals(emptySet<String>(), Reconnect.bonded(BtEnv(supported = true, permitted = true, enabled = true)))
+        assertNull(Reconnect.bonded(BtEnv(supported = true, permitted = false, enabled = true)))
+        assertNull(Reconnect.bonded(BtEnv(supported = true, permitted = true, enabled = false)))
+        assertNull(Reconnect.bonded(BtEnv(supported = false)))
+    }
+
     @Test fun capsAttempts() {
         assertTrue(Reconnect.allowed(Reconnect.MAX_ATTEMPTS - 1, 0, 0))
         assertFalse(Reconnect.allowed(Reconnect.MAX_ATTEMPTS, 0, 0))

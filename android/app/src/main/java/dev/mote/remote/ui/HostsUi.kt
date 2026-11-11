@@ -349,7 +349,7 @@ fun HostSheet(
                 Header("Pair with code") { page = Page.LIST }
                 Text("On the Mac, open the Mote Helper menu and choose Pair new device. Then pick the Mac here, or scan its QR with the camera and tap Open in the Mote app.",
                     style = T.body, color = c.muted)
-                val unpaired = found.filter { f -> saved.none { it.hostId == f.hostId } }
+                val unpaired = dev.mote.remote.net.nearbyUnpaired(found, saved)
                 Column(Modifier.fillMaxWidth().well(RoundedCornerShape(20.dp)).padding(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (unpaired.isEmpty()) Text(
                         if (scanning) "Looking for Macs on this Wi-Fi…"

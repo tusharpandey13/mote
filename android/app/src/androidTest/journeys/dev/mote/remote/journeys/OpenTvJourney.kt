@@ -228,7 +228,7 @@ class OpenTvJourney {
         val t = j.dlBluetoothOnly()
         val seam = "faked: TestSeam.transport FakeTransport (HID caps)"
         j.step("B1", seam) {
-            openSheet(); j.expect("Opening links needs Mote Helper over Wi-Fi or Tailscale. Quick actions work over Bluetooth too.")
+            openSheet(); j.expect("Needs Wi-Fi or Tailscale; connected over Bluetooth. Quick actions work over Bluetooth too.")
             j.expectNot("Open TV mode on the Mac")
         }
         j.step("B2", seam) { j.dlType(FIELD, "lofi beats"); j.tap("Open"); j.expect("Open & TV mode needs Mote Helper over Wi-Fi or Tailscale."); j.expect(FIELD) }

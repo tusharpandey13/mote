@@ -90,6 +90,12 @@ class Helper(val name: String, val port: Int, val args: List<String>) {
     fun info(): JSONObject = JSONObject(await("^LABS PAIR INFO: ").substringAfter("LABS PAIR INFO: ")).also { from = 0 }
 }
 
+/**
+ * LAN sweep port when a journey runs no helper. Never null: null makes the app probe the default helper port
+ * 8790 on 10.0.2.2, i.e. the dev Mac's REAL installed helper, which then shows up as a discovered Mac.
+ */
+const val NO_HELPER_PORT = 18_799
+
 /** Step outcome, as REPORT.md shows it. */
 enum class Status { PASS, FAIL, FAKED, UNDEFINED, MANUAL, STATIC }
 
@@ -183,7 +189,7 @@ class JourneyRule : TestRule {
      * WebSocket instead of BLE; [transport]/[adapter] replace Bluetooth HID / the adapter.
      */
     fun launch(
-        sweepPort: Int? = (helpers + kept).firstOrNull()?.port,
+        sweepPort: Int? = (helpers + kept).firstOrNull()?.port ?: NO_HELPER_PORT,
         fakeProximity: Boolean = false,
         transport: Transport? = null,
         adapter: StateFlow<TestSeam.Adapter>? = null,
@@ -314,6 +320,7 @@ class JourneyRule : TestRule {
                 } catch (e: Exception) {
                     throw AssertionError("journeys controller not reachable at ${Ctl.base}: run e2e/journeys/run.sh", e)
                 }
+                resetNetwork()
                 try {
                     base.evaluate()
                 } catch (t: Throwable) {
@@ -332,6 +339,17 @@ class JourneyRule : TestRule {
                 }
             }
         }
+    }
+
+    /**
+     * Per-journey network reset (plan phase 4): a previous journey's Wi-Fi off / airplane mode must not leak in.
+     * App data is reset by the orchestrator (clearPackageData = pm clear, which also revokes runtime permissions and
+     * clears the first-run flags); it can't be done from here because the test runs inside the app's process.
+     */
+    private fun resetNetwork() {
+        runCatching { shell("cmd connectivity airplane-mode disable") }
+        runCatching { shell("svc data enable") }
+        runCatching { wifi(true) }
     }
 
     private fun isTeardownArtifact(t: Throwable): Boolean = generateSequence(t) { it.cause }.any {

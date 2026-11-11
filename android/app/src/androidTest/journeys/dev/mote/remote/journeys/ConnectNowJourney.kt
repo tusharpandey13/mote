@@ -24,10 +24,9 @@ class ConnectNowJourney {
     private fun toRemote() {
         j.grant(*B_BT_PERMS)
         if (Build.VERSION.SDK_INT >= 33) j.grant(Manifest.permission.POST_NOTIFICATIONS)
-        j.launch(transport = FakeTransport(), adapter = MutableStateFlow(TestSeam.Adapter(supported = true, enabled = true)))
-        j.bPre("first-run screen") { j.expect("Use Bluetooth instead (no helper)", timeoutMs = 8_000) }
-        j.bPre("tap Use Bluetooth") { j.tap("Use Bluetooth instead (no helper)") }
-        j.bPre("remote") { j.expect("Device: Choose a device. Tap to choose", timeoutMs = 8_000) }
+        // Every path enters the address by hand: the sweep must find nothing (S2 "Looking…", S3 "No Macs found").
+        j.launch(sweepPort = NO_HELPER_PORT, transport = FakeTransport(), adapter = MutableStateFlow(TestSeam.Adapter(supported = true, enabled = true)))
+        j.bToBluetoothRemote()
     }
 
     /** S1-S2 + S4: Devices › More options › Pair with code › Enter address. */

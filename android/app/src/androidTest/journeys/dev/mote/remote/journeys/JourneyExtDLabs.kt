@@ -114,7 +114,7 @@ fun JourneyRule.dlClip(text: String) {
 fun JourneyRule.dlBluetoothOnly(): dev.mote.remote.e2e.FakeTransport {
     grant(android.Manifest.permission.BLUETOOTH_CONNECT, android.Manifest.permission.BLUETOOTH_ADVERTISE, android.Manifest.permission.BLUETOOTH_SCAN)
     val t = dev.mote.remote.e2e.FakeTransport(dev.mote.remote.net.Caps.HID)
-    launch(sweepPort = null, transport = t, adapter = kotlinx.coroutines.flow.MutableStateFlow(
+    launch(sweepPort = NO_HELPER_PORT, transport = t, adapter = kotlinx.coroutines.flow.MutableStateFlow(
         dev.mote.remote.hid.TestSeam.Adapter(hosts = listOf(dev.mote.remote.hid.Host("AA:BB:CC:DD:EE:01", "Test Mac", dev.mote.remote.hid.Host.Kind.LAPTOP)))))
     // Bluetooth permissions granted before launch: startScreen opens the remote directly (btPermitted + adapter ready).
     if (expectAny("Use Bluetooth instead (no helper)", "Play or pause", timeoutMs = 10_000) != "Play or pause") tap("Use Bluetooth instead (no helper)")

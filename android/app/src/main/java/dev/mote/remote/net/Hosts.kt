@@ -142,6 +142,16 @@ fun hostRows(bt: List<Host>, saved: List<SavedHost>, found: List<Found>): List<H
     return rows
 }
 
+/**
+ * The "Pair with code" list: helpers found on the LAN that aren't paired yet, one per helper.
+ * Bonjour renames on a name conflict ("Mac (2)", "Mac (3)") and Android's NSD keeps the stale
+ * instances, so one helper can show up under several service names: key by hostId (TXT `id`),
+ * else by address:port.
+ */
+fun nearbyUnpaired(found: List<Found>, saved: List<SavedHost>): List<Found> =
+    found.filter { f -> saved.none { it.hostId == f.hostId } }
+        .distinctBy { it.hostId ?: "${it.address}:${it.port}" }
+
 internal fun sameName(a: String, b: String): Boolean {
     fun n(s: String) = s.replace('’', '\'').trim().lowercase()
     return n(a).isNotEmpty() && n(a) == n(b)

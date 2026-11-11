@@ -27,9 +27,7 @@ class BtQuirksJourney {
         if (Build.VERSION.SDK_INT >= 33) j.grant(Manifest.permission.POST_NOTIFICATIONS)
         adapter = MutableStateFlow(TestSeam.Adapter(supported = true, enabled = true, hosts = listOf(mac)))
         j.launch(transport = FakeTransport(), adapter = adapter)
-        j.bPre("first-run screen") { j.expect("Use Bluetooth instead (no helper)", timeoutMs = 8_000) }
-        j.bPre("tap Use Bluetooth") { j.tap("Use Bluetooth instead (no helper)") }
-        j.bPre("pill") { j.expect("Device: ", substring = true, timeoutMs = 8_000) }
+        j.bToBluetoothRemote()
         j.bPre("open Devices") { j.tap("Device: ", substring = true) }
         j.bPre("Devices sheet") { j.expect("Devices") }
     }
@@ -70,7 +68,8 @@ class BtQuirksJourney {
         }
         // B2 (row grouped with a saved helper host) not automated: needs a helper host named like the BT host.
         j.step("B3", "faked: drop the host from TestSeam.adapter.hosts (stands in for Android Settings › Forget)") {
-            j.tap("Use Test Mac")
+            // B1's long press can end in a plain click (no onLongPress for this row): the row is then already selected and the sheet closed.
+            if (!j.shown("Device: Test Mac via BT. Tap to choose")) j.tap("Use Test Mac")
             j.expect("Device: Test Mac via BT. Tap to choose", timeoutMs = 5_000)
             adapter.value = adapter.value.copy(hosts = emptyList())
             j.expect("Device: Not paired: pair again via BT. Tap to choose", timeoutMs = 8_000)
