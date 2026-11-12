@@ -46,13 +46,13 @@ Opening Mote (or bringing it to the foreground) reconnects to the selected Mac w
 | RC-20 | App | U12 contract: Mac in ephemeral mode (`labs.pair.hi ephemeral:true`, or classic `auth` code `keychain-unavailable`) | card "This Mac can't save pairings" (Keychain unavailable, approve on the Mac); key accepted for this session only, stored pin and token are kept, nothing deleted | refuse a bad signature even with a stale pin | `ui/banner{kind:mac-ephemeral}` | the card, OK | repair the Mac Keychain | L0 | android:HandshakeTest#ephemeralKeyIsSessionOnly; android:HandshakeTest#keychainUnavailableHasItsOwnCopy; android:UxCardsTest#ephemeralMacSaysSoAndKeepsNothing | pass (helper side on fix-vault) |
 | RC-13 | macOS | Mac removed the Bluetooth bond, phone kept it | phone detects and offers re-pair | never detected (reconnect-D4) | none | "Searching…" forever | forget on phone, pair again | L2 | android:BtQuirksJourney#forgetOnMac | fail (D-RC-4) |
 | RC-14 | User | Long-press › Forget a helper Mac | trust and pin removed; if it was the last Mac → FindMacScreen | artboard says pair again from Devices (reconnect-D7) | `ui/tap`; `ui/screen{screen:FIND_MAC}` | FindMacScreen | connect again (J4) | L2 | android:ReconnectJourney#forgetHelper | pass |
-| RC-15 | User | Bluetooth-only row: long-press › Forget | forget offered | not offered (reconnect-D1, D2) | n/a | nothing | Android Bluetooth settings | L2 | TODO-RC-15 | fail (D-RC-2) |
+| RC-15 | User | Bluetooth-only row: long-press › Forget | Forget offered; it opens Android Bluetooth settings (apps cannot remove a bond); the row stays until unpaired there, then shows "Not paired: pair again" | n/a | n/a | "Forget <Mac>? Android removes Bluetooth pairings in its own settings." / Open settings / Cancel | Android Bluetooth settings | L2 | android:BtForgetJourney#forgetBluetoothOnlyHost | untested |
 | RC-16 | User | Real phone, real Mac: sleep/wake, router DHCP change, walk out of Wi-Fi with BT linked | RC-2, RC-3, RC-5 | any | phone Diagnostics, `MoteHelper --diag` sessions | per row | per row | L4 | MANUAL-17 | untested |
 | RC-17 | Helper | L2 restart keeping identity | `--secrets-dir DIR` (dry-run only) keeps hostId, identity key and trusted phones across restarts (`--memory-store` does not) | identity lost on restart: phone must pair again | n/a | n/a | n/a | L2 | node:helper/tests/restart.mjs | pass |
 
 ## Defects
 - D-RC-1 Unreadable Keychain → new helper identity per launch → every trusted phone fails `helper-key`/`auth` until re-paired, every launch.
-- D-RC-2 (reconnect-D1, D2) Bluetooth-only rows cannot be forgotten in-app though copy says to.
+- D-RC-2 (reconnect-D1, D2) fixed: Bluetooth-only rows offer Forget, which hands over to Android Bluetooth settings (apps cannot remove a bond).
 - D-RC-3 (reconnect-D3) after 3 HID attempts the UI keeps saying searching.
 - D-RC-4 (reconnect-D4) Mac-side unpair never detected.
 - D-RC-5 (reconnect-D5) offline phone may be told the helper isn't running.

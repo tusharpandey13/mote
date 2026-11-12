@@ -138,4 +138,14 @@ class HostsTest {
         )
         assertEquals(listOf("Mac (2)", "Old", "Other"), nearbyUnpaired(found, listOf(mac)).map { it.service })
     }
+
+    @Test fun bluetoothOnlyRowsAreForgetInAndroidSettings() {
+        val bt = Host("AA:BB:CC:DD:EE:01", "Mac", Host.Kind.LAPTOP)
+        val rows = hostRows(listOf(bt), emptyList(), emptyList())
+        assertEquals(true, rows.single().btOnly)
+        // a paired helper Mac (even with a Bluetooth twin) is forgotten in-app
+        assertEquals(false, hostRows(listOf(bt), listOf(mac.copy(btAddress = bt.address)), emptyList()).single().btOnly)
+        // a helper that is only nearby has no Bluetooth: nothing to forget
+        assertEquals(false, HostRow("f:x", "x").btOnly)
+    }
 }
