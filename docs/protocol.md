@@ -265,6 +265,8 @@ Areas and events (a unit test keeps this table equal to the code):
 | `labs` | `toggle`, `subscribe`, `push`, `stream` |
 | `ui` | `setup.shown`, `setup.closed`, `setup.button`, `menu.opened`, `menu.item`, `diagnostics.shown`, `diagnostics.copied`, `pairing.shown`, `newdevice.shown` |
 
+`session/paired` and `session/pair.failed` carry the trust decision: `via` (`nearby`, `tailscale`, `approved`, `code`) or `reason` (`far`, `stale`, `bad-proximity`, `denied`, `timeout`, `unauth`), plus `transport`. Instant-pairing events add `instant: true`. A message other than `hello`/`pair` on an unauthenticated socket logs `pair.failed{reason:unauth, t}` (coalesced).
+
 The Android app emits the same event shape with `side: "app"` into its own log (areas and names are its own); the shared `corr` joins both sides.
 
 ## 3. BLE transport
