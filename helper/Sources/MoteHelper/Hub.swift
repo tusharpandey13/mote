@@ -313,6 +313,7 @@ final class Session {
         default:
             guard authed else {
                 unauthStrikes += 1
+                ev(.session, "pair.failed", coalesce: "unauth", ["reason": "unauth", "t": t, "transport": transport])
                 err("unauth", "authenticate first", ref: t)
                 if unauthStrikes > 20 { close() }
                 return

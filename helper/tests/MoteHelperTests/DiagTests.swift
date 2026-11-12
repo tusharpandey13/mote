@@ -66,6 +66,19 @@ struct DiagTests {
         #expect((s["signing"] as! [String: Any])["expectedKeychainPartition"] as? String == "cdhash:bb")
     }
 
+    @Test func listenerFailedAndWaitingAreBlockedWithAFix() {
+        var s = input { $0.listenerState = "failed"; $0.listenerError = "Address already in use" }
+        #expect(feat(s, "wifi")["blockedBy"] as? String == "listener-failed" && feat(s, "wifi")["fix"] as? String == "free-port")
+        s = input { $0.listenerState = "waiting" }
+        #expect(feat(s, "wifi")["blockedBy"] as? String == "listener-waiting" && feat(s, "wifi")["fix"] as? String == "restart-helper")
+    }
+
+    @Test func spaceThumbnailsBlockedWithoutScreenRecording() {
+        let s = input { $0.shareThumbnails = true; $0.perms[.screenRecording] = check(.screenRecording, .notDetermined) }
+        #expect(feat(s, "spaceThumbnails")["blockedBy"] as? String == "screen-recording-not-granted")
+        #expect(feat(s, "spaceThumbnails")["fix"] as? String == "grant-screen-recording")
+    }
+
     @Test func screenRecordingOffWhenNothingUsesIt() {
         let s = input { $0.perms[.screenRecording] = check(.screenRecording, .notDetermined) }
         #expect(perm(s, "screenRecording")["state"] as? String == "off")

@@ -228,6 +228,7 @@ final class InstantPairing: NSObject {
     private func accept(_ s: Session, fp cfp: String, name: String, via: String) {
         let id = "k:" + cfp
         log("labs: trusted \(name) via \(via)")
+        ev(.session, "paired", ["via": via, "transport": s.transport, "instant": true])
         s.send(["t": "labs.pair.ok", "via": via, "id": id, "name": name])
         s.labsAuthed(id: id, name: name)
         guard via != "trusted" else { return }
@@ -276,6 +277,7 @@ final class InstantPairing: NSObject {
         var m: [String: Any] = ["t": "labs.pair.denied", "reason": reason]
         if let retryAfter { m["retryAfter"] = retryAfter }
         log("labs: denied (\(reason)) \(s.peer)")
+        ev(.session, "pair.failed", ["reason": reason, "transport": s.transport, "instant": true])
         s.send(m)
     }
 
