@@ -3,6 +3,8 @@
 #   e2e/journeys/run.sh all                 every journey (docs/journeys/*.md)
 #   e2e/journeys/run.sh wifi-helper         one journey (its JourneyClass, every path)
 #   e2e/journeys/run.sh wifi-helper#main    one path (test method)
+#   e2e/journeys/run.sh --level L2 [install-helper J4 ...]   the L2 rows of the core journeys J1-J7 (docs/journeys/README.md):
+#                                           their cited tests (android in ONE gradle call, helper, node, e2e), then REPORT.md
 # Env: MJ_SERIAL (default emulator-5562; only emulator-* serials are accepted), MJ_KEEP_EMULATOR=1
 # (leave it running), MJ_REBUILD_HELPER=1, MJ_NO_BUILD=1 (skip gradle assemble; still runs tests).
 set -euo pipefail
@@ -16,13 +18,17 @@ AVD=mote-journeys
 IMAGE="system-images;android-35;google_apis;arm64-v8a"
 OUT="${MJ_OUT:-/tmp/mote-journeys}"
 CTL_PORT="${MJ_CONTROLLER_PORT:-8799}"
+LEVEL=""; [ "${1:-}" = --level ] && { LEVEL="${2:?--level needs a value, e.g. L2}"; shift 2; }
 TARGET="${1:-all}"
 
 die() { echo "run.sh: $*" >&2; exit 2; }
 pascal() { echo "$1" | awk -F- '{for(i=1;i<=NF;i++) printf "%s%s", toupper(substr($i,1,1)), substr($i,2)}'; }
 
 # ---- selector: fail before booting anything ----
-if [ "$TARGET" != all ] && [[ "$TARGET" == *,* ]]; then
+if [ -n "$LEVEL" ]; then
+  # every cited class / method / file / title must exist (reads only the specs and sources)
+  MJ_OUT="$OUT" node "$HERE/l2.mjs" plan --level "$LEVEL" "$@" || die "invalid cites in the $LEVEL rows (see above)"
+elif [ "$TARGET" != all ] && [[ "$TARGET" == *,* ]]; then
   # a,b,c: several journeys in ONE gradle invocation, in that order (reproduces order-dependent leaks)
   for id in ${TARGET//,/ }; do [ -f "$ROOT/android/app/src/androidTest/journeys/dev/mote/remote/journeys/$(pascal "$id")Journey.kt" ] || die "no journey class $(pascal "$id")Journey"; done
 elif [ "$TARGET" != all ]; then
@@ -98,7 +104,9 @@ curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/run" >/dev/null || die "controller
 ORDERED="core-connect"
 P=-Pandroid.testInstrumentationRunnerArguments
 RUNS=()   # one entry per gradle invocation: space-separated -P args
-if [ "$TARGET" = all ]; then
+if [ -n "$LEVEL" ]; then
+  :   # handled below
+elif [ "$TARGET" = all ]; then
   not=""; for o in $ORDERED; do not="${not:+$not,}dev.mote.remote.journeys.$(pascal "$o")Journey"; done
   RUNS+=("$P.package=dev.mote.remote.journeys $P.notClass=$not")
   for o in $ORDERED; do RUNS+=("$P.class=dev.mote.remote.journeys.$(pascal "$o")Journey $P.clearPackageData=false"); done
@@ -119,7 +127,26 @@ fi
 # ---- build + run ----
 cd "$ROOT/android"
 RC=0; : >"$OUT/gradle.log"
-for run in "${RUNS[@]}"; do
+if [ -n "$LEVEL" ]; then
+  # one Gradle invocation: JVM unit tests (--tests) and instrumented tests (pinned to $SERIAL by ANDROID_SERIAL)
+  GARGS=(); while IFS= read -r a; do GARGS+=("$a"); done < <(MJ_OUT="$OUT" node "$HERE/l2.mjs" gradle-args)
+  rm -rf app/build/test-results/testDevUnitTest app/build/outputs/androidTest-results/connected
+  # SweepDiscoveryTest needs a dry-run helper on the host at a fixed port
+  "$HELPER" --dry-run --headless --memory-store --no-ble --fake-proximity --port 8795 >"$OUT/l2/sweep-helper.log" 2>&1 &
+  SWEEP_PID=$!
+  set +e
+  ./gradlew --max-workers=2 -q "${GARGS[@]}" "$P.mjController=http://10.0.2.2:$CTL_PORT" "$P.moteSweepPort=8795" >"$OUT/l2/gradle.log" 2>&1
+  RC=$?
+  set -e
+  kill "$SWEEP_PID" 2>/dev/null || true
+  tail -15 "$OUT/l2/gradle.log"
+  mkdir -p "$OUT/junit"; cp -R app/build/outputs/androidTest-results/connected/. "$OUT/junit/" 2>/dev/null || true
+  curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/helper/stopall" >/dev/null 2>&1 || true
+  MJ_OUT="$OUT" node "$HERE/l2.mjs" collect
+  MJ_OUT="$OUT" node "$HERE/l2.mjs" run-others
+  RUNS=()
+fi
+for run in ${RUNS[@]+"${RUNS[@]}"}; do
   set +e
   # shellcheck disable=SC2086 # $run is a list of -P args
   ./gradlew --max-workers=2 -q -PmoteJourneys :app:connectedDevAndroidTest $run \
@@ -132,6 +159,7 @@ for run in "${RUNS[@]}"; do
 done
 
 # ---- report ----
-node "$HERE/report.mjs" --out "$OUT" --specs "$ROOT/docs/journeys" --write "$HERE/REPORT.md" || true
+node "$HERE/report.mjs" --out "$OUT" --specs "$ROOT/docs/journeys" --write "$HERE/REPORT.md" ${LEVEL:+--strict} || { [ -n "$LEVEL" ] && RC=1; }
+
 echo "report: $HERE/REPORT.md  screenshots: $OUT/<path>/<step>.png  (gradle exit $RC)"
 exit "$RC"
