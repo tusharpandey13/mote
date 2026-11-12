@@ -208,6 +208,7 @@ private fun Root(theme: ThemeChoice) {
         macChosen = wifiChosen, btChosen = btChosen, btPermitted = bt.permitted, btReady = bt.gate == BtGate.READY, skip = demo || link != null,
     )
     if (!loaded && !demo) { Box(Modifier.fillMaxSize().chassis()); return }
+    LaunchedEffect(start, bt.gate) { if (start != StartScreen.REMOTE) dev.mote.remote.diag.Events.log("ui", "screen", "screen" to start.name.lowercase(), "gate" to bt.gate.name) }
     // Setup stays on screen until its last step (the optional Bluetooth one), even once the Mac is saved.
     var setup by rememberSaveable { mutableStateOf(false) }
     if (start == StartScreen.FIND_MAC) setup = true
