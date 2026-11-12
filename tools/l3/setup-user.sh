@@ -1,16 +1,18 @@
 #!/bin/bash
 # Creates the standard (non-admin) macOS user `motetest` for L3 runs. Run ONCE, as the owner (an admin), in a terminal.
-# sysadminctl prompts for the new user's password and for your admin password (nothing goes in argv or a file).
+# sysadminctl only creates users as root: the script re-runs itself with sudo (your admin password, once), then
+# sysadminctl prompts for the new user's password (nothing goes in argv or a file).
 # Idempotent: exits 0 when the user exists. Does not change sharing settings, except the optional, asked
 # Remote Login access-list entry below.
 set -eu
 USER_NAME=motetest
+[ "$(id -u)" -eq 0 ] || [ -n "${MOTE_L3_NO_SUDO:-}" ] || exec sudo "$0" "$@"
 
 if id -u "$USER_NAME" >/dev/null 2>&1; then
   echo "User $USER_NAME already exists; nothing to do."
 else
-  echo "Creating the standard user $USER_NAME. You will be asked for its new password, then for YOUR admin password."
-  sysadminctl -addUser "$USER_NAME" -fullName "Mote Test" -password - -adminUser "$(id -un)" -adminPassword -
+  echo "Creating the standard user $USER_NAME. Type its new password when asked."
+  sysadminctl -addUser "$USER_NAME" -fullName "Mote Test" -password -
   id -u "$USER_NAME" >/dev/null 2>&1 || { echo "error: user was not created" >&2; exit 1; }
   echo "Created $USER_NAME (standard user, not admin)."
 fi
@@ -22,7 +24,7 @@ if nc -z 127.0.0.1 22 >/dev/null 2>&1; then
      && ! dseditgroup -o checkmember -m "$USER_NAME" com.apple.access_ssh >/dev/null 2>&1; then
     printf 'Remote Login is limited to a list that does not include %s. Add it? [y/N] ' "$USER_NAME"
     read -r a || a=n
-    case "$a" in [yY]*) sudo dseditgroup -o edit -a "$USER_NAME" -t user com.apple.access_ssh ;; *) echo "Left unchanged." ;; esac
+    case "$a" in [yY]*) dseditgroup -o edit -a "$USER_NAME" -t user com.apple.access_ssh ;; *) echo "Left unchanged." ;; esac
   fi
 else
   echo "Remote Login is off; left off. Use Fast User Switching to reach $USER_NAME (see tools/l3/README.md)."

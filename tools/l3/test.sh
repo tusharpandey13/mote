@@ -42,11 +42,13 @@ ok "reset deletes keychain items of the service" has 'security delete-generic-pa
 ok "reset removed app" test ! -e "$W/home/Applications/MoteHelper.app"
 ok "reset removed app support" test ! -e "$W/home/Library/Application Support/dev.mote.helper"
 
-# setup: creates once, then is idempotent; the password never appears in argv
+# setup: re-runs itself with sudo when not root; creates once, then is idempotent; the password never appears in argv
 : > "$LOG"; STUB_EXISTS=0 "$HERE/setup-user.sh" </dev/null >/dev/null 2>&1
+ok "setup (not root) re-runs itself via sudo" has 'sudo .*setup-user.sh'
+: > "$LOG"; STUB_EXISTS=0 MOTE_L3_NO_SUDO=1 "$HERE/setup-user.sh" </dev/null >/dev/null 2>&1
 ok "setup (new user) calls sysadminctl -addUser motetest" has 'sysadminctl -addUser motetest'
 ok "setup passes only '-' as password" hasnt 'password [^-]'
-: > "$LOG"; STUB_EXISTS=1 "$HERE/setup-user.sh" </dev/null >/dev/null 2>&1; rc=$?
+: > "$LOG"; STUB_EXISTS=1 MOTE_L3_NO_SUDO=1 "$HERE/setup-user.sh" </dev/null >/dev/null 2>&1; rc=$?
 ok "setup is idempotent (rc=$rc)" test "$rc" = 0
 ok "setup did not call sysadminctl again" hasnt sysadminctl
 
