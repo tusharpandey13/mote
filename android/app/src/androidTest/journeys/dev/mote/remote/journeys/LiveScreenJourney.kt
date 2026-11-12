@@ -206,6 +206,26 @@ class LiveScreenJourney {
         }
     }
 
+    @Test fun quickReconnect() {
+        j.path("live-screen.quick-reconnect")
+        setup(); streaming()
+        j.step("B1") {
+            // Emulator: with Wi-Fi off the host is still reachable over mobile data, so the link comes back in
+            // well under a second and the status stays Ready (no "Connecting" flicker). The page must start
+            // the stream again on the new socket, not keep the last frame.
+            mac.mark()
+            j.wifi(false)
+            mac.await("screen: stopped \\((timeout|gone)\\)", 15_000)
+            val end = System.currentTimeMillis() + 15_000
+            while (true) { // frames only recompose when Compose is pumped, and await blocks the test thread
+                pump()
+                if (runCatching { mac.await("screen: streaming to \\Q$phone\\E", 1_000) }.isSuccess) break
+                if (System.currentTimeMillis() > end) throw AssertionError("stream not restarted on the new socket within 15 s")
+            }
+            j.expectNot("Connecting to the Mac…")
+        }
+    }
+
     @Test fun bluetooth() {
         j.path("live-screen.bluetooth")
         j.dlLabs(Labs.LIVE_SCREEN)

@@ -34,7 +34,11 @@ open class WsTarget(val candidates: List<String>, val port: Int, val deviceId: S
 sealed interface WsStatus {
     data object Idle : WsStatus
     data object Connecting : WsStatus
-    data class Ready(val address: String, val paused: Boolean, val ax: Boolean) : WsStatus
+    /**
+     * [link] counts sessions: a quick reconnect keeps the status Ready (no flicker), so per-session state
+     * (a Labs stream started on the old socket) must key on [link], not on the address.
+     */
+    data class Ready(val address: String, val paused: Boolean, val ax: Boolean, val link: Int = 0) : WsStatus
     /** Needs the user: re-pair (`auth`, `revoked`), update the helper (`version`), or no credential. */
     data class Failed(val code: String, val msg: String) : WsStatus
     /** The Mac answered `labs.pair.denied` / `err far...` with [reason]; the link retries slowly, the user can act (B6). */
@@ -70,6 +74,7 @@ class WsTransport(
     override val spaces: StateFlow<SpacesState?> = _spaces.asStateFlow()
 
     @Volatile private var session: WsSession? = null
+    private var links = 0
     private var loop: Job? = null
     private val wake = Channel<Unit>(Channel.CONFLATED)
 
@@ -131,14 +136,14 @@ class WsTransport(
                     session = s
                     backoff = MIN_BACKOFF
                     deniedBackoff = DENIED_MIN_BACKOFF
-                    _status.value = WsStatus.Ready(s.address, a.paused, a.ax)
+                    _status.value = WsStatus.Ready(s.address, a.paused, a.ax, ++links)
                     Events.log("transport", "connect.ready", "address" to s.address, "paused" to a.paused, "ax" to a.ax)
                     onReady(s.address, s.hello)
                     s.send(Proto.spacesSub())
                     for (m in s.inbox) when (m) {
                         is Msg.State -> {
                             Events.log("session", "state", "paused" to m.paused, "ax" to m.ax)
-                            _status.value = WsStatus.Ready(s.address, m.paused, m.ax)
+                            _status.value = WsStatus.Ready(s.address, m.paused, m.ax, links)
                         }
                         is Msg.Spaces -> onSpaces(s, m)
                         is Msg.SpacesThumb -> onThumb(m)

@@ -128,7 +128,8 @@ fun LiveScreenPage(onBack: () -> Unit) {
     // The stream: runs while linked, on screen, not paused and past the LAN warning. Cancelling it
     // (back, background, pause, link drop) sends `stop`; the helper also stops on its 2 s lease.
     val streaming = ws != null && ready != null && visible && !paused && warnedState != null && (!plainLan || warned)
-    LaunchedEffect(ws, streaming, ready?.address) {
+    // Keyed on the session, not the address: a quick reconnect stays Ready, and the new socket needs its own `start`.
+    LaunchedEffect(ws, streaming, ready?.link) {
         if (!streaming || ws == null) return@LaunchedEffect
         v.message = null
         var lastSeq = 0

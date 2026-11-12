@@ -118,6 +118,11 @@ Preconditions delta: helper without `--fake-screen`; stdin `screen-lab-on`.
 | B1 | system | Kill the helper process (SIGTERM) | phone: socket not Ready → notice "Connecting to the Mac…" / "The screen shows once Mote Helper answers." | real |
 | B2 | system | `adb shell svc wifi disable` and `svc data disable` instead (on the emulator the host is reachable over mobile data too) | helper `[mote] screen: stopped (timeout) …` within ~2 s (lease) or `stopped (gone)` when the socket closes; phone notice "Connecting to the Mac…" | real |
 
+### `live-screen.quick-reconnect`: the link comes back at once (from S4)
+| # | Actor | Action | Expected observable | Seam |
+|---|---|---|---|---|
+| B1 | system | `adb shell svc wifi disable` only (the emulator still reaches the host over mobile data, so the app reconnects in < 1 s and stays Ready) | helper `screen: stopped (timeout\|gone)`, then a new `screen: streaming to <phone>` on the new socket within 15 s; no "Connecting to the Mac…" | real |
+
 ### `live-screen.bluetooth`: Bluetooth link, no helper (from S2)
 Preconditions delta: active transport is Bluetooth HID (`TestSeam.transport` FakeTransport with HID caps).
 | # | Actor | Action | Expected observable | Seam |
