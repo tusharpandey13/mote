@@ -28,6 +28,7 @@ const WITH_VALUE = new Set(['--fake-spaces', '--fake-context', '--fake-tailscale
 
 fs.mkdirSync(OUT, { recursive: true });
 const helpers = new Map(); // name -> {proc, port, lines: [], args}
+const begun = new Set(); // paths already started in this run (see /begin)
 
 async function freePort() {
   for (;;) {
@@ -140,6 +141,16 @@ const server = http.createServer(async (req, res) => {
         const f = path.join(dir, safe(j.file));
         fs.writeFileSync(f, String(j.content ?? ''));
         return send(200, { path: f });
+      }
+      case '/run': begun.clear(); return send(200, { ok: true }); // run.sh: a new run starts
+      case '/begin': { // first test of this path in the run: drop the path's older rows, so a step it no longer reaches can't keep an old result
+        if (begun.has(j.path)) return send(200, { ok: true });
+        begun.add(j.path);
+        const f = path.join(OUT, 'results.jsonl');
+        const keep = fs.existsSync(f) ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean)
+          .filter(l => { try { return JSON.parse(l).path !== j.path; } catch { return false; } }) : [];
+        fs.writeFileSync(f, keep.map(l => l + '\n').join(''));
+        return send(200, { ok: true });
       }
       case '/step': {
         fs.appendFileSync(path.join(OUT, 'results.jsonl'), JSON.stringify({ ...j, at: new Date().toISOString() }) + '\n');

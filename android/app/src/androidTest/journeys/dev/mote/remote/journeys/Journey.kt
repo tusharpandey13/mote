@@ -51,12 +51,13 @@ object Ctl {
         return j
     }
 
+    /** Throws when the controller can't be reached (the caller queues it, see Journey.deliver). */
     fun upload(journey: String, step: String, png: ByteArray) {
-        runCatching {
+        run {
             val c = URL("$base/shot?journey=${journey}&step=${step}").openConnection() as HttpURLConnection
             c.connectTimeout = 3000; c.readTimeout = 10_000; c.requestMethod = "POST"; c.doOutput = true
             c.outputStream.use { it.write(png) }
-            c.responseCode
+            if (c.responseCode >= 400) throw AssertionError("controller /shot -> ${c.responseCode}")
         }
     }
 }
@@ -119,16 +120,35 @@ class JourneyRule : TestRule {
     private val helpers = mutableListOf<Helper>()
     private var scenario: ActivityScenario<MainActivity>? = null
     private var failedStep: String? = null
+    /** Results and screenshots the controller didn't get (a step that turned the network off); sent after the test. */
+    private val undelivered = mutableListOf<() -> Unit>()
 
-    fun path(id: String) { path = id }
+    /** Sends to the controller now, or queues it: a lost record would leave a stale result in REPORT.md. */
+    private fun deliver(send: () -> Unit) {
+        if (undelivered.isNotEmpty() || runCatching(send).isFailure) undelivered += send
+    }
+
+    /** After the network is back: sends what was queued, or fails the test (its results would be missing). */
+    private fun flushUndelivered() {
+        val end = System.currentTimeMillis() + 30_000
+        while (undelivered.isNotEmpty()) {
+            if (runCatching(undelivered.first()).isSuccess) undelivered.removeAt(0)
+            else if (System.currentTimeMillis() > end) throw AssertionError("journeys controller unreachable after the test: ${undelivered.size} result(s) not recorded")
+            else Thread.sleep(500)
+        }
+    }
+
+    fun path(id: String) {
+        path = id
+        Ctl.call("/begin", JSONObject().put("path", id)) // set first, while the network is still up
+    }
 
     // ---- results ----
 
     private fun record(step: String, status: Status, note: String = "", seam: String = "") {
-        runCatching {
-            Ctl.call("/step", JSONObject().put("path", path).put("step", step).put("status", status.name.lowercase())
-                .put("note", note.take(600)).put("seam", seam))
-        }
+        val body = JSONObject().put("path", path).put("step", step).put("status", status.name.lowercase())
+            .put("note", note.take(600)).put("seam", seam)
+        deliver { Ctl.call("/step", body, timeoutMs = 10_000) }
     }
 
     /**
@@ -159,7 +179,8 @@ class JourneyRule : TestRule {
             val bmp: Bitmap = ui.takeScreenshot() ?: return
             val out = ByteArrayOutputStream()
             bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
-            Ctl.upload(path, id, out.toByteArray())
+            val png = out.toByteArray(); val p = path
+            deliver { Ctl.upload(p, id, png) }
         }
     }
 
@@ -321,6 +342,7 @@ class JourneyRule : TestRule {
                     throw AssertionError("journeys controller not reachable at ${Ctl.base}: run e2e/journeys/run.sh", e)
                 }
                 resetNetwork()
+                var lost: Throwable? = null
                 try {
                     base.evaluate()
                 } catch (t: Throwable) {
@@ -332,11 +354,14 @@ class JourneyRule : TestRule {
                 } finally {
                     // The activity is left to the orchestrator (fresh process per test): closing it here
                     // disposes the composition on the compose test dispatcher (see isTeardownArtifact).
+                    // Network first: stopping helpers and the queued results both need the controller.
+                    resetNetwork()
                     helpers.forEach { runCatching { it.stop() } }
-                    runCatching { shell("svc wifi enable") }
                     TestSeam.transport = null; TestSeam.adapter = null; TestSeam.noBonjour = false
                     TestSeam.sweepPort = null; TestSeam.fakeProximity = false
+                    lost = runCatching { flushUndelivered() }.exceptionOrNull()
                 }
+                lost?.let { throw it } // a passing test whose results never reached the controller fails
             }
         }
     }

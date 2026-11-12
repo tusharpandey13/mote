@@ -51,9 +51,17 @@ fun aIsNotificationDialog(msg: String) = msg.contains("notification", ignoreCase
 /** Android's "make your phone visible" dialog (ACTION_REQUEST_DISCOVERABLE): taps Allow / Deny. */
 fun JourneyRule.aDiscoverable(allow: Boolean, timeoutMs: Long = 8_000) {
     if (!aSystemShown(".*(visible|discoverable).*", timeoutMs)) throw AssertionError("no Bluetooth visibility (discoverable) system dialog within $timeoutMs ms")
-    val b = device.wait(Until.findObject(By.text(Pattern.compile(if (allow) "Allow" else "(Deny|Don.t allow)", Pattern.CASE_INSENSITIVE)).pkg(A_NOT_APP)), 3_000)
-        ?: throw AssertionError("discoverable dialog: no ${if (allow) "Allow" else "Deny"} button")
-    b.click()
+    val button = By.text(Pattern.compile(if (allow) "Allow" else "(Deny|Don.t allow)", Pattern.CASE_INSENSITIVE)).pkg(A_NOT_APP)
+    val dialog = By.text(Pattern.compile(".*(visible|discoverable).*", Pattern.CASE_INSENSITIVE or Pattern.DOTALL)).pkg(A_NOT_APP)
+    // A busy emulator can drop a tap on this Settings dialog (no click logged by Settings, the dialog stays and the
+    // app never gets its result): tap until the dialog is gone, so the test checks the app, not the input queue.
+    repeat(3) {
+        val b = device.wait(Until.findObject(button), 3_000)
+            ?: if (!device.hasObject(dialog)) return else throw AssertionError("discoverable dialog: no ${if (allow) "Allow" else "Deny"} button")
+        b.click()
+        if (device.wait(Until.gone(dialog), 3_000) == true) return
+    }
+    throw AssertionError("discoverable dialog still shown after 3 taps on ${if (allow) "Allow" else "Deny"}")
 }
 
 /** If Android shows a Bluetooth-enable request (the fake adapter is off, the real one may be on), leave it with Back. */

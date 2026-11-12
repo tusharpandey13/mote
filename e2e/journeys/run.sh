@@ -89,6 +89,7 @@ if ! curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/ping" >/dev/null 2>&1; then
   CTL_PID=$!
   for _ in $(seq 1 50); do curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/ping" >/dev/null 2>&1 && break; sleep 0.2; done
 fi
+curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/run" >/dev/null || die "controller on :$CTL_PORT has no /run (an old controller is still running? kill it)"
 
 # ---- which tests ----
 # Ordered journeys keep app data between their tests (each test is still a fresh process), so a
