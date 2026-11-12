@@ -48,7 +48,7 @@ Opening Mote (or bringing it to the foreground) reconnects to the selected Mac w
 | RC-14 | User | Long-press › Forget a helper Mac | trust and pin removed; if it was the last Mac → FindMacScreen | artboard says pair again from Devices (reconnect-D7) | `ui/tap`; `ui/screen{screen:FIND_MAC}` | FindMacScreen | connect again (J4) | L2 | android:ReconnectJourney#forgetHelper | pass |
 | RC-15 | User | Bluetooth-only row: long-press › Forget | forget offered | not offered (reconnect-D1, D2) | n/a | nothing | Android Bluetooth settings | L2 | TODO-RC-15 | fail (D-RC-2) |
 | RC-16 | User | Real phone, real Mac: sleep/wake, router DHCP change, walk out of Wi-Fi with BT linked | RC-2, RC-3, RC-5 | any | phone Diagnostics, `MoteHelper --diag` sessions | per row | per row | L4 | MANUAL-17 | untested |
-| RC-17 | Helper | L2 restart keeping identity | `--keychain-service NAME` keeps `secrets.v3` across restarts (`--memory-store` does not) | test uses `--memory-store`: new hostId/key | n/a | n/a | n/a | L2 | TODO-RC-17 | untested |
+| RC-17 | Helper | L2 restart keeping identity | `--secrets-dir DIR` (dry-run only) keeps hostId, identity key and trusted phones across restarts (`--memory-store` does not) | identity lost on restart: phone must pair again | n/a | n/a | n/a | L2 | node:helper/tests/restart.mjs | pass |
 
 ## Defects
 - D-RC-1 Unreadable Keychain → new helper identity per launch → every trusted phone fails `helper-key`/`auth` until re-paired, every launch.
