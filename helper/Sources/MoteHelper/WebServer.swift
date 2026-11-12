@@ -59,6 +59,8 @@ final class WebServer {
             case .ready:
                 self.port = l?.port?.rawValue; self.status = "listening on :\(l?.port?.rawValue ?? self.hub.config.port)"   // real port with --port 0
                 self.listenerState = "ready"; self.listenerError = nil
+                // Ready is only reached once macOS lets the Bonjour service register: an old PolicyDenied is stale (B2).
+                if self.bonjour == "failed" && self.bonjourErrorCode == WebServer.policyDenied { self.bonjour = "attempting"; self.bonjourErrorCode = nil }
                 fields["port"] = Int(self.port ?? 0)
             case .failed(let e), .waiting(let e):
                 // .waiting(.dns(-65570)) is how macOS reports a denied Local Network permission for the Bonjour service.

@@ -9,10 +9,12 @@ Protocol: `docs/protocol.md`; pairing: `docs/pairing.md`.
 helper/build.sh                 # build/MoteHelper.app + build/MoteHelper-macos-<arch>.zip(.sha256)
 ARCHS=arm64 helper/build.sh     # one arch
 MOTE_ADHOC=1 helper/build.sh    # ad-hoc signature (CI, agents): no keychain access, permissions don't stick
-helper/tests/unit.sh            # Swift unit tests (CLT only, no Xcode; plain `swift test` can't run them): permissions, Keychain blob, screen math, events, diag; `helper/tests/signing.sh` tests identity selection and notarize.sh with stubs
+helper/tests/unit.sh            # Swift unit tests (CLT only, no Xcode; plain `swift test` can't run them): permissions, Keychain blob, screen math, events, diag; `helper/tests/Fixtures/system/` holds replayed OS states (see `--record-system`); `helper/tests/signing.sh` tests identity selection and notarize.sh with stubs
 ```
 
 Diagnostics (protocol 1.5, `docs/protocol.md` section 2.1): `MoteHelper --diag` prints the snapshot (permissions with raw API answers, signing, Keychain, features) as JSON and exits without any macOS prompt. The running helper writes its own snapshot (mode 0600, no secrets) to `~/Library/Application Support/dev.mote.helper/diag.json` (+ the last 500 events in `diag-events.jsonl`) at launch, ~1 s after any event and every 30 s; `--diag` prints it (`source: "running"`, `pid`, `writtenAt`) when that pid is alive and the file is under 60 s old, otherwise it probes in its own process (`source: "cli"`, runtime sections `unknown`, a `note` says why). `--data-dir DIR` moves the files (tests); `--memory-store` writes none unless `--data-dir` is given; the running helper answers the `diag` message and has a menu item "Diagnostics…" (readable view, Copy). `--events FILE` appends every event as a JSON line; the same events go to `os_log` (`log stream --predicate 'subsystem == "dev.mote.helper"'`) and to `diag.subscribe` clients. Test: `node helper/tests/diag.mjs`.
+
+`MoteHelper --record-system FILE` writes the real OS's answers as a test fixture and exits: each permission's silent preflight result (raw API value, state), the signing identity, the Keychain account names of the service (attributes only, never item data or a read), and Wi-Fi/Bonjour/BLE status taken from the running helper's `diag.json` when one is fresh (Local Network is inferred from it). It never prompts and holds no secrets. The owner runs it once per macOS update and commits the result to `helper/tests/Fixtures/system/`; `SystemFixtureTests` replays those files through `--diag` and the Setup window model (`"source": "synthetic"` marks hand-made ones).
 
 ## Signing: one-time setup
 

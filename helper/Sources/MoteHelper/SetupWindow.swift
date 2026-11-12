@@ -37,9 +37,10 @@ final class SetupModel: ObservableObject {
     var perms: [Perm] { Perm.allCases.filter { $0 != .localNetwork || PermProbe.hasLocalNetworkPrivacy } }
 
     func refresh() {
-        let st: [Perm: PermState] = actions.snapshot.map { Diag.states(fromSnapshot: $0()) } ?? PermProbe.all()
+        let snap = actions.snapshot?()
+        let st: [Perm: PermState] = snap.map { Diag.states(fromSnapshot: $0) } ?? PermProbe.all()
         let enabled = Set(Perm.allCases.filter(actions.isEnabled))
-        let new = PermissionModel.rows(states: st, enabled: enabled, requested: requested, perms: perms)
+        let new = PermissionModel.rows(states: st, enabled: enabled, requested: requested, regrant: snap.map(Diag.regrant(fromSnapshot:)) ?? [], perms: perms)
         if new != rows { rows = new; onChange?() }
         let eph = actions.keychainEphemeral()
         if eph != keychainEphemeral { keychainEphemeral = eph }
@@ -172,6 +173,7 @@ struct SetupView: View {
                         .foregroundColor(Tok.muted)
                 }
                 Text(r.perm.why).font(.system(size: 12)).foregroundColor(Tok.muted).fixedSize(horizontal: false, vertical: true)
+                if r.regrant { Text(PermissionModel.regrantNote).font(.system(size: 11)).foregroundColor(Tok.accent).fixedSize(horizontal: false, vertical: true) }
             }
             Spacer(minLength: 8)
             trailing(r)

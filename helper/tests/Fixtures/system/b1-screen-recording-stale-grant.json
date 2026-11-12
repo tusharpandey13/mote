@@ -1,0 +1,84 @@
+{
+  "arch": "arm64",
+  "discovery": {
+    "bleAdvertising": true,
+    "bleStatus": "advertising",
+    "bonjour": "registered",
+    "bonjourErrorCode": null,
+    "listenerError": null,
+    "listenerState": "ready",
+    "running": true
+  },
+  "history": {
+    "screenRecordingGrantedBy": "cdhash H\"aa\""
+  },
+  "keychain": {
+    "accounts": [
+      "secrets.v4.cdhash:bb"
+    ],
+    "listStatus": 0,
+    "service": "dev.mote.helper"
+  },
+  "macOS": "15.1.0",
+  "note": "B1/B5: Screen Recording was granted to an earlier ad-hoc build (cdhash aa). The running build (bb) gets preflight false and no window titles, while System Settings shows a switch on for the stale entry.",
+  "permissions": {
+    "accessibility": {
+      "api": "AXIsProcessTrusted",
+      "checkedAt": 1,
+      "detail": {},
+      "ms": 0.1,
+      "raw": "true",
+      "state": "granted"
+    },
+    "automation": {
+      "api": "AEDeterminePermissionToAutomateTarget(ask: false)",
+      "checkedAt": 1,
+      "detail": {},
+      "ms": 0.1,
+      "raw": "no scriptable browser running",
+      "state": "unknown"
+    },
+    "bluetooth": {
+      "api": "CBManager.authorization",
+      "checkedAt": 1,
+      "detail": {},
+      "ms": 0.1,
+      "raw": "allowedAlways",
+      "state": "granted"
+    },
+    "localNetwork": {
+      "api": "none",
+      "checkedAt": 1,
+      "detail": {},
+      "ms": 0.1,
+      "raw": "no API; inferred from the Bonjour listener",
+      "state": "unknown"
+    },
+    "screenRecording": {
+      "api": "CGPreflightScreenCaptureAccess",
+      "checkedAt": 1,
+      "detail": {
+        "otherAppWindowTitlesVisible": "0",
+        "otherAppWindows": "4"
+      },
+      "ms": 0.1,
+      "raw": "false",
+      "state": "notDetermined"
+    }
+  },
+  "signing": {
+    "adhoc": true,
+    "authorities": [],
+    "bundlePath": "/Applications/MoteHelper.app",
+    "cdhash": "bb",
+    "designatedRequirement": "cdhash H\"bb\"",
+    "executablePath": "/Applications/MoteHelper.app/Contents/MacOS/MoteHelper",
+    "hardenedRuntime": false,
+    "identifier": "dev.mote.helper",
+    "identity": "adhoc",
+    "quarantined": false,
+    "teamId": null,
+    "translocated": false
+  },
+  "source": "synthetic"
+}

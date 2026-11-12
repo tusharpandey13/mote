@@ -74,11 +74,13 @@ struct PermRow: Equatable {
     /// Shown after the user asked for it, while macOS still reports "not granted" (Screen Recording only
     /// takes effect after a relaunch on some macOS versions).
     let relaunch: Bool
+    /// Screen Recording was granted to an older signature of this app: the switch in System Settings may be for that one.
+    var regrant = false
 }
 
 enum PermissionModel {
     /// `enabled`: optional features the user turned on. `requested`: permissions asked for this run.
-    static func rows(states: [Perm: PermState], enabled: Set<Perm>, requested: Set<Perm> = [],
+    static func rows(states: [Perm: PermState], enabled: Set<Perm>, requested: Set<Perm> = [], regrant: Set<Perm> = [],
                      perms: [Perm] = Perm.allCases) -> [PermRow] {
         perms.map { p in
             let st = states[p] ?? .unknown
@@ -90,12 +92,13 @@ enum PermissionModel {
             default: status = .grant
             }
             let relaunch = p == .screenRecording && requested.contains(p) && st != .granted
-            return PermRow(perm: p, state: st, status: status, relaunch: relaunch)
+            return PermRow(perm: p, state: st, status: status, relaunch: relaunch, regrant: regrant.contains(p) && st != .granted)
         }
     }
 
     /// Local Network has no macOS API; the row is inferred from Bonjour, so it never says "Allowed" (U7).
     static func localNetworkLabel(_ s: PermRow.Status) -> String { s == .ok ? "Probably allowed" : "Unknown" }
+    static let regrantNote = "Mote Helper was updated and macOS keeps the old grant. In Screen Recording settings remove the old Mote Helper entry, then tap Grant."
     static let localNetworkNote = "macOS doesn't let apps check this permission"
 
     /// Required permissions missing: the Setup window opens by itself.

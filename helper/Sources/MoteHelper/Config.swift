@@ -31,6 +31,7 @@ struct Config {
     var updateCheckNow = false       // tests: --update-check-now ignores the once-a-day limit (needs --dry-run)
     var fakeScreen = false    // tests: Labs live screen streams synthetic frames of a fake display (needs --dry-run; turns the lab on)
     var fakeKeychain: FakeKeychainState? = nil // tests: simulate the Keychain accounts: found|notfound|partitionmismatch|denied|error (needs --dry-run)
+    var recordSystem: String? = nil // --record-system FILE: write the real OS's answers (fixture JSON) and exit; no prompts, no UI
     var diag = false          // --diag: print the diagnostics snapshot (JSON) and exit; no prompts, no UI, no writes
     var dataDir: URL? = nil   // --data-dir DIR: where the running helper writes diag.json / diag-events.jsonl (default ~/Library/Application Support/dev.mote.helper; none with --memory-store)
     var eventsFile: String? = nil // --events FILE: append every event as one JSON line
@@ -77,6 +78,7 @@ struct Config {
             case "--no-bonjour": c.noBonjour = true
             case "--fake-keychain": if let v = it.next() { c.fakeKeychain = FakeKeychainState(arg: v) }
             case "--diag": c.diag = true
+            case "--record-system": c.recordSystem = it.next()
             case "--data-dir": if let v = it.next() { c.dataDir = URL(fileURLWithPath: v, isDirectory: true) }
             case "--events": c.eventsFile = it.next()
             case "--fake-nowplaying-reader": c.fakeNowPlayingReader = it.next()
@@ -85,6 +87,7 @@ struct Config {
             case "--web-root": if let v = it.next() { c.webRoot = URL(fileURLWithPath: v) }
             case "-h", "--help":
                 print("""
+                MoteHelper --record-system FILE   (write the OS's permission/Keychain/signing/discovery answers as a test fixture and exit; never prompts)
                 MoteHelper --diag [--data-dir DIR]   (print the running helper's diagnostics snapshot, else this process's own, as JSON and exit; never prompts)
                 MoteHelper [--setup] [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
                            [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale] [--events FILE] [--data-dir DIR]

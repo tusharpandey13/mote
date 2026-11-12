@@ -34,6 +34,7 @@ struct DiagInput {
     var dryRun = false, headless = false, memoryStore = false, port = 8790
     var signing = SigningInfo()
     var perms: [Perm: PermCheck] = [:]
+    var screenGrantedBy: String? = nil   // designated requirement Screen Recording was last seen granted for
     // runtime state; nil `running` = this process is not the running helper (--diag), so these are unknown
     var running = true
     var paused = false, inputReady = true
@@ -49,6 +50,8 @@ struct DiagInput {
     var instantPairing = false
     var update: [String: Any]? = nil
     var events = (head: 0, count: 0)
+    /// Bonjour refused by Local Network privacy. Not while the listener is ready: that means macOS lifted it and the code is stale (B2).
+    var policyDenied: Bool { bonjourErrorCode == WebServer.policyDenied && listenerState != "ready" }
 }
 
 struct KeychainInfo {
@@ -68,7 +71,9 @@ enum Diag {
     static func localNetwork(_ i: DiagInput) -> (state: PermState, why: String) {
         guard PermProbe.hasLocalNetworkPrivacy else { return (.unknown, "Local Network privacy does not exist before macOS 15") }
         guard i.running else { return (.unknown, "not the running helper: no Bonjour listener to learn from") }
-        if i.bonjourErrorCode == WebServer.policyDenied { return (.denied, "Bonjour registration failed with PolicyDenied (-65570)") }
+        // A listener that is ready again after PolicyDenied means the denial is stale (macOS lifted it; the old error code lingers).
+        if i.policyDenied { return (.denied, "Bonjour registration failed with PolicyDenied (-65570)") }
+        if i.bonjourErrorCode == WebServer.policyDenied { return (.unknown, "PolicyDenied (-65570) is stale: the listener is ready again; waiting for a new Bonjour registration") }
         if i.bonjour == "registered" { return (.granted, "Bonjour registration succeeded") }
         if i.noBonjour || i.bonjour == "off" { return (.unknown, "Bonjour is off, nothing to infer from") }
         return (.unknown, "Bonjour registration is \(i.bonjour); no verdict yet")
@@ -122,14 +127,15 @@ enum Diag {
             switch i.listenerState {
             case "ready": f["wifi"] = .ok("listening on :\(i.listenerPort ?? i.port)")
             case "waiting", "failed":
-                if i.bonjourErrorCode == WebServer.policyDenied { f["wifi"] = .blocked("local-network-denied", fix: "open-local-network-settings", "listener \(i.listenerState): \(i.listenerError ?? "")") }
+                if i.policyDenied { f["wifi"] = .blocked("local-network-denied", fix: "open-local-network-settings", "listener \(i.listenerState): \(i.listenerError ?? "")") }
                 else { f["wifi"] = .blocked("listener-\(i.listenerState)", fix: i.listenerState == "failed" ? "free-port" : "restart-helper", i.listenerError) }
             case "none": f["wifi"] = .off("web server not started (no web root)")
             default: f["wifi"] = .unknown("listener is \(i.listenerState)")
             }
             if i.noBonjour { f["bonjour"] = .off("--no-bonjour") }
             else if i.bonjour == "registered" { f["bonjour"] = .ok() }
-            else if i.bonjourErrorCode == WebServer.policyDenied { f["bonjour"] = .blocked("local-network-denied", fix: "open-local-network-settings", "PolicyDenied (-65570)") }
+            else if i.policyDenied { f["bonjour"] = .blocked("local-network-denied", fix: "open-local-network-settings", "PolicyDenied (-65570)") }
+            else if i.bonjourErrorCode == WebServer.policyDenied { f["bonjour"] = .unknown("old PolicyDenied is stale: the listener is ready; waiting for a new registration") }
             else if i.bonjour == "failed" { f["bonjour"] = .blocked("bonjour-failed", fix: "restart-helper", "DNS-SD error \(i.bonjourErrorCode ?? 0)") }
             else { f["bonjour"] = .unknown("Bonjour is \(i.bonjour)") }
         }
@@ -190,6 +196,7 @@ enum Diag {
             m["checkedAt"] = c?.at ?? NSNull(); m["ms"] = c?.ms ?? NSNull()
             m["apiState"] = PermProbe.name(c?.state ?? .unknown)
             m["detail"] = c?.detail ?? [:]
+            if p == .screenRecording { m["regrant"] = regrant(i) }
             if p == .localNetwork { m["inferred"] = true; m["inferredFrom"] = ln.why; m["applies"] = PermProbe.hasLocalNetworkPrivacy }
             perms[p.rawValue] = m
         }
@@ -249,6 +256,18 @@ enum Diag {
 
     // MARK: collecting
 
+    /// Screen Recording is off now but was granted to a different signature: macOS keeps one TCC entry per signature, so the
+    /// switch System Settings shows may belong to the old build (B1/B5). The fix is to remove the old entry, then Grant.
+    static func regrant(_ i: DiagInput) -> Bool {
+        guard i.perms[.screenRecording]?.state != .granted, let was = i.screenGrantedBy else { return false }
+        return was != i.signing.designatedRequirement
+    }
+
+    static func regrant(fromSnapshot s: [String: Any]) -> Set<Perm> {
+        let m = (s["permissions"] as? [String: Any])?[Perm.screenRecording.rawValue] as? [String: Any]
+        return m?["regrant"] as? Bool == true ? [.screenRecording] : []
+    }
+
     /// Permission states as the snapshot reports them (Local Network is the inferred one).
     static func states(fromSnapshot s: [String: Any]) -> [Perm: PermState] {
         let perms = s["permissions"] as? [String: Any] ?? [:]
@@ -265,9 +284,52 @@ enum Diag {
     }
 
     private static var cachedSigning: SigningInfo?
+    static func cachedSigningInfo() -> SigningInfo {
+        if cachedSigning == nil { cachedSigning = SigningInfo.current() }
+        return cachedSigning!
+    }
     private static var cachedCount: (at: Date, n: Int?)?
 
-    static func baseInput(config: Config, source: String) -> DiagInput {
+    /// Permissions, signing, discovery and the Screen Recording grant history, from [system] (live or a fixture).
+    static func applySystem(_ i: inout DiagInput, _ system: SystemAdapters) {
+        i.signing = system.signing.current()
+        for p in Perm.allCases { i.perms[p] = system.permissions.check(p) }
+        if i.perms[.screenRecording]?.state == .granted, let dr = i.signing.designatedRequirement { system.noteScreenGranted(dr) }
+        i.screenGrantedBy = system.screenGrantedBy()
+        let d = system.discovery.reading
+        i.listenerState = d.listenerState; i.listenerError = d.listenerError
+        i.bonjour = d.bonjour; i.bonjourErrorCode = d.bonjourErrorCode
+        i.bleStatus = d.bleStatus; i.bleAdvertising = d.bleAdvertising
+    }
+
+    /// The Keychain section from attributes only: is OUR account there, which others exist.
+    static func applyKeychain(_ i: inout DiagInput, secrets: SecretStore, service: String) {
+        let own = Vault.account(for: i.signing.expectedPartition)
+        i.keychain.account = own ?? ""
+        do {
+            let es = try secrets.list(service: service)
+            i.keychain.otherAccounts = es.map(\.account).filter { $0 != own }.sorted()
+            let found = es.contains { $0.account == own }
+            i.keychain.readStatus = found ? 0 : Int(errSecItemNotFound)
+            i.keychain.readResult = found ? "found" : "notfound"
+        } catch let e as KeychainError {
+            i.keychain.readStatus = Int(e.status); i.keychain.readResult = "error"
+        } catch { i.keychain.readResult = "error" }
+    }
+
+    /// Replays a fixture through the same code `--diag` uses (a running helper's view: `running` follows the fixture).
+    static func replay(_ f: SystemFixture, source: String = "fixture") -> [String: Any] {
+        var i = DiagInput()
+        i.source = source; i.macOS = f.macOS; i.arch = f.arch; i.dryRun = false
+        i.running = f.reading.running
+        applySystem(&i, f.adapters)
+        applyKeychain(&i, secrets: f, service: "dev.mote.helper")
+        return build(i)
+    }
+
+    static func baseInput(config: Config, source: String, system: SystemAdapters? = nil) -> DiagInput {
+        // The Setup window polls once a second: its checks are not logged one by one (the change events still are).
+        let system = system ?? .live(force: source != "setup" && source != "running")
         var i = DiagInput()
         i.source = source
         i.version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "dev"
@@ -280,10 +342,7 @@ enum Diag {
         i.arch = "x86_64"
         #endif
         i.dryRun = config.dryRun; i.headless = config.headless; i.memoryStore = config.memoryStore; i.port = Int(config.port)
-        if cachedSigning == nil { cachedSigning = SigningInfo.current() }
-        i.signing = cachedSigning!
-        // The Setup window polls once a second: its checks are not logged one by one (the change events still are).
-        for p in Perm.allCases { i.perms[p] = PermProbe.check(p, force: source != "setup" && source != "running") }
+        applySystem(&i, system)
         i.keychain.service = config.keychainService
         i.keychain.memoryOnly = config.memoryStore && !config.usesFakeKeychain
         i.bleEnabled = config.ble
@@ -311,18 +370,7 @@ enum Diag {
         i.tvLab = UserDefaults.standard.bool(forKey: "labs.tvMode")
         i.bridgeLab = UserDefaults.standard.bool(forKey: "labsBridge")
         if !config.memoryStore && !config.usesFakeKeychain {
-            // Attributes only (the list call is ACL-free, never prompts): is OUR account there, and which others exist.
-            let own = Vault.account(for: i.signing.expectedPartition)
-            i.keychain.account = own ?? ""
-            do {
-                let es = try KeychainBackend().list(service: config.keychainService)
-                i.keychain.otherAccounts = es.map(\.account).filter { $0 != own }.sorted()
-                let found = es.contains { $0.account == own }
-                i.keychain.readStatus = found ? 0 : Int(errSecItemNotFound)
-                i.keychain.readResult = found ? "found" : "notfound"
-            } catch let e as KeychainError {
-                i.keychain.readStatus = Int(e.status); i.keychain.readResult = "error"
-            } catch { i.keychain.readResult = "error" }
+            applyKeychain(&i, secrets: KeychainBackend(), service: config.keychainService)
         }
         i.events = (Events.shared.head, Events.shared.count)
         return build(i)
@@ -349,12 +397,11 @@ enum Diag {
         i.keychain.ephemeral = hub.vault.ephemeral
         i.keychain.ephemeralReason = hub.vault.ephemeralReason
         i.keychain.interactiveRead = hub.vault.interactiveRead
-        if let w = web {
-            i.listenerState = w.listenerState; i.listenerError = w.listenerError; i.listenerPort = w.port.map(Int.init)
-            i.connections = w.openConnections; i.accepted = w.accepted; i.refused = w.refused
-            i.bonjour = w.bonjour; i.bonjourErrorCode = w.bonjourErrorCode
-        }
-        i.bleStatus = ble?.status; i.bleAdvertising = ble?.isAdvertising ?? false
+        let d = LiveDiscovery(web: web, ble: ble).reading
+        i.listenerState = d.listenerState; i.listenerError = d.listenerError
+        i.bonjour = d.bonjour; i.bonjourErrorCode = d.bonjourErrorCode
+        i.bleStatus = d.bleStatus; i.bleAdvertising = d.bleAdvertising
+        if let w = web { i.listenerPort = w.port.map(Int.init); i.connections = w.openConnections; i.accepted = w.accepted; i.refused = w.refused }
         i.tailscaleAllowed = hub.settings.allowTailscale
         i.tailnetName = hub.settings.allowTailscale ? Tailnet.name : nil
         i.tailnetAddress = hub.settings.allowTailscale ? Host.tailnetIPv4 : nil

@@ -12,6 +12,20 @@ if config.diag {
     print(Diag.json(DiagFile.cliOutput(config: config)))
     exit(0)
 }
+// --record-system: the real OS's answers as a fixture (helper/tests/Fixtures/system/), then exit. Same silent probes as --diag.
+if let file = config.recordSystem {
+    let now = Int64(Date().timeIntervalSince1970 * 1000)
+    var running: [String: Any]?
+    if let dir = DiagFile.dir(for: config) {
+        running = DiagFile.resolve(data: try? Data(contentsOf: dir.appendingPathComponent(DiagFile.fileName)), now: now, selfPid: Int(getpid()), alive: DiagFile.pidAlive).snapshot
+    }
+    let rec = SystemRecorder.record(.live(discovery: SnapshotDiscovery(snapshot: running)), service: config.keychainService)
+    do {
+        try JSONSerialization.data(withJSONObject: rec, options: [.prettyPrinted, .sortedKeys]).write(to: URL(fileURLWithPath: file))
+        print("recorded to \(file)\(running == nil ? " (no running helper: discovery is empty, Local Network cannot be inferred)" : "")")
+        exit(0)
+    } catch { print("record-system: \(error)"); exit(1) }
+}
 let signing = SigningInfo.current()
 ev(.signing, signing.error == nil ? "identity" : "error", signing.json)
 let app = NSApplication.shared
