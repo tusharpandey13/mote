@@ -1,15 +1,17 @@
-# Open questions for the owner (collected overnight 2026-11-12)
+# Owner questions (collected overnight 2026-11-12)
 
-1. **Connect-flow copy for a removed phone.** When "Add a Mac" hits a Mac that removed this phone, the agent wrote:
-   "<Mac> no longer trusts this phone. Remove this Mac, then add it again." (android pairing/ConnectUi.kt `pairFailure`).
-   The Devices card says "The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again." Keep both, or align?
-2. **Install the new builds?** Your installed helper (58054ff) and APK (pre-1b) are old. When you want: build the helper with the
-   "Mote Helper Local" identity (one Keychain prompt per update) and `adb install` the Mote Dev APK yourself.
+## Decided 2026-11-12
+1. **Connect-flow copy for a removed phone:** keep both. Devices card: "The Mac no longer trusts this phone. Long-press it to
+   forget, then Add a Mac again."; Add a Mac flow (pairing/ConnectUi.kt `pairFailure`): "<Mac> no longer trusts this phone.
+   Remove this Mac, then add it again." Each names the next step on its own screen.
+2. **Install the new builds:** after the open bugs below are fixed (helper with "Mote Helper Local", one Keychain prompt;
+   owner runs `adb install` for Mote Dev).
 
-## Open bugs found overnight (no decision needed; next session)
-- `live-screen.link-drop` B2: after Wi-Fi + data off the helper logs `screen: stopped`, but the phone keeps the last frame and
-  "Stream stats" for 60 s and never shows "Connecting to the Mac…" (OkHttp pings every 20 s, so it should notice within ~40 s).
-  Either the emulator keeps a route to 10.0.2.2 (check `ip route` / eth0 during the step) or the Live screen page ignores the dead link.
-- `run.sh live-screen#linkDropWifi` exited 0 (gradle exit 0) although results.jsonl recorded B2 `fail`: the harness can hide a failing step.
-- `first-run-bt.bt-fail-notfound` B1 flake (1 of 2 runs): after Continue + Nearby allow + visibility, the app stays on the Bluetooth
-  offer and the helper never logs the pairing attempt.
+## Bugs found overnight (fixed 2026-11-12)
+- `live-screen.link-drop` stale frame: a quick reconnect kept the status Ready, so the page never re-sent
+  `labs.screen.start` on the new socket (app bug; `WsStatus.Ready.link`, 295fe41). New path `live-screen.quick-reconnect`.
+- "run.sh exited 0 with a failed step": the step's own result upload failed while the network was off (silently dropped),
+  and the `fail` shown was an older run's row. Results are now queued until the network is back, and each run drops a
+  path's older rows (58c4a99).
+- `first-run-bt.bt-fail-notfound` B1 flake: the emulator dropped the tap on Android's discoverable dialog; the test now taps
+  until the dialog is gone (58c4a99).
