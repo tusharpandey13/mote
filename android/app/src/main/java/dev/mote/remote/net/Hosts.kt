@@ -99,6 +99,9 @@ data class HostRow(
         if (bt != null) add(Route.BT)
     }
 
+    /** Paired over Bluetooth only: no Mote Helper entry to remove, and the bond is Android's to remove (hidden API for apps). */
+    val btOnly: Boolean get() = saved == null && bt != null
+
     /** Default route when the row is tapped: the helper (more capabilities) when paired, else Bluetooth. */
     val defaultSelection: Selection? get() = when {
         saved != null -> Selection.Helper(saved.hostId)

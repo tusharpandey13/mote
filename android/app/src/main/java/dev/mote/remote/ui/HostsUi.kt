@@ -303,11 +303,17 @@ fun HostSheet(
                                     null -> r.found?.let { goCode(it.address, it.port, it.service) }
                                 }
                             },
-                            onLong = { r.saved?.let { forgetting = it.hostId } })
-                        if (forgetting != null && forgetting == r.saved?.hostId) {
+                            onLong = { forgetting = r.key })
+                        if (forgetting == r.key) {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Forget ${r.name} on this phone?", style = T.small, color = c.muted, modifier = Modifier.weight(1f))
-                                Text("Forget", style = T.label, color = c.danger, modifier = Modifier.clickable { Net.forget(forgetting!!); forgetting = null }.padding(8.dp))
+                                if (r.btOnly) {
+                                    // Apps can't remove a Bluetooth bond (removeBond is hidden API): hand over to Android's settings.
+                                    Text("Forget ${r.name}? Android removes Bluetooth pairings in its own settings.", style = T.small, color = c.muted, modifier = Modifier.weight(1f))
+                                    Text("Open settings", style = T.label, color = c.danger, modifier = Modifier.clickable { openBluetoothSettings(ctx); forgetting = null }.padding(8.dp))
+                                } else {
+                                    Text("Forget ${r.name} on this phone?", style = T.small, color = c.muted, modifier = Modifier.weight(1f))
+                                    Text("Forget", style = T.label, color = c.danger, modifier = Modifier.clickable { r.saved?.let { Net.forget(it.hostId) }; forgetting = null }.padding(8.dp))
+                                }
                                 Text("Cancel", style = T.label, color = c.muted, modifier = Modifier.clickable { forgetting = null }.padding(8.dp))
                             }
                         }
@@ -447,7 +453,7 @@ private fun HostRowCap(
     Cap(
         Modifier.fillMaxWidth().height(64.dp).then(if (selected) Modifier else Modifier.border(1.dp, c.outline, shape)),
         shape, flat = !selected, needsLink = false, description = "Use ${r.name}",
-        onLongPress = if (r.saved != null) onLong else null, onClick = { onPick(r.defaultSelection) },
+        onLongPress = if (r.saved != null || r.bt != null) onLong else null, onClick = { onPick(r.defaultSelection) },
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             MIcon(when (r.bt?.kind) { Host.Kind.DESKTOP -> "desktop"; Host.Kind.OTHER -> "bluetooth"; else -> "laptop" }, c.muted)
@@ -512,6 +518,11 @@ private fun friendly(e: Throwable, address: String): String = when (e) {
             append(if (Net.tailnetUpFlow.value) " Check Allow Tailscale connections in the Mote Helper menu." else " Tailscale looks off on this phone.")
         } else append(" Same Wi-Fi as the Mac? Is Mote Helper running?")
     }
+}
+
+/** Android's Bluetooth settings, where a bonded device can be forgotten. */
+private fun openBluetoothSettings(c: Context) {
+    runCatching { c.startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
 private const val DISCOVERABLE_S = 120
