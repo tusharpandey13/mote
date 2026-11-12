@@ -40,6 +40,7 @@ class PairingIntegrationTest {
     private var proc: Process? = null
     private val log: MutableList<String> = Collections.synchronizedList(ArrayList())
     private var port = 0
+    private var eventsFile: File? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val http = helperHttpClient()
     private val phone = SeedSigner(Random.nextBytes(32))
@@ -63,7 +64,7 @@ class PairingIntegrationTest {
         val help = ProcessBuilder(bin!!.path, "--help").redirectErrorStream(true).start().inputStream.bufferedReader().readText()
         assumeTrue("helper without --fake-proximity; rebuild helper", "--fake-proximity" in help)
         log.clear()
-        val args = listOf(bin.path, "--dry-run", "--headless", "--no-ble", "--memory-store", "--fake-proximity", "--port", "0") + extra
+        val args = listOf(bin.path, "--dry-run", "--headless", "--no-ble", "--memory-store", "--fake-proximity", "--events", newEventsFile().path, "--port", "0") + extra
         val p = ProcessBuilder(args).start()
         proc = p
         Thread { p.errorStream.bufferedReader().forEachLine { log += it } }.apply { isDaemon = true }.start()
@@ -72,6 +73,20 @@ class PairingIntegrationTest {
         val info = BleInfo.parse(waitFor("LABS PAIR INFO:").substringAfter("LABS PAIR INFO:").trim())!!
         assertEquals(port, info.port)
         return info
+    }
+
+    private fun newEventsFile() = File.createTempFile("mote-events", ".jsonl").also { it.deleteOnExit(); eventsFile = it }
+
+    /** Waits for the helper's own diag event `area/event` (its `--events` file) whose fields equal every pair in [where]. */
+    private fun helperEvent(area: String, event: String, vararg where: Pair<String, Any?>, timeoutMs: Long = 5000): JSONObject {
+        val end = System.currentTimeMillis() + timeoutMs
+        while (true) {
+            eventsFile!!.readLines().filter { it.isNotBlank() }.map { JSONObject(it) }.firstOrNull { e ->
+                e.optString("area") == area && e.optString("event") == event && e.optJSONObject("fields").let { f -> where.all { (k, v) -> f?.opt(k) == v } }
+            }?.let { return it }
+            if (System.currentTimeMillis() > end) throw AssertionError("helper logged no $area/$event ${where.toList()}; events:\n" + eventsFile!!.readText().takeLast(1500))
+            Thread.sleep(50)
+        }
     }
 
     @After fun stop() {
@@ -115,7 +130,7 @@ class PairingIntegrationTest {
 
     private fun code(e: Throwable?) = (e as HelperError).code
 
-    @Test fun nearbyPhoneIsTrustedWithNoMacActionThenReconnectsSilently() = runBlocking {
+    @Test fun nearbyPhoneIsTrustedWithNoMacActionThenReconnectsSilently() = runBlocking<Unit> {
         val info = fakeBle(spawn())
         val paths = selectPaths(info, null)
         assertEquals(PairPath(Route.WIFI, "127.0.0.1"), paths.first())
@@ -123,6 +138,7 @@ class PairingIntegrationTest {
         val states = ArrayList<PairState>()
         val first = handshake(helperCandidates(paths).first(), info.fp, "jvm phone", prox = prox(), states = states)
         assertEquals("nearby", first.via)
+        helperEvent("session", "paired", "via" to "nearby")   // FC-3
         assertFalse("nothing to click on the Mac", states.any { it is PairState.Pending })
         assertEquals(info.fp, first.helper.fp)
         waitFor("NEW DEVICE:") // the Mac's non-blocking notice (headless: printed)
@@ -146,20 +162,23 @@ class PairingIntegrationTest {
         t.stop()
     }
 
-    @Test fun farAwayStaleAndReplayedTokensAreRefused() = runBlocking {
+    @Test fun farAwayStaleAndReplayedTokensAreRefused() = runBlocking<Unit> {
         val info = fakeBle(spawn())
         assertEquals("far", code(runCatching { handshake("127.0.0.1", info.fp, "jvm far") }.exceptionOrNull()))
+        helperEvent("session", "pair.failed", "reason" to "far")   // FC-4
         assertEquals("stale", code(runCatching { handshake("127.0.0.1", info.fp, "jvm old", prox = prox(-2)) }.exceptionOrNull()))
         assertEquals("bad-proximity", code(runCatching {
             handshake("127.0.0.1", info.fp, "jvm forged", prox = prox().substringBefore(':') + ":" + "0".repeat(32))
         }.exceptionOrNull()))
+        helperEvent("session", "pair.failed", "reason" to "bad-proximity")
         val token = prox()
         assertEquals("nearby", handshake("127.0.0.1", info.fp, "jvm a", prox = token).via)
         val other = SeedSigner(Random.nextBytes(32))
         assertEquals("replay is stale", "stale", code(runCatching { handshake("127.0.0.1", info.fp, "jvm b", prox = token, me = other) }.exceptionOrNull()))
+        helperEvent("session", "pair.failed", "reason" to "stale")   // FC-17: the replayed token is refused (stale once its window passed or it was used)
     }
 
-    @Test fun deniedPhoneShowsDeniedStatusAndBacksOffInsteadOfLooping() = runBlocking {  // B6
+    @Test fun deniedPhoneShowsDeniedStatusAndBacksOffInsteadOfLooping() = runBlocking<Unit> {  // B6
         val info = fakeBle(spawn())
         val paths = selectPaths(info, null)
         val t = WsTransport(http, scope, info.hostId, {
@@ -179,19 +198,21 @@ class PairingIntegrationTest {
         t.stop()
     }
 
-    @Test fun sameTailscaleOwnerIsTrustedWithoutAToken() = runBlocking {
+    @Test fun sameTailscaleOwnerIsTrustedWithoutAToken() = runBlocking<Unit> {
         val info = fakeBle(spawn("--fake-tailscale-owner", "self"))
         val done = handshake("127.0.0.1", info.fp, "jvm tailnet")
         assertEquals("tailscale", done.via)
+        helperEvent("session", "paired", "via" to "tailscale")   // FC-7
         assertFalse(logged("labs: prompt"))
     }
 
-    @Test fun anotherTailscaleOwnerWithoutATokenIsFar() = runBlocking {
+    @Test fun anotherTailscaleOwnerWithoutATokenIsFar() = runBlocking<Unit> {
         val info = fakeBle(spawn("--fake-tailscale-owner", "someone"))
         assertEquals("far", code(runCatching { handshake("127.0.0.1", info.fp, "jvm stranger") }.exceptionOrNull()))
+        helperEvent("session", "pair.failed", "reason" to "far")   // FC-7
     }
 
-    @Test fun requireApprovalRestoresTheAlert() = runBlocking {
+    @Test fun requireApprovalRestoresTheAlert() = runBlocking<Unit> {
         val info = fakeBle(spawn("--require-approval", "--fake-approve"))
         val states = ArrayList<PairState>()
         val done = handshake("127.0.0.1", info.fp, "jvm cautious", prox = prox(), states = states)
@@ -199,19 +220,19 @@ class PairingIntegrationTest {
         assertTrue("the Mac asked", states.any { it is PairState.Pending })
     }
 
-    @Test fun requireApprovalDenied() = runBlocking {
+    @Test fun requireApprovalDenied() = runBlocking<Unit> {
         val info = fakeBle(spawn("--require-approval", "--fake-approve-deny"))
         assertEquals("denied", code(runCatching { handshake("127.0.0.1", info.fp, "jvm denied", prox = prox()) }.exceptionOrNull()))
         // A silent reconnect never shows a prompt: it fails at once instead.
         assertTrue(runCatching { handshake("127.0.0.1", info.fp, "jvm denied", allowPrompt = false) }.exceptionOrNull() is HelperError)
     }
 
-    @Test fun aMacWithAnotherKeyIsRejected() = runBlocking {
+    @Test fun aMacWithAnotherKeyIsRejected() = runBlocking<Unit> {
         spawn()
         assertEquals("helper-key", code(runCatching { handshake("127.0.0.1", "0".repeat(32), "jvm pinned", prox = prox()) }.exceptionOrNull()))
     }
 
-    @Test fun lanSweepFindsAndConfirmsTheHelper() = runBlocking {
+    @Test fun lanSweepFindsAndConfirmsTheHelper() = runBlocking<Unit> {
         val info = spawn()
         val hits = lanSweep(listOf("10.255.255.1", "127.0.0.1"), port).toList()
         assertEquals(listOf("127.0.0.1"), hits)
@@ -222,19 +243,21 @@ class PairingIntegrationTest {
         assertEquals("127.0.0.1", m.addresses.first())
     }
 
-    @Test fun trustedPhoneAsksTheMacToPairBluetooth() = runBlocking {
+    @Test fun trustedPhoneAsksTheMacToPairBluetooth() = runBlocking<Unit> {
         val info = fakeBle(spawn("--fake-bt-pair"))
         handshake("127.0.0.1", info.fp, "jvm bt", prox = prox())
         val s = WsSession.open(http, "127.0.0.1", port)
         try {
             assertEquals("trusted", labsHandshake(s, phone, "jvm bt", info.fp, allowPrompt = false).via)
             s.send(JSONObject().put("t", "bt.pair").put("name", "Nothing Phone (2)").toString())
+            helperEvent("protocol", "in", "t" to "bt.pair")   // FC-16
             val states = ArrayList<BtPairStatus>()
             while (states.lastOrNull()?.terminal != true) {
                 val m = withTimeout(5000) { s.inbox.receive() }
                 if (m is Msg.Other) BtPairStatus.parse(JSONObject(m.raw))?.let { states += it }
             }
             assertEquals(listOf("searching", "pairing", "paired"), states.map { it.state })
+            helperEvent("protocol", "out", "t" to "bt.pair.status")   // FC-16: the reply the phone showed
             assertEquals("02:00:00:00:00:01", states.last().address)
             assertTrue(btStatusText(states[1], "Air").contains("Nothing to do on the Mac"))
             s.send(JSONObject().put("t", "bt.info").toString())
@@ -244,17 +267,18 @@ class PairingIntegrationTest {
         } finally { s.close() }
     }
 
-    @Test fun instantPairingOffOnTheMacIsUnauth() = runBlocking {
+    @Test fun instantPairingOffOnTheMacIsUnauth() = runBlocking<Unit> {
         val info = spawnPlain("--no-instant-pairing")
         assertTrue(info)
         val e = runCatching { handshake("127.0.0.1", null, "jvm off") }.exceptionOrNull()
         assertEquals("unauth", code(e))
+        helperEvent("session", "pair.failed", "reason" to "unauth")   // FC-10
     }
 
     private fun spawnPlain(vararg extra: String): Boolean {
         val bin = helperBinary()
         assumeTrue("helper not built", bin != null)
-        val p = ProcessBuilder(listOf(bin!!.path, "--dry-run", "--headless", "--no-ble", "--memory-store", "--port", "0") + extra).start()
+        val p = ProcessBuilder(listOf(bin!!.path, "--dry-run", "--headless", "--no-ble", "--memory-store", "--events", newEventsFile().path, "--port", "0") + extra).start()
         proc = p
         Thread { p.errorStream.bufferedReader().forEachLine { log += it } }.apply { isDaemon = true }.start()
         port = Regex("""listening on :(\d+)""").find(waitFor("wifi: listening on :"))!!.groupValues[1].toInt()

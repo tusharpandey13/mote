@@ -46,10 +46,12 @@ test.describe('Mouse pane', () => {
   test('tap -> left click', async ({ page, helper }) => {
     await pauseClock(page); // the 500 ms hold timer must not turn a slow tap into a right click
     const from = helper.mark();
+    const ev0 = helper.eventMark();
     await t.tap(o);
     await helper.waitFor(DRY.button('left', 'click', 1), { from });
     await expect(chip(page)).toHaveText('Click');
     expect(helper.since(from, DRY.anyButton)).toHaveLength(1);
+    await helper.waitEvent('input', 'summary', { from: ev0, fields: /"button":/, timeout: 12_000 }); // DU-2 input/summary: counted, never per event
   });
 
   test('first tap soon after page load is a single click', async ({ page, helper }) => {

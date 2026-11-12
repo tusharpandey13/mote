@@ -8,24 +8,31 @@ test.describe('Media pane', () => {
 
   test('every media control sends its consumer key', async ({ page, helper }) => {
     await pauseClock(page); // volume/brightness auto-repeat after 400 ms: a slow tap must not add repeats
+    const ev0 = helper.eventMark();
     for (const k of ['prev', 'play', 'next', 'voldown', 'mute', 'volup', 'brightdown', 'brightup']) {
       const from = helper.mark();
       await page.locator(`.pane[data-mode="media"] [data-cons="${k}"]`).tap();
       await helper.waitFor(DRY.consumer(k), { from });
       expect(helper.since(from, /DRY /)).toHaveLength(1); // exactly one event per tap
     }
+    // DU-1: the helper's own diag events: the messages arrived, counted (never logged per key)
+    await helper.waitEvent('protocol', 'in', { from: ev0, fields: /"t":"consumer"/ });
+    await helper.waitEvent('input', 'summary', { from: ev0, fields: /"consumer":/, timeout: 12_000 });
   });
 
   test('D-pad arrows, OK and esc send their keys', async ({ page, helper }) => {
     await pauseClock(page); // arrows auto-repeat after 400 ms: a slow tap must not add repeats
     const keys: [string, number][] = [['.dpad [data-key="82"]', 82], ['.dpad [data-key="79"]', 79], ['.dpad [data-key="81"]', 81],
       ['.dpad [data-key="80"]', 80], ['.dpad [data-key="40"]', 40], ['.nav-row .kc[data-key="41"]', 41]];
+    const ev0 = helper.eventMark();
     for (const [sel, usage] of keys) {
       const from = helper.mark();
       await page.locator(sel).tap();
       await helper.waitFor(DRY.key(usage), { from });
       expect(helper.since(from, /DRY /)).toHaveLength(1);
     }
+    await helper.waitEvent('protocol', 'in', { from: ev0, fields: /"t":"key"/ });   // DU-1
+    await helper.waitEvent('input', 'summary', { from: ev0, fields: /"key":/, timeout: 12_000 });
   });
 
   test('holding a D-pad arrow auto-repeats until release', async ({ page, helper }) => {
@@ -141,6 +148,10 @@ test.describe('Media pane', () => {
     helper.cmd('pause');
     await expect(page.locator('#notice')).toBeVisible();
     await expect(page.locator('#notice-tx')).toHaveText('Input paused on the Mac');
+    // DU-5: a key sent while paused is refused by the helper, and the helper logged why
+    const ev0 = helper.eventMark();
+    await page.locator('[data-cons="play"]').tap();
+    await helper.waitEvent('input', 'blocked', { from: ev0, fields: /"reason":"paused"/ });
     helper.cmd('resume');
     await expect(page.locator('#notice')).toBeHidden();
     const from = helper.mark();

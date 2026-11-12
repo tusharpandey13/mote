@@ -18,7 +18,11 @@ class ConnectNextJourney {
     /** Main path up to the Connect card (S1-S2). */
     private fun toCard(name: String, timeoutMs: Long = 6_000) {
         j.step("S1") { j.expect("Connect to your Mac") }
-        j.step("S2", sweep) { j.expect("Connect to $name", timeoutMs = timeoutMs); j.expect(name) }
+        j.step("S2", sweep) {
+            j.expect("Connect to $name", timeoutMs = timeoutMs); j.expect(name)
+            j.appEvent("discovery", "sweep.start"); j.appEvent("discovery", "sweep.open")   // SP-3 (NSD is off here: TestSeam.noBonjour)
+            j.noAppEvent("discovery", "nsd.found")
+        }
     }
 
     @Test fun main() {
@@ -28,7 +32,12 @@ class ConnectNextJourney {
         val phone = j.phoneName()
         j.launch(fakeProximity = true)
         toCard(name)
-        j.step("S3") { j.tap("Connect to $name") }
+        j.step("S3") {
+            j.tap("Connect to $name")
+            j.appEvent("transport", "connect.try", "first" to true)                        // FC-1 phone side
+            mac.event("transport", "conn.accepted"); mac.event("transport", "ws.upgrade")   // FC-1 helper side
+            mac.event("session", "open")
+        }
         j.step("S4", prox) {
             mac.await("labs: trusted ${bq(phone)} via nearby")
             mac.await("authed ${bq(phone)} via Wi-Fi from ")
@@ -59,6 +68,7 @@ class ConnectNextJourney {
             j.expect("Turn on Wi-Fi", timeoutMs = 6_000)
             j.expect("Wi-Fi is off. Connect to the same Wi-Fi as your Mac, or turn on Tailscale.")
             j.expect("Enter address")
+            j.appEvent("discovery", "network", "wifi" to false)   // SP-7
         }
         j.step("B2") {
             j.tap("Turn on Wi-Fi")
@@ -149,6 +159,7 @@ class ConnectNextJourney {
         j.step("B1") {
             j.tap("Connect to $name")
             mac.await("labs: denied \\(far\\) ", 10_000)
+            mac.event("session", "pair.failed", ".*\"reason\":\"far\".*")   // FC-2: no proximity token reached the Mac
             j.expect("Mote uses Bluetooth once to check this phone is next to your Mac.", timeoutMs = 15_000)
             j.expect("Allow and connect")
         }
@@ -160,6 +171,16 @@ class ConnectNextJourney {
             j.systemTap("Don.t allow")
             j.expect("$name couldn't confirm this phone is nearby. Bring it next to the Mac with Bluetooth on, or use the same Tailscale account.", timeoutMs = 8_000)
             j.expect("Try again")
+            j.appEvent("permission", "result", "from" to "connect")
+        }
+        j.step("B3b", "real: a second \"Don't allow\" is a denial for good (no dialog any more)") {
+            j.tap("Try again")
+            j.expect("Allow and connect", timeoutMs = 20_000)
+            j.tap("Allow and connect")
+            if (!j.systemShown("Allow|Don.t allow", 8_000)) throw AssertionError("no Nearby devices permission dialog the second time")
+            j.systemTap("Don.t allow")
+            j.expect("Open settings", timeoutMs = 8_000)   // FC-6 (U13): the button routes to the app's Settings
+            j.appEvent("ui", "banner", "kind" to "nearby-denied-settings")
         }
     }
 
@@ -176,6 +197,8 @@ class ConnectNextJourney {
             mac.await("labs: denied \\(far\\) ", 15_000)
             j.expect(far, timeoutMs = 20_000)
             j.expect("Try again")
+            mac.event("session", "pair.failed", ".*\"reason\":\"far\".*")      // FC-4 helper side
+            j.appEvent("session", "pair.failed", "code" to "far")                  // FC-4 phone side
         }
         j.step("B2") {
             mac.mark()
@@ -214,6 +237,7 @@ class ConnectNextJourney {
             mac.await("authed ${bq(phone)} via Wi-Fi from ")
             mac.await("labs: new device ${bq(phone)} via approved \\(k:[0-9a-f]{32}\\)")
             mac.await("^NEW DEVICE: .*\"via\":\"approved\"")
+            mac.event("session", "paired", ".*\"via\":\"approved\".*")   // FC-8 (ui/newdevice.shown is the non-headless notice only)
         }
         j.step("B4") { j.expect("Connected over Wi-Fi", timeoutMs = 8_000); j.expect(offer) }
     }
@@ -227,6 +251,7 @@ class ConnectNextJourney {
         j.step("B1", "faked: --fake-approve-deny") {
             j.tap("Connect to $name")
             mac.await("labs: denied \\(denied\\) ")
+            mac.event("session", "pair.failed", ".*\"reason\":\"denied\".*")   // FC-8
             j.expect("$name didn't allow this phone.", timeoutMs = 8_000)
             j.expect("Try again")
         }
@@ -253,6 +278,7 @@ class ConnectNextJourney {
             mac.await("labs: prompt ", 10_000)
             // the controller caps one wait at 60 s: wait in two halves for the 60 s prompt timeout
             runCatching { mac.await("labs: denied \\(timeout\\) ", 40_000) }.getOrElse { mac.await("labs: denied \\(timeout\\) ", 40_000) }
+            mac.event("session", "pair.failed", ".*\"reason\":\"timeout\".*")   // FC-8
             j.expect("$name didn't answer in time.", timeoutMs = 8_000)
         }
     }
@@ -281,6 +307,7 @@ class ConnectNextJourney {
             j.expect("Connect to your Mac", timeoutMs = 8_000)
             j.tap("Connect to $name", timeoutMs = 10_000)
             mac.await("labs: denied \\(blocked\\) ", 10_000)
+            mac.event("session", "pair.failed", ".*\"reason\":\"blocked\".*")   // FC-9
             j.expect("$name blocked this phone. Unblock it with Revoke all devices in the Mote Helper menu.", timeoutMs = 8_000)
         }
         j.step("B3", "faked: stdin unblock") {
@@ -313,6 +340,7 @@ class ConnectNextJourney {
         j.step("B2") {
             j.tap("Connect to $name")
             j.expect("Mote Helper on $name is too old or has instant pairing turned off. Update it, or use Pair with code.", timeoutMs = 10_000)
+            mac.event("session", "pair.failed", ".*\"reason\":\"unauth\".*")   // FC-10
         }
     }
 
@@ -328,11 +356,29 @@ class ConnectNextJourney {
             j.expect("Couldn't connect to $name (IOException: ", substring = true, timeoutMs = 20_000)
             j.expect("). Is Mote Helper running?", substring = true)
             j.expect("Try again")
+            j.appEvent("transport", "connect.failed", "code" to "io", "error" to "IOException")   // FC-13
         }
     }
 
-    @Test fun timeout() { j.path("connect-next.timeout") }      // needs the chaos proxy in the controller: not automated
-    @Test fun helperKey() { j.path("connect-next.helper-key") } // needs a stable --host-id with a new key: not automated
+    @Test fun timeout() {
+        j.path("connect-next.timeout")
+        val mac = j.helper("--fake-proximity")
+        val name = mac.info().getString("n")
+        j.launch(fakeProximity = true)
+        j.expect("Connect to $name", timeoutMs = 6_000)
+        j.step("B1", "faked: SIGSTOP on the helper = a socket that accepts but never answers") {
+            mac.sigstop()
+            try {
+                j.tap("Connect to $name")
+                j.expect("Couldn't connect to $name (IOException: No Mote Helper at ", substring = true, timeoutMs = 20_000)
+                j.expect("Try again")
+                val e = j.appEvent("transport", "connect.failed", "code" to "io", "error" to "IOException")   // FC-14: no hello within the socket timeout
+                if (e.fields["reason"]?.toString()?.startsWith("No Mote Helper at") != true) throw AssertionError("reason: ${e.fields}")
+            } finally { mac.sigcont() }
+        }
+    }
+
+    @Test fun helperKey() { j.path("connect-next.helper-key") } // needs a stable --host-id with a new key: not automated (the event: HelperIntegrationTest, PairingIntegrationTest)
     @Test fun twoMacs() { j.path("connect-next.two-macs") }     // sweep probes one port: not automated
 
     @Test fun btOffer() {
@@ -347,9 +393,11 @@ class ConnectNextJourney {
         val name2 = mac2.info().getString("n")
         j.step("B1", "faked: adapter = the emulator's; second helper on another port (TestSeam.sweepPort switched)") {
             TestSeam.sweepPort = mac2.port
+            j.appMark()
             j.tap("Device: $name via Wi-Fi. Tap to choose")
             j.tap("Add a Mac")
             j.tap("Connect to $name2", timeoutMs = 10_000)
+            j.appEvent("discovery", "sweep.open")   // FC-15: the second Mac is found by its own sweep (Bonjour is off in the harness)
             mac2.await("labs: trusted .* via nearby", 10_000)
             j.expect("Connected over Wi-Fi", timeoutMs = 8_000)
             j.expect(offer)

@@ -244,6 +244,7 @@ class MacrosJourney {
             mac.await("DRY text \"Safari\"")
             j.cAdvance(200)
             mac.await("DRY key usage=40 mods=0 action=tap")
+            mac.event("input", "summary", ".*\"text\"")   // DU-2: the app sequences the macro as key/text messages; the summary counts them, never the text itself
         }
     }
 

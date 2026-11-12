@@ -72,6 +72,7 @@ try {
     ok(['ok', 'blocked', 'off', 'unknown'].includes(d.features[k]?.state), `diag: feature ${k} = ${d.features[k]?.state}`);
   ok(d.features.input.state === 'ok' && d.features.wifi.state === 'ok', 'diag: dry-run input ok, wifi listening');
   ok(d.features.bluetooth.state === 'off', 'diag: --no-ble => bluetooth off');
+  ok(d.signing && 'designatedRequirement' in d.signing && 'cdhash' in d.signing, 'UP-2: diag.signing.designatedRequirement is reported (the field install.sh compares across an update) ' + JSON.stringify(d.signing));
   ok(d.features.keychain.state === 'off' && d.keychain.memoryOnly === true, 'diag: --memory-store => keychain off');
   for (const p of ['accessibility', 'bluetooth', 'localNetwork', 'screenRecording', 'automation'])
     ok(d.permissions[p] && 'state' in d.permissions[p] && 'api' in d.permissions[p] && 'raw' in d.permissions[p] && 'apiState' in d.permissions[p], `diag: permission ${p} has state/api/raw/apiState`);

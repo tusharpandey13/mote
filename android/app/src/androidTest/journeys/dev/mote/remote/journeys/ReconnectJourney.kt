@@ -56,10 +56,12 @@ class ReconnectJourney {
             j.expect("Connected over Bluetooth but buttons do nothing?")
         }
         j.step("S5", btSeam) {
+            j.appMark()
             j.tap("Use Mac mini")
             j.expect(dPill("Mac mini", "BT"), timeoutMs = 5_000)
             j.dWait("selection bt:Mac mini") { dSelectedBt(mini.address) }
             j.dNotification("Searching for Mac mini…")
+            j.appEvent("transport", "select", "kind" to "bluetooth")   // DU-7: switching Macs from Devices
         }
     }
 
@@ -124,10 +126,13 @@ class ReconnectJourney {
         j.dWs(10_000, "Ready") { it is WsStatus.Ready }
         mac.mark()
         j.step("B1") {
+            j.appMark(); mac.mark()
             j.device.pressHome()
             Thread.sleep(29_000)
             if (Net.wsStatus.value !is WsStatus.Ready) throw AssertionError("socket closed before 30 s: ${Net.wsStatus.value}")
             j.dWs(6_000, "Idle 30 s after leaving the screen") { it is WsStatus.Idle }
+            j.appEvent("lifecycle", "foreground", "on" to false)   // RC-11
+            mac.event("session", "closed")
         }
         j.step("B2") {
             // JourneyRule.backgroundAndReturn can't resume after Home (ActivityScenario stays STOPPED): bring the task back with am start
@@ -151,10 +156,13 @@ class ReconnectJourney {
         j.dWait("btAddress linked at Connect") { Net.saved.value.firstOrNull()?.btAddress == bt.address }
         j.dWs(10_000, "Ready") { it is WsStatus.Ready }
         j.step("B1", "faked: SIGSTOP on the dry-run helper; adapter seam + FakeTransport for the Bluetooth side") {
+            j.appMark()
             mac.sigstop()
             j.dWait("fallback to Bluetooth", 100_000) { dSelectedBt(bt.address) }
             j.expect(dPill(name, "BT"), timeoutMs = 5_000)
             if (Hid.state.value.selected?.address != bt.address) throw AssertionError("Hid not on the linked host: ${Hid.state.value}")
+            j.appEvent("transport", "connect.backoff")                       // RC-5: the helper never answered
+            j.appEvent("transport", "select", "kind" to "bluetooth")
         }
         j.step("B2", "faked: SIGCONT") {
             mac.mark()
@@ -163,6 +171,7 @@ class ReconnectJourney {
             j.dWait("probe back to the helper", 45_000) { Net.selection.value == Selection.Helper(hostId) }
             mac.await("authed \\Q$phone\\E via Wi-Fi from ", 20_000)
             j.expect(dPill(name, "Wi-Fi"), timeoutMs = 10_000)
+            j.appEvent("transport", "select", "kind" to "helper")             // RC-5: probed back
         }
     }
 
@@ -184,6 +193,7 @@ class ReconnectJourney {
             if (Net.saved.value.size != 1) throw AssertionError("Cancel changed saved hosts: ${Net.saved.value}")
         }
         j.step("B3") {
+            j.appMark()
             j.dLongPress("Use $name")
             j.tap("Forget")
             j.dWait("saved hosts empty") { Net.saved.value.isEmpty() && Net.selection.value == null }
@@ -191,6 +201,7 @@ class ReconnectJourney {
             // No Mac left and Wi-Fi was chosen: startScreen → FIND_MAC at once (reconnect-D7)
             j.expect("Connect to your Mac", timeoutMs = 5_000)
             j.expect("Connect to $name", timeoutMs = 10_000)
+            j.appEvent("ui", "screen", "screen" to "find_mac")   // RC-14
         }
     }
 }

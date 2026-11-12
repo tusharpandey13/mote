@@ -205,6 +205,7 @@ class SmartRemoteJourney {
         j.step("B1") {
             j.expect("SMART REMOTE", timeoutMs = 8_000); j.expect("PREVIEW")
             j.expect("Turn on Labs › Context & now playing in the Mote Helper menu on the Mac")
+            j.appEvent("labs", "blocked", "code" to "helper-lab-off")   // DU-10
         }
     }
 

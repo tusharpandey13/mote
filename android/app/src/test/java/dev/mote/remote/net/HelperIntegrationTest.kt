@@ -306,6 +306,7 @@ class HelperIntegrationTest {
     @Test fun aDifferentMacAtTheSameAddressIsSkippedNotAuthed() = runBlocking {
         val p = pairWith(http, "127.0.0.1", port, code, "jvm other")
         val token = p.token.copyOf()
+        val evFrom = dev.mote.remote.diag.Events.head
         // Saved under another hostId (as if this IP now belongs to a different Mac).
         val t = WsTransport(http, scope, "0000000000000000", {
             WsTarget(listOf("127.0.0.1"), port, p.deviceId) { Proto.hmacHex(token, it) }
@@ -314,6 +315,7 @@ class HelperIntegrationTest {
         Thread.sleep(2500)
         assertTrue("never ready against the wrong host", t.status.value !is WsStatus.Ready)
         assertTrue("no auth attempt reached the other Mac", synchronized(log) { log.none { "auth failed" in it || "authed jvm other" in it } })
+        assertTrue("transport/connect.mismatch logged (FC-12)", dev.mote.remote.diag.Events.snapshot().any { it.seq > evFrom && it.area == "transport" && it.event == "connect.mismatch" })
         t.stop()
     }
 

@@ -1,5 +1,6 @@
 package dev.mote.remote.pairing
 
+import dev.mote.remote.diag.Events
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
@@ -117,11 +118,12 @@ object InstantPairing {
         var i = 0
         while (i < paths.size) {
             val addr = paths[i]
+            Events.log("transport", "connect.try", "address" to addr, "port" to c.port, "candidates" to paths.size, "first" to true)
             val s = try { WsSession.open(Net.http, addr, c.port) } catch (e: CancellationException) { throw e } catch (e: Exception) {
-                Log.w(TAG, "open $addr:${c.port} failed: $e"); last = worse(last, e); i++; continue
+                Log.w(TAG, "open $addr:${c.port} failed: $e"); Events.log("transport", "connect.fail", "address" to addr, "reason" to (e.message ?: e.javaClass.simpleName).take(80)); last = worse(last, e); i++; continue
             }
             try {
-                if (s.hello.hostId != c.hostId) { last = worse(last, HelperError("helper-key", "Another Mac answered at $addr")); i++; continue }
+                if (s.hello.hostId != c.hostId) { Events.log("transport", "connect.mismatch", "address" to addr); last = worse(last, HelperError("helper-key", "Another Mac answered at $addr")); i++; continue }
                 val pin = _records.value[c.hostId]?.fp ?: c.fp
                 if (prox == null && dev.mote.remote.hid.TestSeam.fakeProximity) prox = fakeProximity(s)
                 val token = prox.also { prox = null } // single-use on the Mac
@@ -129,6 +131,8 @@ object InstantPairing {
                     labsHandshake(s, me, deviceName(), pin, allowPrompt = true, prox = token, onState = onState)
                 } catch (e: HelperError) {
                     Log.w(TAG, "handshake at $addr: ${e.code} ${e.message}")
+                    Events.log("session", "pair.failed", "code" to e.code, "address" to addr)
+                    if (HostKeyChange.isKeyMismatch(e.code, e.message)) Events.log("transport", "connect.mismatch", "address" to addr)
                     last = worse(last, e)
                     when {
                         e.code == "stale" && staleRetry -> { staleRetry = false; prox = ble.proximity(c.hostId, maxAgeMs = 0); continue }
@@ -145,6 +149,7 @@ object InstantPairing {
                 return@withContext done
             } finally { s.close() }
         }
+        Events.log("transport", "connect.failed", "code" to ((last as? HelperError)?.code ?: "io"), "error" to last.javaClass.simpleName, "reason" to (last.message ?: "").take(80), "first" to true)
         throw last
     }
 
@@ -252,11 +257,12 @@ object InstantPairing {
             val port = Net.saved.value.firstOrNull { it.hostId == ws.hostId }?.port ?: Proto.DEFAULT_PORT
             val sockets = WifiSocketFactory(w.network)
             val http = Net.http.newBuilder().socketFactory(sockets).build()
+            Events.log("discovery", "sweep.start", "prefix" to w.prefix, "port" to port, "reason" to "rediscover")
             val hit = withTimeoutOrNull(Finder.RUN_MS) {
                 lanSweep(sweepHosts(w.ip, w.prefix), port) { h, p, t -> tcpOpen(h, p, t, sockets) }
                     .firstOrNull { addr -> probeHelper(http, addr, port)?.hostId == ws.hostId }
             }
-            if (hit != null) withContext(Dispatchers.Main) { Net.addAddress(ws.hostId, hit) }
+            if (hit != null) { Events.log("discovery", "sweep.open", "reason" to "rediscover"); withContext(Dispatchers.Main) { Net.addAddress(ws.hostId, hit) } }
         }
     }
 

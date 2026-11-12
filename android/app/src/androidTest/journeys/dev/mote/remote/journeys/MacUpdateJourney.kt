@@ -27,9 +27,12 @@ class MacUpdateJourney {
         j.step("S1", "faked: stdin-control `tailscale on` stands in for the menu click (menu lines headless-unobservable)") {
             mac.mark(); mac.stdin("tailscale on")
             mac.await("tailscale connections allowed$")
+            j.appEvent("transport", "connect.ready")   // UP-7: the phone was Ready before the helper went away
         }
         j.step("S4", "faked: stand-in helper stopped by the controller (SIGTERM)") {
+            j.appMark()
             mac.stop()
+            j.appEvent("transport", "connect.dropped")   // UP-7: the update restart drops the link; connect.ready follows the restart (helper/tests/restart.mjs, RC-17)
             j.tap("Device: $name via Wi-Fi. Tap to choose")
             j.expect("Devices")
             j.expect("Connecting…", timeoutMs = 10_000)

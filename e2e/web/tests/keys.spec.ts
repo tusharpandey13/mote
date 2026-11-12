@@ -118,10 +118,12 @@ test.describe('Keys pane', () => {
   test('Unicode text box -> one text event', async ({ page, helper }) => {
     const s = 'héllo ✓ 日本';
     let from = helper.mark();
+    const ev0 = helper.eventMark();
     await page.locator('#k-text').fill(s);
     await page.locator('#k-form .sendb').tap();
     const m = await helper.waitFor(DRY.text, { from });
     expect(m[1]).toBe(s);
+    await helper.waitEvent('input', 'summary', { from: ev0, fields: /"text":/, timeout: 12_000 }); // DU-2 input/summary: the text itself is never logged
     expect(helper.since(from, /DRY /)).toHaveLength(1);
     await expect(page.locator('#k-text')).toHaveValue('');
     // "send Return after" appends \n, and is remembered.

@@ -55,16 +55,19 @@ class SetupPhoneJourney {
             j.tap("Use Bluetooth instead (no helper)")
             j.expect("How do you want to connect?")
             j.expect(gateAsk); j.expect("Connect with Bluetooth"); j.expect("Connect to your Mac instead"); j.expect(wifiNote)
+            j.appEvent("ui", "screen", "screen" to "bt_gate", "gate" to "NEEDS_PERMISSION")   // SP-10
         }
         var asked = listOf<String>()
         j.step("S5") {
             j.tap("Connect with Bluetooth")
             if (!j.systemShown("Allow", 6_000)) throw AssertionError("no permission dialog")
+            j.appEvent("permission", "request", "from" to "gate")   // SP-11
         }
         j.step("S6", adapterOn) {
             asked = j.aAllowAll()
             if (asked.isEmpty()) throw AssertionError("no permission dialog answered")
             (btPerms + Manifest.permission.POST_NOTIFICATIONS).forEach { if (!j.aPerm(it)) throw AssertionError("$it not granted (dialogs: $asked)") }
+            j.appEvent("permission", "result", "from" to "gate", "bluetoothConnect" to true)   // SP-11
             j.aRemote()
             j.expect("Device: Choose a device. Tap to choose")
         }
@@ -79,6 +82,7 @@ class SetupPhoneJourney {
             j.aAllowAll()
             j.aDismissEnableDialog()
             j.expect(gateOff, timeoutMs = 6_000); j.expect("Turn on Bluetooth"); j.expect("Connect to your Mac instead")
+            j.appEvent("ui", "screen", "screen" to "bt_gate", "gate" to "BT_OFF")   // SP-15
         }
         j.step("B2", "faked: adapter flow → enabled = true") { a.value = a.value.copy(enabled = true); j.aRemote() }
         j.step("B3", "faked: adapter flow → enabled = false") { a.value = a.value.copy(enabled = false); j.expect("Turn on Bluetooth", timeoutMs = 6_000) }
@@ -92,6 +96,7 @@ class SetupPhoneJourney {
         j.step("B1") {
             if (j.aDenyAll().isEmpty()) throw AssertionError("no permission dialog")
             j.expect(gateAsk); j.expect("Connect with Bluetooth"); j.expectNot("Open settings")
+            j.appEvent("permission", "result", "from" to "gate", "bluetoothConnect" to false)   // SP-12
         }
         j.step("B2", "faked: adapter on") {
             j.tap("Connect with Bluetooth")
@@ -107,7 +112,8 @@ class SetupPhoneJourney {
         j.step("B1") {
             j.tap("Connect with Bluetooth"); j.aDenyAll()
             j.tap("Connect with Bluetooth"); j.aDenyAll()
-            j.expect(gateSettings, timeoutMs = 6_000); j.expect("Open settings")
+            j.expect(gateSettings, timeoutMs = 6_000); j.expect("Open settings")   // "Open settings" = shouldShowRationale false
+            if (j.appEventCount("permission", "result", "from" to "gate", "bluetoothConnect" to false) < 2) throw AssertionError("expected two denied permission/result events")   // SP-13
         }
         j.step("B2") {
             j.tap("Open settings")

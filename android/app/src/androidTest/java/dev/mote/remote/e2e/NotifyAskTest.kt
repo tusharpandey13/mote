@@ -23,5 +23,7 @@ class NotifyAskTest {
         assert(shown("lock screen"))
         c.onNodeWithText("Not now").performClick()
         c.waitUntil(5_000) { !shown("Allow notifications?") }
+        // SP-19 / DU-18: the choice is on the event log, and nothing was posted for a notification that was not allowed
+        assert(dev.mote.remote.diag.Events.snapshot().any { it.area == "permission" && it.event == "result" && it.fields["from"] == "setup" && it.fields["choice"] == "not-now" })
     }
 }

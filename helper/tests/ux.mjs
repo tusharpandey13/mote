@@ -68,6 +68,9 @@ const until = async (f, ms = 5000) => { const end = Date.now() + ms; for (;;) { 
     const d = await ws.req({ t: 'diag' }, (m) => m.t === 'diag');
     ok(d?.permissions?.accessibility?.apiState === 'notDetermined' && d.permissions.accessibility.state !== 'ok', 'U16: diag permissions.accessibility is not granted ' + JSON.stringify(d?.permissions?.accessibility));
     ok(d?.features?.input?.state === 'blocked', 'U16: diag features.input is blocked ' + JSON.stringify(d?.features?.input));
+    ok(d?.features?.input?.blockedBy === 'accessibility-not-granted', 'SM-24: diag.features.input.blockedBy is accessibility-not-granted ' + JSON.stringify(d?.features?.input));
+    const blocked = await until(() => events(h).find((e) => e.area === 'input' && e.event === 'blocked' && e.fields.reason === 'accessibility'));
+    ok(!!blocked, 'SM-24: the refused key is recorded as input/blocked{reason:accessibility}');
     ok(d?.transports?.tailscale?.allowed === false,
        'U11: Allow Tailscale connections is off when never set');
     ok(d?.labs?.nowPlaying?.enabled === true, 'U3: now playing is on by default');

@@ -21,12 +21,14 @@ class DailyJourney {
         // "relaunch": the activity closes and the socket is dropped 30 s later (Net.foreground)
         j.closeActivity()
         j.cWait("socket closed after 30 s in the background", 40_000) { Net.wsStatus.value is WsStatus.Idle }
-        mac.mark()
+        mac.mark(); j.appMark()
         j.step("S1") {
             j.launch(fakeProximity = true)
             j.expect("Brightness up", timeoutMs = 8_000)
             j.expectNot("Connect to your Mac")
             j.expect(cPill(name))
+            j.appEvent("lifecycle", "foreground", "on" to true)   // RC-1
+            j.appEvent("transport", "connect.try")
         }
         j.step("S2") { mac.await(authed(phone), 10_000) }
         j.step("S3") {
@@ -142,6 +144,7 @@ class DailyJourney {
             j.device.openNotification()
             try {
                 if (!j.systemShown("^Ready to pair$", 8_000)) throw AssertionError("notification text \"Ready to pair\" not shown")
+                j.appEvent("lifecycle", "service", "state" to "created")   // DU-8: the link notification's service
             } finally { j.device.pressBack() }
         }
     }
@@ -156,6 +159,7 @@ class DailyJourney {
             j.device.openNotification()
             try {
                 if (!j.systemShown("Searching for \\QTest Mac\\E…", 8_000)) throw AssertionError("notification \"Searching for Test Mac…\" not shown")
+                j.appEvent("lifecycle", "service", "state" to "created")   // DU-8
             } finally { j.device.pressBack() }
         }
     }

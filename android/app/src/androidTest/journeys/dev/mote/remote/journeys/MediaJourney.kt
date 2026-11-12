@@ -64,7 +64,11 @@ class MediaJourney {
             mac.await("DRY key usage=82 mods=0 action=down") // repeat (400 ms, then every 60 ms)
             mac.await("DRY key usage=82 mods=0 action=up")
         }
-        j.step("S6") { mac.mark(); j.cPress("Next track, hold to fast-forward"); mac.await("DRY consumer next$") }
+        j.step("S6") {
+            mac.mark(); j.cPress("Next track, hold to fast-forward"); mac.await("DRY consumer next$")
+            mac.event("protocol", "in", ".*\"t\":\"consumer\"")   // DU-1
+            mac.event("input", "summary", ".*consumer")
+        }
         j.step("S7") {
             mac.mark()
             j.cHold("Next track, hold to fast-forward", 600) { mac.await("DRY consumer fast down") }
@@ -168,8 +172,10 @@ class MediaJourney {
         val (mac, _) = j.cLinkHelper()
         j.step("B1", "faked: stdin-control `pause`") { mac.mark(); mac.stdin("pause"); mac.await("input paused") }
         j.step("B2") {
+            j.appEvent("session", "state", "paused" to true)   // DU-5: the phone learns the Mac paused input
             j.cWait("paused", 5_000) { (dev.mote.remote.net.Net.wsStatus.value as? dev.mote.remote.net.WsStatus.Ready)?.paused == true }
             mac.mark(); j.cPress("Next track, hold to fast-forward"); mac.assertNo("DRY consumer next", 2_000)
+            mac.event("input", "blocked", ".*\"reason\":\"paused\"")   // DU-5: the helper refused the key
         }
     }
 
