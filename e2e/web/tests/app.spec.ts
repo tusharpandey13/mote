@@ -47,7 +47,9 @@ test.describe('connection', () => {
 
       // Restarted with an empty --memory-store: the page reconnects on its own and offers its stored token.
       const from = h.mark();
+      const ev0 = h.eventMark();
       await h.restart();
+      await h.waitEvent('lifecycle', 'start', { from: ev0 });   // RC-8 lifecycle/start: the restarted helper's own events (the web remote has no phone-side diag events)
       await h.waitFor(/auth failed from 127\.0\.0\.1/, { from, timeout: 20_000 });
       // That Mac no longer knows it (a real restart keeps tokens in the Keychain), so pair again.
       await expect(page.locator('#v-pair')).toBeVisible();
@@ -60,6 +62,7 @@ test.describe('connection', () => {
       const m = h.mark();
       await page.locator('[data-cons="play"]').tap();
       await h.waitFor(/DRY consumer play$/, { from: m });
+      await h.waitEvent('session', 'authed', { from: ev0 });   // RC-8 session/authed: the page authenticated again after the restart
     } finally {
       await h.stop();
     }

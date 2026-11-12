@@ -21,8 +21,10 @@ test.describe('Macros pane', () => {
 
   test('multi-step macro runs in order on the Mac', async ({ page, helper }) => {
     const from = helper.mark();
+    const ev0 = helper.eventMark();
     await tile(page, 'safari').tap();
     await expect(tile(page, 'safari')).toHaveClass(/running/);
+    await helper.waitEvent('input', 'macro', { from: ev0, fields: /"state":"start"/ }); // DU-3 input/macro
     await expect(tile(page, 'safari').locator('.ch')).toHaveText('Running… tap to cancel');
     await helper.waitFor(/macro: 5 steps/, { from });
     await helper.waitFor(DRY.key(40, 0), { from });
