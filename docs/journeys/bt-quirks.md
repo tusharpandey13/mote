@@ -31,7 +31,7 @@ The quirks themselves (Keyboard Setup Assistant, a stale macOS bond) are macOS b
 ### `bt-quirks.forget-on-phone`: long-press › Forget (from B1; artboard jC2-b1s2)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | phone user | Long-press the Bluetooth-only row "Use <Mac>" | nothing happens ("Forget <Mac> on this phone?" never shows): `onLongPress` is only set for rows with a saved helper host (HostsUi.kt `HostRowCap`, `r.saved != null`) (bt-quirks-D1) | faked: adapter (bonded host "Test Mac") + transport seams |
+| B1 | phone user | Long-press the Bluetooth-only row "Use <Mac>" | "Forget <Mac>? Android removes Bluetooth pairings in its own settings." with Open settings (ACTION_BLUETOOTH_SETTINGS) and Cancel; apps cannot remove a bond (bt-quirks-D1 fixed, D-RC-2) | faked: adapter (bonded host "Test Mac") + transport seams |
 | B2 | (variant) | Row grouped with a saved helper host (same name / linked `btAddress`), long-press | inline row "Forget <Mac> on this phone?" with "Forget" (red) then "Cancel"; "Forget" runs `Net.forget(hostId)`: removes the helper host and token only; the Android Bluetooth bond stays (bt-quirks-D1) | faked: seeded helper host + adapter |
 | B3 | phone user | Select "Use <Mac>" (pill "Device: <Mac> via BT. Tap to choose"), then unpair on the phone (Android Settings › Connected devices › <Mac> › Forget) | bonded list loses <addr>: pill "Device: Not paired: pair again via BT. Tap to choose" | faked: drop the host from TestSeam.adapter.hosts (stands in for Android Settings › Forget) |
 
@@ -54,7 +54,7 @@ Preconditions delta: a helper host trusted by instant pairing; the Mac still lis
 | B1 | phone user | BtStep "Continue" (Devices › Add a Mac flow) | helper `bt: pair '<phone bt name>' for <phone>`; `BtPair.start` finds the name in `IOBluetoothDevice.pairedDevices()` and answers `{"t":"bt.pair.status","state":"paired",...}` without pairing; phone: "Wi-Fi and Bluetooth are both set up." while HID can't work (bt-quirks-D2) | manual: real Mac bond; `--fake-bt-pair` can't model "already paired" |
 
 ## Disagreements → DEFECTS.md
-- `bt-quirks-D1` (forget-on-phone): "long-press it and forget it" is impossible for a Bluetooth-only host, and Forget never removes the Android bond.
+- `bt-quirks-D1` (forget-on-phone; fixed by D-RC-2: Forget opens Android Bluetooth settings): "long-press it and forget it" is impossible for a Bluetooth-only host, and Forget never removes the Android bond.
 - `bt-quirks-D2` (helper-bt-step-stale): helper reports success when the Mac already lists the phone, reinforcing a stale bond.
 - `bt-quirks-D3` (B1 stale-help, B2 forget): artboard/doc say there is no in-app help, the help link isn't drawn, the Forget control is drawn as a dialog with reversed buttons, and README says "Pick ANSI" / "Pair new device".
 
