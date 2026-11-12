@@ -28,6 +28,8 @@ class InstantPairingJourney {
             mac.await("labs: trusted ${bq(phone)} via nearby", 10_000)
             mac.await("^NEW DEVICE: .*\"via\":\"nearby\"")
             mac.from = 0; mac.assertNo("labs: prompt ", 500)
+            mac.event("session", "paired", ".*\"via\":\"nearby\".*")        // FC-3: the trust decision
+            mac.event("keychain", "write", ".*\"ok\":true.*")                 // FC-3: the new key is stored
             j.expect("Connected over Wi-Fi", timeoutMs = 8_000)
         }
     }
@@ -71,12 +73,15 @@ class InstantPairingJourney {
         j.tap("Skip", timeoutMs = 10_000)
         j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
         j.step("B1", "real (Home + return after the socket's 30 s idle close; the process stays)") {
-            mac.mark()
+            mac.mark(); j.appMark()
             j.bHomeAndReturn(32_000)
             j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 10_000)
             mac.await("labs: trusted ${bq(phone)} via trusted", 15_000)
             mac.await("authed ${bq(phone)} via Wi-Fi from ")
             mac.assertNo("^NEW DEVICE|labs: prompt ", 1_500)
+            mac.event("session", "authed", ".*\"transport\":\"Wi-Fi\".*")    // RC-2 helper side
+            j.appEvent("transport", "connect.auth", "instant" to true)         // RC-2 phone side
+            j.appEvent("transport", "connect.ready")
         }
     }
 

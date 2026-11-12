@@ -80,6 +80,7 @@ class WifiHelperJourney {
             mac.await("labs: trusted .* via tailscale")
             mac.await("authed .* via Wi-Fi from 127\\.0\\.0\\.1")
             mac.from = 0; mac.await("^NEW DEVICE: .*\"via\":\"tailscale\"")
+            mac.event("session", "paired", ".*\"via\":\"tailscale\".*")   // SP-9 / FC-7: the same-owner trust decision
         }
         j.step("B3") {
             // code: the label comes from labs.pair.ok `via`, not the route (connect-next-D4)

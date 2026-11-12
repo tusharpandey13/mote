@@ -84,6 +84,11 @@ class SweepDiscoveryTest {
         val ms = System.currentTimeMillis() - t0
         assertTrue("found in $ms ms", ms < 4_000)
         assertFalse(c.onAllNodes(hasText("Mote Helper not found", substring = true)).fetchSemanticsNodes().isNotEmpty())
+        // SP-4 / RC-3: the sweep found it, not Bonjour (the same sweep rediscover() runs after an IP change)
+        val ev = dev.mote.remote.diag.Events.snapshot()
+        assertTrue("discovery/sweep.start logged", ev.any { it.area == "discovery" && it.event == "sweep.start" })
+        assertTrue("discovery/sweep.open logged", ev.any { it.area == "discovery" && it.event == "sweep.open" })
+        assertFalse("no nsd.found without Bonjour", ev.any { it.area == "discovery" && it.event == "nsd.found" })
     }
 
     private fun desc(d: String) = c.onAllNodes(hasContentDescription(d, substring = true)).fetchSemanticsNodes().isNotEmpty()

@@ -239,11 +239,13 @@ class MacrosJourney {
         macros()
         j.step("B1") {
             mac.mark(); j.cClick("Open Safari")
+            mac.event("input", "macro", ".*\"state\":\"start\"")   // DU-3
             mac.await("DRY key usage=44 mods=8 action=tap")
             j.cAdvance(300)
             mac.await("DRY text \"Safari\"")
             j.cAdvance(200)
             mac.await("DRY key usage=40 mods=0 action=tap")
+            mac.event("input", "summary", ".*\"macro\"")   // DU-2: counted as one macro message, never the text
         }
     }
 

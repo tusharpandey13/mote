@@ -167,6 +167,19 @@ class JourneyRule : TestRule {
         }
     }
 
+    /** From here on [appEvent] / [appEventCount] only see events logged after this call (like [Helper.mark]). */
+    fun appMark() { appFrom = Events.head }
+
+    /** How many app events `area/name` with fields [where] were logged since [path] was set (no waiting). */
+    fun appEventCount(area: String, name: String, vararg where: Pair<String, Any?>): Int =
+        Events.snapshot().count { e -> e.seq > appFrom && e.area == area && e.event == name && where.all { (k, v) -> e.fields[k] == v } }
+
+    /** Asserts the app logged no `area/name` with fields [where] since [path] was set. */
+    fun noAppEvent(area: String, name: String, vararg where: Pair<String, Any?>) {
+        val n = appEventCount(area, name, *where)
+        if (n != 0) throw AssertionError("unexpected app event $area/$name ${where.toList()} x$n")
+    }
+
     fun path(id: String) {
         appFrom = Events.head
         path = id

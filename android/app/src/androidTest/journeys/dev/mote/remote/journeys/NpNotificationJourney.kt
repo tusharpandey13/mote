@@ -51,6 +51,7 @@ class NpNotificationJourney {
             j.expect("Show what is playing, with controls, in the notification shade and on the lock screen?")
             waitUntil("plan blocked") { (NpNotifier.plan.value as? NpNotifPlan.Hide)?.reason == "no-permission" }
             if (posted() != null) throw AssertionError("a notification was posted without permission")
+            j.appEvent("notification", "blocked", "reason" to "no-permission")   // DU-18
         }
         j.step("N2") {
             // Allow, in context: the system dialog, then the notification appears.
@@ -63,6 +64,7 @@ class NpNotificationJourney {
             if ("Fake Song" !in n) throw AssertionError("title missing:\n$n")
             if ("Mote Labs" !in n) throw AssertionError("artist missing:\n$n")
             j.expectGone("Show what is playing, with controls, in the notification shade and on the lock screen?")
+            j.appEvent("notification", "show", "kind" to "helper")   // DU-14
         }
         j.step("N3") {
             val s = sessions()
@@ -81,12 +83,17 @@ class NpNotificationJourney {
             if ("vis=PUBLIC" !in svc) throw AssertionError("notification not public on the lock screen:\n${svc.take(1500)}")
         }
         j.step("N4") {
+            j.appMark(); mac.mark()
             val tc = controller().transportControls
             mac.mark(); tc.skipToNext(); mac.await("DRY consumer next")
             mac.mark(); tc.skipToPrevious(); mac.await("DRY consumer prev")
             mac.mark(); tc.pause(); mac.await("DRY consumer play") // playing -> pause is a toggle
             mac.mark(); tc.play(); mac.assertNo("DRY consumer play", 1_500) // already playing: a stale Play is not sent
             mac.mark(); tc.seekTo(150_000); mac.await("DRY labs seek via=fake to=150\\.0")
+            for (n in listOf("next", "prev", "pause")) j.appEvent("notification", "action", "name" to n, "sent" to true)   // DU-16
+            j.appEvent("notification", "action", "name" to "play", "sent" to false)   // the stale Play is not sent
+            j.appEvent("notification", "action", "name" to "seek", "sent" to true)
+            mac.event("input", "summary")
         }
         j.step("N5") {
             // The notification's buttons are broadcasts to NpActionReceiver (the PendingIntents' targets). Tapping them in
@@ -95,11 +102,14 @@ class NpNotificationJourney {
             mac.mark(); send(NpNotifier.ACTION_NEXT); mac.await("DRY consumer next")
             mac.mark(); send(NpNotifier.ACTION_PREV); mac.await("DRY consumer prev")
             mac.mark(); send(NpNotifier.ACTION_PLAY); mac.await("DRY consumer play")
+            j.appEvent("notification", "action", "name" to "play", "sent" to true)   // DU-16
         }
         j.step("N6") {
             // The Mac goes away: the notification is removed and the session released.
+            j.appMark()
             mac.stop()
             waitUntil("notification removed on disconnect", 70_000) { posted() == null }
+            j.appEvent("notification", "hide", "reason" to "disconnected", "wasShown" to true)   // DU-20
             waitUntil("session released") { "MoteNowPlaying" !in sessions() }
         }
     }
@@ -125,8 +135,11 @@ class NpNotificationJourney {
         j.dlConnect(mac, name)
         waitUntil("notification posted") { posted() != null }
         j.step("B2") {
+            j.appMark()
             j.closeActivity()
             Thread.sleep(40_000) // past Net's 30 s background close
+            j.appEvent("lifecycle", "foreground", "on" to false)   // DU-20: the app left the screen, the service keeps it
+            j.noAppEvent("notification", "hide")
             if (posted() == null) throw AssertionError("notification gone after 40 s in the background while playing")
             mac.mark(); controller().transportControls.skipToNext(); mac.await("DRY consumer next")
         }
@@ -147,6 +160,7 @@ class NpNotificationJourney {
             waitUntil("paused state reaches the notification") { controller().playbackState?.state == PlaybackState.STATE_PAUSED }
             waitUntil("removed after the paused timeout", 20_000) { posted() == null }
             waitUntil("plan: idle-timeout") { (NpNotifier.plan.value as? NpNotifPlan.Hide)?.reason == "idle-timeout" }
+            j.appEvent("notification", "hide", "reason" to "idle-timeout", "wasShown" to true)   // DU-20
             val svc = j.shell("dumpsys activity services ${j.ctx.packageName}/dev.mote.remote.service.NpService")
             if ("isForeground=true" in svc) throw AssertionError("service still foreground:\n${svc.take(800)}")
         }
