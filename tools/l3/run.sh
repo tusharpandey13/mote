@@ -33,8 +33,8 @@ if [ "$INSTALL" = 1 ]; then
     ARCH=x86_64; [ "$(uname -m)" = arm64 ] && ARCH=arm64
     mkdir -p "$TMP/rel"; cp "$ZIP" "$TMP/rel/MoteHelper-macos-$ARCH.zip"
     (cd "$TMP/rel" && shasum -a 256 "MoteHelper-macos-$ARCH.zip" > "MoteHelper-macos-$ARCH.zip.sha256")
-    python3 -m http.server 8799 -b 127.0.0.1 -d "$TMP/rel" >/dev/null 2>&1 & SRV=$!
-    sleep 1; export MOTE_RELEASE_URL=http://127.0.0.1:8799
+    python3 -m http.server "${MOTE_L3_PORT:-8798}" -b 127.0.0.1 -d "$TMP/rel" >/dev/null 2>&1 & SRV=$!
+    sleep 1; export MOTE_RELEASE_URL=http://127.0.0.1:${MOTE_L3_PORT:-8798}
     echo "Installing the local build $ZIP"
   else
     echo "Installing the published release (releases/latest)"
