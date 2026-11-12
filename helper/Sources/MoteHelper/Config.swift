@@ -10,6 +10,7 @@ struct Config {
     var ble = true
     var port: UInt16 = 8790
     var keychainService = "dev.mote.helper"
+    var secretsDir: URL? = nil // --secrets-dir DIR: keep the Vault's items as files in DIR, no Keychain, no prompt (tests; refused without --dry-run)
     var memoryStore = false   // keep paired devices in memory only (tests)
     var allowTailscale: Bool? = nil   // --allow-tailscale: force the toggle on for this run (tests)
     var webRoot: URL? = nil
@@ -40,6 +41,9 @@ struct Config {
 
     /// `--fake-keychain` is honoured only with `--dry-run` (it replaces the real Keychain item with a simulation).
     var usesFakeKeychain: Bool { dryRun && fakeKeychain != nil }
+    /// --secrets-dir is honoured only with --dry-run; main.swift exits before anything starts otherwise.
+    var usesSecretsDir: Bool { dryRun && secretsDir != nil }
+    var secretsDirRefused: Bool { secretsDir != nil && !dryRun }
 
     static func parse(_ args: [String]) -> Config {
         var c = Config()
@@ -83,6 +87,7 @@ struct Config {
             case "--events": c.eventsFile = it.next()
             case "--fake-nowplaying-reader": c.fakeNowPlayingReader = it.next()
             case "--port": if let v = it.next(), let p = UInt16(v) { c.port = p }
+            case "--secrets-dir": if let v = it.next() { c.secretsDir = URL(fileURLWithPath: v, isDirectory: true) }
             case "--keychain-service": if let v = it.next() { c.keychainService = v }
             case "--web-root": if let v = it.next() { c.webRoot = URL(fileURLWithPath: v) }
             case "-h", "--help":
@@ -90,7 +95,7 @@ struct Config {
                 MoteHelper --record-system FILE   (write the OS's permission/Keychain/signing/discovery answers as a test fixture and exit; never prompts)
                 MoteHelper --diag [--data-dir DIR]   (print the running helper's diagnostics snapshot, else this process's own, as JSON and exit; never prompts)
                 MoteHelper [--setup] [--dry-run] [--headless] [--open-pairing] [--no-ble] [--port N]
-                           [--memory-store] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale] [--events FILE] [--data-dir DIR]
+                           [--memory-store | --secrets-dir DIR] [--keychain-service NAME] [--web-root DIR] [--allow-tailscale] [--events FILE] [--data-dir DIR]
                           [--stdin-control] [--fake-spaces N[,M...]] [--labs-tv] [--fake-context FILE] [--fake-nowplaying] [--fake-screen] [--fake-ax-denied] [--update-url URL] [--update-check-now]   (tests, need --dry-run; port 0 = any free port)
                           [--no-instant-pairing | --labs-pairing] [--require-approval]   (instant pairing: off / force on; approval prompts)
                           [--fake-proximity] [--fake-approve | --fake-approve-deny] [--fake-tailscale-owner ID|timeout]   (instant pairing tests, need --dry-run)
@@ -153,8 +158,15 @@ final class Settings {
     }
 
     init(config: Config) {
-        defaults = config.memoryStore ? nil : UserDefaults.standard
-        if let id = defaults?.string(forKey: "hostId"), id.count == 16 {
+        defaults = config.memoryStore || config.usesSecretsDir ? nil : UserDefaults.standard
+        let idFile = config.usesSecretsDir ? config.secretsDir?.appendingPathComponent("hostId") : nil   // --secrets-dir: hostId survives restarts like the Keychain items
+        if let f = idFile, let id = (try? String(contentsOf: f, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines), id.count == 16 {
+            hostId = id
+        } else if let f = idFile {
+            hostId = randomHex(8)
+            try? FileManager.default.createDirectory(at: f.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? hostId.write(to: f, atomically: true, encoding: .utf8)
+        } else if let id = defaults?.string(forKey: "hostId"), id.count == 16 {
             hostId = id
         } else {
             hostId = randomHex(8)

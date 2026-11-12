@@ -2,6 +2,8 @@ import AppKit
 import ApplicationServices
 
 let config = Config.parse(CommandLine.arguments)
+// Test-only file store: refuse before anything (events file, Hub, Keychain, input) starts.
+if config.secretsDirRefused { FileHandle.standardError.write("--secrets-dir needs --dry-run\n".data(using: .utf8)!); exit(2) }
 if let f = config.eventsFile { Events.shared.openFile(f) }
 ev(.lifecycle, "start", ["dryRun": config.dryRun, "headless": config.headless, "memoryStore": config.memoryStore, "ble": config.ble,
                          "port": Int(config.port), "diag": config.diag])
