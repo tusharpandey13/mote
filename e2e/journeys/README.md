@@ -9,7 +9,18 @@ against dry-run Mote Helpers. Results: `REPORT.md` (per journey, per step), scre
 e2e/journeys/run.sh all              # every journey
 e2e/journeys/run.sh connect-next     # one journey (class ConnectNextJourney)
 e2e/journeys/run.sh connect-next#far # one path (test method)
+e2e/journeys/run.sh --level L2 [J4 reconnect ...]   # the L2 rows of the core specs J1-J7 (all, or the named ones)
 ```
+
+`--level L2` reads the step tables of `docs/journeys/{install-helper,...,mac-update}.md` (shared reader `tools/journeys/rows.mjs`),
+collects the cited tests and runs them in one go: every android cite in ONE Gradle invocation (JVM tests with `--tests`, instrumented
+ones as one `class=` list, pinned to the emulator), helper cites via `helper/tests/unit.sh`, `node:` cites with node, `e2e:` cites with
+Playwright in `e2e/web`. An unknown class or method is an error before anything boots (`l2.mjs plan`). Per-cite results and logs are in
+`/tmp/mote-journeys/l2/`; `REPORT.md` gets a "Core journeys by level" section (pass / partial / fail / not run / manual per row, with
+log links, and whether each row's detected-by is asserted from `diag` events: `asserted` / `gap` / `n/a`). Its per-level row counts must
+match the Coverage table in `docs/journeys/README.md` (regenerate it with `node e2e/journeys/rows.mjs coverage --write docs/journeys/README.md`);
+`--strict` fails the report when they differ. Helper side events are asserted with `Helper.event(area, event, regex)` (the helper's
+`--events` JSONL), app side with `JourneyRule.appEvent(area, event)` (the in-process `Events` ring).
 
 `run.sh`:
 - refuses any target but an emulator (`MJ_SERIAL`, default `emulator-5562`, must match `emulator-N` and report `ro.kernel.qemu=1`); exports `ANDROID_SERIAL` so Gradle installs nowhere else;
