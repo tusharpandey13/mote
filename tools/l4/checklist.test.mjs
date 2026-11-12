@@ -22,7 +22,7 @@ test("scripted answers are recorded; early quit leaves the rest not run", () => 
   const md = readFileSync(join(out, readdirSync(out)[0]), "utf8");
   assert.match(md, /- App: \d/);
   assert.match(md, /\| Result \| Note \|/);
-  assert.match(md, /\| pass \| \|/);
+  assert.match(md, /\| pass \| +\|/);
   assert.match(md, /\| fail \| boom \|/);
   assert.match(md, /Totals: 1 pass, 1 fail, 1 skip, \d+ not run/);
 });
