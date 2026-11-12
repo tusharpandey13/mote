@@ -1,28 +1,20 @@
-// Parses the step rows of the core journey specs (docs/journeys/{install-helper,...,mac-update}.md, J1-J7).
+// L2 helpers over the core journey rows (docs/journeys/{install-helper,...,mac-update}.md, J1-J7).
 //   import { coreRows, parseCites, coverage } from './rows.mjs'
 //   node rows.mjs coverage [--write docs/journeys/README.md]   print (or rewrite) the Coverage table
-// Row: | ID | Actor | Step | Expected | Failure mode | Detected by | User sees | Recovery | Level | Test | Status |
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readRows } from '../../tools/journeys/rows.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const SPECS = path.join(ROOT, 'docs/journeys');
 export const CORE = [['J1', 'install-helper'], ['J2', 'setup-mac'], ['J3', 'setup-phone'], ['J4', 'first-connect'],
   ['J5', 'reconnect'], ['J6', 'daily'], ['J7', 'mac-update']].map(([j, file]) => ({ j, file }));
-const cells = l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/).map(c => c.trim());
 
+// The step tables are read by the shared tools/journeys/rows.mjs; this adds the J-number, the L2 `detected` alias and a bare status word.
 export function coreRows(specs = SPECS) {
-  const rows = [];
-  for (const { j, file } of CORE) {
-    for (const l of fs.readFileSync(path.join(specs, file + '.md'), 'utf8').split('\n')) {
-      if (!/^\| [A-Z]+-\d+ \|/.test(l)) continue;
-      const c = cells(l);
-      if (c.length !== 11) throw new Error(`${file}: row ${c[0]} has ${c.length} columns, expected 11`);
-      rows.push({ j, file, id: c[0], step: c[2], detected: c[5], level: c[8], test: c[9], status: c[10].split(/[\s(]/)[0] });
-    }
-  }
-  return rows;
+  const root = path.resolve(specs, '../..');
+  return CORE.flatMap(({ j, file }) => readRows(file, root).map(r => ({ ...r, j, file, detected: r.detectedBy, status: r.status.split(/[\s(]/)[0] })));
 }
 
 // "android:A#m; node:x.mjs (note); e2e:f.spec.ts \"title\"; TODO-X (note)" -> [{kind, ref, method?, title?, raw}]
