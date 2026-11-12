@@ -31,4 +31,4 @@ else
 fi
 
 echo "Disk used by $USER_NAME's home:"
-du -sh "/Users/$USER_NAME" 2>/dev/null || echo "  (not readable from here; expected a few hundred MB now, 3-8 GB after runs)"
+du -sh "/Users/$USER_NAME" 2>/dev/null | tail -1; echo "  (a few hundred MB after first login, 3-8 GB after runs)"
