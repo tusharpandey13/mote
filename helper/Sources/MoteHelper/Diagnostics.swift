@@ -329,7 +329,7 @@ enum Diag {
 
     static func baseInput(config: Config, source: String, system: SystemAdapters? = nil) -> DiagInput {
         // The Setup window polls once a second: its checks are not logged one by one (the change events still are).
-        let system = system ?? .live(force: source != "setup" && source != "running")
+        let system = system ?? .live(force: source != "setup" && source != "running", remember: source != "cli" && !config.dryRun)
         var i = DiagInput()
         i.source = source
         i.version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "dev"

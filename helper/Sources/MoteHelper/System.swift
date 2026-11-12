@@ -76,10 +76,11 @@ struct SystemAdapters {
     var noteScreenGranted: (String) -> Void
 
     private static let grantKey = "screenRecordingGrantedBy"
-    static func live(discovery: Discovery = SnapshotDiscovery(snapshot: nil), force: Bool = false) -> SystemAdapters {
+    /// `remember`: only the real running helper records grants; `--diag`, `--record-system` and `--dry-run` write nothing.
+    static func live(discovery: Discovery = SnapshotDiscovery(snapshot: nil), force: Bool = false, remember: Bool = false) -> SystemAdapters {
         SystemAdapters(permissions: LivePermissionProbe(force: force), secrets: KeychainBackend(), signing: LiveSigning(), discovery: discovery,
                        screenGrantedBy: { UserDefaults.standard.string(forKey: grantKey) },
-                       noteScreenGranted: { UserDefaults.standard.set($0, forKey: grantKey) })
+                       noteScreenGranted: { if remember { UserDefaults.standard.set($0, forKey: grantKey) } })
     }
 }
 
