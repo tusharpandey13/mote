@@ -97,4 +97,4 @@ remote)…, Share now playing (on by default), Check for updates daily (on), Ope
 
 **Labs**: TV mode, Context (frontmost app), browser extension bridge, Live screen (previews, all off).
 
-Test flags (need `--dry-run`): `--fake-ax-denied`, `--update-url URL`, `--update-check-now`; tests: `helper/tests/ux.mjs`.
+Test flags (need `--dry-run`): `--secrets-dir DIR` (file-backed secrets that survive a restart, no Keychain, no prompt; refused without `--dry-run`; `node helper/tests/restart.mjs`), `--fake-ax-denied`, `--update-url URL`, `--update-check-now`; tests: `helper/tests/ux.mjs`.

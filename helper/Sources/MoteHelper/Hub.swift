@@ -45,7 +45,10 @@ final class Hub {
         PermProbe.fakeAxDenied = config.dryRun && config.fakeAxDenied
         if PermProbe.fakeAxDenied { axTrusted = false; log("fake: Accessibility denied") }
         if config.fakeKeychain != nil && !config.dryRun { log("--fake-keychain needs --dry-run; ignoring it") }
-        if config.usesFakeKeychain, let st = config.fakeKeychain {
+        if config.usesSecretsDir, let dir = config.secretsDir {
+            self.vault = Vault(service: config.keychainService, memoryOnly: false, backend: FileSecretBackend(dir: dir), defaults: nil,
+                               identity: FileSecretBackend.identity, allowInteractive: false, deferInteractive: true)
+        } else if config.usesFakeKeychain, let st = config.fakeKeychain {
             self.vault = Vault(service: config.keychainService, memoryOnly: false, backend: FakeKeychain(state: st), defaults: defaults,
                               identity: "fake-keychain", deferInteractive: true)
         } else {
