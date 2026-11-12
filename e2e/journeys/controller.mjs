@@ -59,13 +59,30 @@ async function start(name, args, port) {
   await stop(name);
   if (!fs.existsSync(BIN)) throw new Error(`helper binary missing: ${BIN} (ARCHS=arm64 helper/build.sh)`);
   port = port || await freePort();
-  const argv = [...FORCED, '--port', String(port), ...validate(args || [])];
+  const evFile = path.join(OUT, `events-${safe(name)}.jsonl`);
+  fs.writeFileSync(evFile, '');
+  const argv = [...FORCED, '--events', evFile, '--port', String(port), ...validate(args || [])];
   const proc = spawn(BIN, argv, { stdio: ['pipe', 'pipe', 'pipe'] });
   const h = { proc, port, lines: [], args: argv, exited: null };
   const logf = fs.createWriteStream(path.join(OUT, `helper-${name}.log`), { flags: 'a' });
   logf.write(`--- start ${new Date().toISOString()} ${argv.join(' ')}\n`);
   const feed = stream => { let buf = ''; stream.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); h.lines.push(l); logf.write(l + '\n'); } }); };
   feed(proc.stdout); feed(proc.stderr);
+  // The helper's structured events (docs/protocol.md "Event object") join its log as `EVENT area/event {fields}`,
+  // so tests assert on diag events with the same await()/assertNo() as on log lines.
+  let evPos = 0, evBuf = '';
+  const pump = () => {
+    const fd = fs.openSync(evFile, 'r'), n = fs.fstatSync(fd).size - evPos, b = Buffer.alloc(Math.max(n, 0));
+    if (n > 0) { fs.readSync(fd, b, 0, n, evPos); evPos += n; }
+    fs.closeSync(fd);
+    evBuf += b;
+    for (let i; (i = evBuf.indexOf('\n')) >= 0;) {
+      const l = evBuf.slice(0, i); evBuf = evBuf.slice(i + 1);
+      try { const e = JSON.parse(l); const t = `EVENT ${e.area}/${e.event} ${JSON.stringify(e.fields || {})}`; h.lines.push(t); logf.write(t + '\n'); } catch {}
+    }
+  };
+  const evTimer = setInterval(pump, 50);
+  proc.on('exit', () => setTimeout(() => { pump(); clearInterval(evTimer); }, 300));
   proc.on('exit', (c, s) => { h.exited = { code: c, signal: s }; logf.write(`--- exit ${c} ${s}\n`); });
   helpers.set(name, h);
   const ready = await waitFor(h, /wifi: listening on :\d+/, 0, 10000);
@@ -88,7 +105,9 @@ async function stop(name) {
 async function waitFor(h, re, from, timeoutMs) {
   const end = Date.now() + timeoutMs;
   for (;;) {
-    for (let i = from; i < h.lines.length; i++) if (re.test(h.lines[i])) return { index: i, line: h.lines[i] };
+    // EVENT lines only match a regex that names them (^EVENT ...): older log assertions must not see them
+    const ev = re.source.startsWith('^EVENT');
+    for (let i = from; i < h.lines.length; i++) if (h.lines[i].startsWith('EVENT ') === ev && re.test(h.lines[i])) return { index: i, line: h.lines[i] };
     if (Date.now() > end || h.exited) return null;
     await new Promise(r => setTimeout(r, 50));
   }

@@ -99,6 +99,7 @@ class RecoveryJourney {
         j.path("recovery.revoked-relaunch")
         val (mac, name, _) = paired()
         mac.stdin("revoke"); mac.await("all devices revoked")
+        mac.event("session", "revoked", ".*\"scope\":\"all\".*")   // RC-10 Detected by, helper side
         j.dWs(10_000, "Failed") { it is WsStatus.Failed }
         mac.mark()
         j.step("B1") {

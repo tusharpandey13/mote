@@ -58,7 +58,7 @@ const sha = (b: Buffer) => crypto.createHash('sha256').update(b).digest('hex');
 
 function run(fx: Fixture, env: Record<string, string> = {}, args: string[] = []): Promise<{ code: number; out: string }> {
   return new Promise((res) => {
-    const p = spawn('bash', [INSTALL, ...args], {
+    const p = spawn('/bin/bash', [INSTALL, ...args], {
       // MOTE_SYSTEM_APPLICATIONS points at an empty temp dir, so the real /Applications is never looked at.
       env: { HOME: fx.home, PATH: `${fx.stubs}:/usr/bin:/bin:/usr/sbin:/sbin`, MOTE_RELEASE_URL: fx.base,
              MOTE_SYSTEM_APPLICATIONS: path.join(fx.dir, 'sysapps'), ...env },
@@ -120,6 +120,7 @@ test.describe('install.sh', () => {
     const signed = 'identifier "dev.mote.helper" and certificate leaf = H"bb"';
     let r = await run(fx, { FAKE_REQ_OLD: 'cdhash H"aa"', FAKE_REQ_NEW: signed });
     expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain('signed differently');   // UP-2 detected-by line
     for (const svc of ['Accessibility', 'ScreenCapture', 'BluetoothAlways', 'AppleEvents']) {
       expect(stubLog(fx)).toContain(`tccutil reset ${svc} dev.mote.helper`);   // U9
     }
@@ -127,6 +128,7 @@ test.describe('install.sh', () => {
     fs.rmSync(fx.log, { force: true });
     r = await run(fx, { FAKE_REQ_OLD: signed, FAKE_REQ_NEW: signed });   // same stable signature: keep grants
     expect(r.code, r.out).toBe(0);
+    expect(r.out).not.toContain('signed differently');
     expect(stubLog(fx)).not.toContain('tccutil');
   });
 
@@ -254,6 +256,20 @@ test.describe('install.sh', () => {
     const r = await run(fx, { FAKE_UNAME_S: 'Linux', FAKE_UNAME_M: 'x86_64' });
     expect(r.code).not.toBe(0);
     expect(r.out).toContain('Mote Helper is a macOS app');
+    expect(fx.requests).toEqual([]);
+    expect(fs.existsSync(path.join(fx.home, 'Applications'))).toBe(false);
+  });
+
+  test('a missing curl, shasum or ditto -> exit 1 naming the tool, before downloading', async () => {
+    for (const missing of ['curl', 'shasum', 'ditto']) {
+      // PATH = the stubs plus symlinks to the other two tools only, so `command -v <missing>` fails.
+      const tools = path.join(fx.dir, 'tools-without-' + missing);
+      fs.mkdirSync(tools);
+      for (const t of ['curl', 'shasum', 'ditto'].filter((t) => t !== missing)) fs.symlinkSync(`/usr/bin/${t}`, path.join(tools, t));
+      const r = await run(fx, { PATH: `${fx.stubs}:${tools}` });
+      expect(r.code, missing).toBe(1);
+      expect(r.out).toContain(`${missing} is required`);
+    }
     expect(fx.requests).toEqual([]);
     expect(fs.existsSync(path.join(fx.home, 'Applications'))).toBe(false);
   });

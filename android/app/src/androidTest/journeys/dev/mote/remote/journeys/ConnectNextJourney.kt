@@ -34,6 +34,8 @@ class ConnectNextJourney {
             mac.await("authed ${bq(phone)} via Wi-Fi from ")
             mac.await("labs: new device ${bq(phone)} via nearby \\(k:[0-9a-f]{32}\\)")
             mac.await("^NEW DEVICE: \\{\"id\":\"k:[0-9a-f]{32}\",\"name\":\"${bq(phone)}\",\"via\":\"nearby\"\\}")
+            mac.event("session", "authed", ".*\"transport\":\"Wi-Fi\".*")   // helper side of FC-1 / RC-2
+            j.appEvent("transport", "connect.ready")                          // phone side
         }
         j.step("S5") {
             j.expect("Connected over Wi-Fi", timeoutMs = 8_000)
@@ -269,7 +271,7 @@ class ConnectNextJourney {
             mac.stdin("block")
             mac.await("labs: blocked k:[0-9a-f]{32}")
             j.tap("Device: $name", substring = true)
-            j.expect("The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again.", timeoutMs = 8_000)
+            j.expect("This Mac blocked this phone; unblock it in Mote Helper.", timeoutMs = 8_000)   // FC-9 copy
         }
         j.step("B2") {
             j.bLongPress("Use $name")

@@ -18,6 +18,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import dev.mote.remote.MainActivity
+import dev.mote.remote.diag.Events
 import dev.mote.remote.hid.TestSeam
 import dev.mote.remote.net.Transport
 import kotlinx.coroutines.flow.StateFlow
@@ -66,7 +67,9 @@ object Ctl {
 class Helper(val name: String, val port: Int, val args: List<String>) {
     /** Log index the next [await] starts at; [mark] moves it to "now". */
     var from = 0
-    fun mark(): Helper { from = Ctl.call("/helper/log", JSONObject().put("name", name)).getInt("next"); return this }
+    /** Events are written to the log by a separate tail, so they are not ordered against log lines: they have their own cursor, moved by [mark]. */
+    private var evFrom = 0
+    fun mark(): Helper { from = Ctl.call("/helper/log", JSONObject().put("name", name)).getInt("next"); evFrom = from; return this }
     fun lines(since: Int = 0): List<String> {
         val a = Ctl.call("/helper/log", JSONObject().put("name", name).put("from", since)).getJSONArray("lines")
         return (0 until a.length()).map { a.getString(it) }
@@ -82,6 +85,17 @@ class Helper(val name: String, val port: Int, val args: List<String>) {
     fun assertNo(regex: String, withinMs: Long = 2_000) {
         val r = Ctl.call("/helper/wait", JSONObject().put("name", name).put("re", regex).put("from", from).put("timeoutMs", withinMs))
         if (r.optBoolean("ok")) throw AssertionError("helper '$name': unexpected log line: ${r.getString("line")}")
+    }
+    /**
+     * Waits for the helper's structured diag event `area/name` (docs/protocol.md). The controller starts every helper with
+     * `--events FILE` and appends each event to the log as `EVENT area/name {fields json}`; [fields] is a regex over that JSON.
+     */
+    fun event(area: String, name: String, fields: String = ".*", timeoutMs: Long = 10_000): String {
+        val re = "^EVENT ${area.replace(".", "\\.")}/${name.replace(".", "\\.")} $fields"
+        val r = Ctl.call("/helper/wait", JSONObject().put("name", this.name).put("re", re).put("from", evFrom).put("timeoutMs", timeoutMs))
+        if (!r.optBoolean("ok")) throw AssertionError("helper '${this.name}': no event $area/$name $fields within $timeoutMs ms. Tail: ${r.optJSONArray("tail")}")
+        evFrom = r.getInt("index") + 1
+        return r.getString("line")
     }
     fun stdin(line: String) { Ctl.call("/helper/stdin", JSONObject().put("name", name).put("line", line)) }
     fun stop() { Ctl.call("/helper/stop", JSONObject().put("name", name)) }
@@ -138,7 +152,23 @@ class JourneyRule : TestRule {
         }
     }
 
+    private var appFrom = 0L
+
+    /**
+     * Waits for the phone's own diag event `area/name` (the app's [Events] ring buffer, same process) logged since [path] was
+     * set, whose fields equal every pair in [where]. Assert the "Detected by" event next to the UI text, never only the text.
+     */
+    fun appEvent(area: String, name: String, vararg where: Pair<String, Any?>, timeoutMs: Long = 10_000): Events.Event {
+        val end = System.currentTimeMillis() + timeoutMs
+        while (true) {
+            Events.snapshot().firstOrNull { e -> e.seq > appFrom && e.area == area && e.event == name && where.all { (k, v) -> e.fields[k] == v } }?.let { return it }
+            if (System.currentTimeMillis() > end) throw AssertionError("no app event $area/$name ${where.toList()} within $timeoutMs ms. Last: ${Events.snapshot().takeLast(6).map { "${it.area}/${it.event}${it.fields}" }}")
+            Thread.sleep(100)
+        }
+    }
+
     fun path(id: String) {
+        appFrom = Events.head
         path = id
         Ctl.call("/begin", JSONObject().put("path", id)) // set first, while the network is still up
     }

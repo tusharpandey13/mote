@@ -129,6 +129,26 @@ const json = (o) => (_req, res) => { res.writeHead(200, { 'content-type': 'appli
   ok(hits >= 1, 'U21: sanity, the first run hit the endpoint');
 }
 
+// --- run 4: a phone on an older protocol (J7 UP-10): auth without `client`, only the 1.0 messages, then a type this helper
+// has never heard of. Nothing is `protocol/bad`, the session stays up.
+{
+  const h = await start([]);
+  try {
+    const { ws } = await session(h);   // pair + auth with no `client` field
+    const pong = await ws.req({ t: 'ping', n: 7 }, (m) => m.t === 'pong');
+    ok(pong?.n === 7, 'UP-10: ping answered');
+    ws.send(JSON.stringify({ t: 'key', usage: 4, mods: 0, action: 'tap' }));
+    ws.send(JSON.stringify({ t: 'move', dx: 3, dy: 3 }));
+    const unk = await ws.req({ t: 'from.the.future', x: 1 }, (m) => m.t === 'err');
+    ok(unk?.t === 'err', 'UP-10: an unknown type is answered with err, not dropped silently: ' + JSON.stringify(unk));
+    const pong2 = await ws.req({ t: 'ping', n: 8 }, (m) => m.t === 'pong');
+    ok(pong2?.n === 8, 'UP-10: the session is still up after the unknown type');
+    await until(() => events(h).find((e) => e.area === 'protocol' && e.event === 'in'));
+    ok(!events(h).some((e) => e.area === 'protocol' && e.event === 'bad'), 'UP-10: no protocol/bad event for the older phone');
+    ws.close();
+  } finally { h.stop(); }
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(failed ? `${failed} FAILED` : 'all passed');
 process.exit(failed ? 1 : 0);

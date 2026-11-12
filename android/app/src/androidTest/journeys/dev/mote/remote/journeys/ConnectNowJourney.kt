@@ -98,6 +98,8 @@ class ConnectNowJourney {
         j.step("B1") {
             pairCode(if (code == "000000") "111111" else "000000")
             mac.await("pairing: wrong code from \\S+", 10_000)
+            mac.event("session", "pair.failed", ".*\"reason\":\"wrong-code\".*")   // FC-11 Detected by, both sides
+            j.appEvent("session", "pair.failed", "code" to "code")
             j.expect("Wrong code. Check the code in the Mote Helper window.", timeoutMs = 8_000)
         }
         j.step("B2") {
