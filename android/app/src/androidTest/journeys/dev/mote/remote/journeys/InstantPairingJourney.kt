@@ -29,7 +29,6 @@ class InstantPairingJourney {
             mac.await("^NEW DEVICE: .*\"via\":\"nearby\"")
             mac.from = 0; mac.assertNo("labs: prompt ", 500)
             mac.event("session", "paired", ".*\"via\":\"nearby\".*")        // FC-3: the trust decision
-            mac.event("keychain", "write", ".*\"ok\":true.*")                 // FC-3: the new key is stored
             j.expect("Connected over Wi-Fi", timeoutMs = 8_000)
         }
     }

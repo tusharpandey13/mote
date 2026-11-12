@@ -102,7 +102,7 @@ class NpNotificationJourney {
             mac.mark(); send(NpNotifier.ACTION_NEXT); mac.await("DRY consumer next")
             mac.mark(); send(NpNotifier.ACTION_PREV); mac.await("DRY consumer prev")
             mac.mark(); send(NpNotifier.ACTION_PLAY); mac.await("DRY consumer play")
-            j.appEvent("notification", "action", "name" to "play", "sent" to true)   // DU-16
+            j.appEvent("notification", "action", "name" to "playpause", "sent" to true)   // DU-16
         }
         j.step("N6") {
             // The Mac goes away: the notification is removed and the session released.
