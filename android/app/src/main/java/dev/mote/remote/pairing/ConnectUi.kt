@@ -218,7 +218,7 @@ fun pairFailure(e: Throwable, mac: String): String = when ((e as? HelperError)?.
     "timeout" -> "$mac didn't answer in time."
     "noroute" -> e.message ?: "No way to reach $mac."
     null -> when (e) {
-        is java.net.ConnectException -> "$mac answered, but Mote Helper isn't running there. Open it from Applications on the Mac."
+        is java.net.ConnectException -> "$mac answered, but Mote Helper isn't running there. Open it from ~/Applications on the Mac."
         is java.net.SocketTimeoutException, is java.net.NoRouteToHostException -> "Couldn't reach $mac: no answer. Is it awake and on the same Wi-Fi (or Tailscale on)?"
         is java.net.UnknownHostException -> "Couldn't find $mac's address. Same Wi-Fi, or Tailscale on?"
         else -> "Couldn't connect to $mac (${e.javaClass.simpleName}: ${e.message}). Is Mote Helper running?"

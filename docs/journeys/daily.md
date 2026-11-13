@@ -39,7 +39,7 @@ With a connected Mac the user controls media, pointer, keys, macros and Spaces f
 | DU-5 | User | Pause input on the Mac (⌘P) | helper refuses input `paused`; phone notice | n/a | Hub `state{paused:true}`; `input/blocked{reason:paused}`; phone `session/state{paused}` | "Input paused on the Mac" notice | Resume (menu) | L2 | android:MediaJourney#paused; e2e:media.spec.ts "input paused on the Mac -> notice shown" | pass |
 | DU-6 | macOS | Accessibility revoked or stale | input refused `ax` | dry-run cannot simulate (D-SM-2) | Hub `state{ax:false}`; `input/blocked{reason:ax}`; phone `session/state{ax:false}` | "Mote Helper needs Accessibility on the Mac" | re-grant (J2 SM-4) | L3 | MANUAL-18 | untested |
 | DU-7 | User | Switch Macs from Devices | `Net.select`, new candidates, old session closed | n/a | `transport/select` | pill name changes | n/a | L2 | android:DailyJourney#switchMacs; android:ReconnectJourney#main | pass |
-| DU-8 | App | Link notification | reflects the selected link | Wi-Fi Mac: "Ready to pair" or none (daily-D1) | `lifecycle/service` | notification text | n/a | L2 | android:DailyJourney#notif; android:DailyJourney#notifBt | fail (D-DU-1) |
+| DU-8 | App | Link notification | reflects the selected link | follows the active link: helper Ready "Connected to <Mac>", helper Connecting "Searching for <Mac>…", helper failed "Can't reach <Mac>. Open Mote."; Bluetooth as before (D-DU-1, `service/LinkNote.kt`) | `lifecycle/service` | "Connected to <Mac>" | n/a | L2 | android:DailyJourney#notif (asserts "Connected to <Mac>"); android:DailyJourney#notifBt; android:LinkNoteTest | untested |
 | DU-9 | App | Helper older than the app (no protocol 1.5 diag) | Diagnostics asks to update the helper | n/a | `HelperDiag` err; `labs/blocked{code:helper-too-old}` | "update Mote Helper" | J7 | L2 | android:DiagnosticsTest#diagnosticsShowsPhoneStateAndAsksToUpdateNoHelper | pass |
 | DU-10 | App | Labs Smart remote on, Mac lab off | blocker `helper-lab-off` with where to enable | n/a | `labs/blocked{code:helper-lab-off}` | blocker copy | Mac menu › Labs | L2 | android:BlockersTest#helperLabOffSaysWhere; android:SmartRemoteJourney#helperLabOff | pass |
 | DU-11 | App | Labs over Bluetooth only | blocker `bluetooth-only` | n/a | `labs/blocked{code:bluetooth-only}` | blocker copy | connect via helper | L2 | android:BlockersTest#bluetoothSaysWhy; android:DiagnosticsTest#smartRemoteOverBluetoothSaysWhy | pass |
@@ -56,7 +56,7 @@ With a connected Mac the user controls media, pointer, keys, macros and Spaces f
 | DU-22 | User | Daily use on real phone and Mac for a day (owner) | DU-1..7, DU-13..16 | any | phone Diagnostics, `MoteHelper --diag` | per row | per row | L4 | MANUAL-21 | untested |
 
 ## Defects
-- D-DU-1 (daily-D1) link notification reflects only Bluetooth HID; with a Wi-Fi Mac it says "Ready to pair" or is absent.
+- D-DU-1 (daily-D1) link notification reflects only Bluetooth HID; with a Wi-Fi Mac it says "Ready to pair" or is absent. fixed: HidService builds the text from `linkNote(Hid.state, active helper host, Net.wsStatus)`; the channel is renamed "Connection".
 - D-DU-2 B4 notification depends on POST_NOTIFICATIONS, which the helper path never asks for (D-SP-3).
 - D-DU-3 Phase 1b gates the notification on Labs › Smart remote and has no foreground service: it disappears 30 s after the app backgrounds, which defeats the lock-screen use (U2, U3).
 - D-DU-4 (daily-D2..D6) artboard copy for asleep / no-helper / Searching card / Devices buttons / route order differs from code.

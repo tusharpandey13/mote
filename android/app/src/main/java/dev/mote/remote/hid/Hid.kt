@@ -39,6 +39,8 @@ data class HidState(
     val connecting: Boolean = false,
     /** The saved host is no longer bonded: needs pairing again. */
     val unpaired: Boolean = false,
+    /** Auto-reconnect used its [Reconnect.MAX_ATTEMPTS] and the saved host still isn't there: say so, the user can tap it to try again. */
+    val gaveUp: Boolean = false,
 ) {
     val isConnected get() = connected != null
 }
@@ -205,7 +207,7 @@ object Hid {
         device = d
         attempts = 0
         val host = Bt.hostOf(d)
-        _state.update { it.copy(connected = host, selected = host, connecting = false) }
+        _state.update { it.copy(connected = host, selected = host, connecting = false, gaveUp = false) }
         scope.launch { Prefs.setSelectedHost(appContext, d.address) }
     }
 
@@ -215,7 +217,7 @@ object Hid {
         exec.execute {
             val p = proxy
             val cur = device
-            _state.update { it.copy(selected = host, unpaired = false) }
+            _state.update { it.copy(selected = host, unpaired = false, gaveUp = false) }
             scope.launch { Prefs.setSelectedHost(appContext, host.address) }
             if (p != null && cur != null && cur.address != host.address) runCatching { p.disconnect(cur) }
             // Explicit user tap: one connect even if unbonded (may start pairing once). Then normal policy.
@@ -227,7 +229,7 @@ object Hid {
     }
 
     /** Bond/ACL/adapter change or app resume: give auto-reconnect a fresh budget. */
-    fun envChanged() = exec.execute { attempts = 0; tryReconnect() }
+    fun envChanged() = exec.execute { attempts = 0; _state.update { it.copy(gaveUp = false) }; tryReconnect() }
 
     /** Pairing flow started: phone discoverable for [ms]; no auto-connect meanwhile. */
     fun pausePairing(ms: Long) = exec.execute { pausedUntil = System.currentTimeMillis() + ms }
@@ -240,7 +242,7 @@ object Hid {
      */
     fun deselect() = exec.execute {
         released = true
-        _state.update { it.copy(selected = null, unpaired = false) }
+        _state.update { it.copy(selected = null, unpaired = false, gaveUp = false) }
         device?.let { d -> runCatching { proxy?.disconnect(d) } }
         if (::appContext.isInitialized) scope.launch { Prefs.clearSelectedHost(appContext) }
     }
@@ -257,7 +259,11 @@ object Hid {
         val p = proxy ?: return
         val target = Reconnect.target(s.selected?.address, plugged, bonded) ?: return
         if (!foreground || s.phase != Phase.READY || s.connected != null) return
-        if (!Reconnect.allowed(attempts, System.currentTimeMillis(), pausedUntil)) return
+        if (!Reconnect.allowed(attempts, System.currentTimeMillis(), pausedUntil)) {
+            // Budget spent (not merely paused for pairing): the UI stops saying "Searching" (D-RC-3).
+            if (Reconnect.exhausted(attempts) && !s.gaveUp) _state.update { it.copy(gaveUp = true) }
+            return
+        }
         val d = adapter?.getRemoteDevice(target) ?: return
         if (p.getConnectionState(d) == BluetoothProfile.STATE_CONNECTING) return
         attempts++

@@ -137,7 +137,7 @@ Preconditions delta: helper `H0 --no-instant-pairing`.
 ### `connect-next.unreachable`: helper gone between discovery and Connect (not drawn)
 | # | Actor | Action | Expected observable | Seam |
 |---|---|---|---|---|
-| B1 | system | Kill the helper after S2, tap "Connect to <Mac>" | next-0.6 `pairFailure` maps a `java.net.ConnectException` to "<Mac> answered, but Mote Helper isn't running there. Open it from Applications on the Mac.", but `WsSession.open` rethrows every OkHttp failure as a plain `IOException` (WsSession.kt `onFailure` → `inbox.close(IOException(…))`), so the phone shows the generic branch: "Couldn't connect to <Mac> (IOException: <message>). Is Mote Helper running?" + "Try again" (connect-next-D9) | real |
+| B1 | system | Kill the helper after S2, tap "Connect to <Mac>" | next-0.6 `pairFailure` maps a `java.net.ConnectException` to "<Mac> answered, but Mote Helper isn't running there. Open it from ~/Applications on the Mac.", but `WsSession.open` rethrows every OkHttp failure as a plain `IOException` (WsSession.kt `onFailure` → `inbox.close(IOException(…))`), so the phone shows the generic branch: "Couldn't connect to <Mac> (IOException: <message>). Is Mote Helper running?" + "Try again" (connect-next-D9) | real |
 
 ### `connect-next.timeout`: helper silent after `hello` (not drawn)
 | # | Actor | Action | Expected observable | Seam |

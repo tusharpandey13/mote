@@ -68,7 +68,7 @@ class DailyJourney {
             // What the probe sees decides the note (reachNote); assert the matching copy.
             val h = Net.saved.value.first()
             val reaches = h.candidates().take(4).map { dev.mote.remote.pairing.tcpReach(it, h.port) }
-            val refused = "Mote Helper isn't running on $name. Open it from Applications on the Mac."
+            val refused = "Mote Helper isn't running on $name. Open it from ~/Applications on the Mac."
             val asleep = "$name seems asleep or away. Wake it (open the lid or press a key) and keep it on this Wi-Fi or Tailscale."
             val want = dev.mote.remote.pairing.reachNote(name, reaches)
                 ?: throw AssertionError("a closed helper port still answers TCP (reaches ${h.candidates().take(4)} = $reaches): no note is shown, see daily-D7")
@@ -135,7 +135,7 @@ class DailyJourney {
 
     @Test fun notif() {
         j.path("daily.notif")
-        j.cLinkHelper()
+        val (_, name) = j.cLinkHelper()
         j.cGrantBt()
         j.closeActivity()
         j.launch(fakeProximity = true)
@@ -143,7 +143,8 @@ class DailyJourney {
         j.step("B1") {
             j.device.openNotification()
             try {
-                if (!j.systemShown("^Ready to pair$", 8_000)) throw AssertionError("notification text \"Ready to pair\" not shown")
+                // D-DU-1: with a Wi-Fi helper Mac the notification follows that link, not "Ready to pair"
+                if (!j.systemShown("^Connected to \\Q$name\\E$", 8_000)) throw AssertionError("notification \"Connected to $name\" not shown")
                 j.appEvent("lifecycle", "service", "state" to "created")   // DU-8: the link notification's service
             } finally { j.device.pressBack() }
         }

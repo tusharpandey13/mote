@@ -105,6 +105,8 @@ class SweepTest {
         assertEquals(Reach.TIMEOUT, tcpReach("192.168.1.9", 8790, factory = failing("isConnectFailed: ENETUNREACH (Network is unreachable)")))
         assertEquals(Reach.REFUSED, tcpReach("192.168.1.9", 8790, factory = failing("isConnectFailed: ECONNREFUSED (Connection refused)")))
         assertTrue(reachNote("Air", listOf(Reach.TIMEOUT, Reach.REFUSED))!!.startsWith("Mote Helper isn't running on Air"))
+        // install.sh installs to ~/Applications (D-FC-2): the copy must say where to open it from
+        assertTrue(reachNote("Air", listOf(Reach.REFUSED))!!.contains("~/Applications"))
         assertTrue(reachNote("Air", listOf(Reach.TIMEOUT))!!.startsWith("Air seems asleep"))
         assertNull(reachNote("Air", listOf(Reach.TIMEOUT, Reach.OPEN)))
         assertNull(reachNote("Air", emptyList()))
