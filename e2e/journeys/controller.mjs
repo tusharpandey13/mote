@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Host-side controller for the journey suite (e2e/journeys/run.sh starts it).
 // The instrumented tests on the emulator reach it at http://10.0.2.2:<port> (the emulator's alias
-// for the host loopback); it only listens on 127.0.0.1. It:
+// for the host loopback); it listens on 127.0.0.1 (phone mode: only on MJ_CONTROLLER_BIND, the Mac's tailnet IP). It:
 //  - starts / stops / signals dry-run Mote Helpers with journey-specific fakes and feeds their
 //    --stdin-control; every helper is forced to `--dry-run --headless --memory-store --no-ble
 //    --no-bonjour --stdin-control` so nothing can inject input, prompt, touch the Keychain or be
@@ -21,7 +21,9 @@ const BIN = process.env.MOTE_HELPER_BIN ||
   path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../helper/build/MoteHelper.app/Contents/MacOS/MoteHelper');
 const FORCED = ['--dry-run', '--headless', '--memory-store', '--no-ble', '--no-bonjour', '--stdin-control',
   // never the fixed bridge port 8792: a real installed helper (or another run) may hold it; tests read the bound port from the log
-  '--bridge-port', '0'];
+  '--bridge-port', '0',
+  // phone mode: the phone reaches the Mac by its tailnet IP, which the helper's Host rules accept only with this flag
+  ...(process.env.MJ_PHONE_TAILNET ? ['--allow-tailscale'] : [])];
 // Journey flags only: anything that could reach real state (Keychain service, web root) is refused.
 const ALLOWED = /^--(fake-[a-z-]+|require-approval|no-instant-pairing|labs-pairing|labs-tv|allow-tailscale|open-pairing|store-file|host-id)$/;
 const WITH_VALUE = new Set(['--fake-spaces', '--fake-context', '--fake-tailscale-owner', '--fake-bt-pair-fail', '--store-file', '--host-id']);
@@ -180,6 +182,6 @@ const server = http.createServer(async (req, res) => {
   } catch (e) { send(500, { error: String(e.message || e) }); }
 });
 
-server.listen(PORT, '127.0.0.1', () => console.log(`journeys controller on 127.0.0.1:${PORT}, out ${OUT}`));
+server.listen(PORT, process.env.MJ_CONTROLLER_BIND || '127.0.0.1', () => console.log(`journeys controller on 127.0.0.1:${PORT}, out ${OUT}`));
 const bye = async () => { for (const n of [...helpers.keys()]) await stop(n); process.exit(0); };
 process.on('SIGTERM', bye); process.on('SIGINT', bye);

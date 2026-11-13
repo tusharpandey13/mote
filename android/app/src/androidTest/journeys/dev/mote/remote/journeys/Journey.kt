@@ -38,7 +38,11 @@ import java.util.regex.Pattern
  * 10.0.2.2 (host loopback). Override with `-e mjController http://10.0.2.2:PORT`.
  */
 object Ctl {
-    val base: String = InstrumentationRegistry.getArguments().getString("mjController") ?: "http://10.0.2.2:8799"
+    /** The Mac as the device sees it: the emulator's host alias, or (phone mode) the Mac's tailnet IP (`-e mjHost`). */
+    val host: String = InstrumentationRegistry.getArguments().getString("mjHost") ?: "10.0.2.2"
+    /** Phone mode (run.sh MJ_PHONE): a real phone over wireless adb. Wi-Fi / data / airplane steps are skipped. */
+    val phone: Boolean = host != "10.0.2.2"
+    val base: String = InstrumentationRegistry.getArguments().getString("mjController") ?: "http://$host:8799"
 
     fun call(path: String, body: JSONObject = JSONObject(), timeoutMs: Int = 70_000): JSONObject {
         val c = URL(base + path).openConnection() as HttpURLConnection
@@ -107,9 +111,11 @@ class Helper(val name: String, val port: Int, val args: List<String>) {
 
 /**
  * LAN sweep port when a journey runs no helper. Never null: null makes the app probe the default helper port
- * 8790 on 10.0.2.2, i.e. the dev Mac's REAL installed helper, which then shows up as a discovered Mac.
+ * 8790 on the Mac, i.e. the dev Mac's REAL installed helper, which then shows up as a discovered Mac.
  */
 const val NO_HELPER_PORT = 18_799
+
+const val PHONE_SKIP = "skipped: phone mode (would drop wireless adb)"
 
 /** Step outcome, as REPORT.md shows it. */
 enum class Status { PASS, FAIL, FAKED, UNDEFINED, MANUAL, STATIC }
@@ -203,6 +209,10 @@ class JourneyRule : TestRule {
         try {
             block()
             compose.waitForIdle()
+        } catch (t: org.junit.AssumptionViolatedException) {
+            failedStep = id // keeps the outer handler from adding a "setup" FAIL
+            record(id, Status.MANUAL, t.message ?: PHONE_SKIP, "manual")
+            throw t
         } catch (t: Throwable) {
             shot(id)
             failedStep = id
@@ -249,7 +259,7 @@ class JourneyRule : TestRule {
     /**
      * Launches the app. Seams: Bonjour off (the emulator can't see the Mac's Bonjour anyway, and the
      * test helper doesn't advertise); the LAN sweep probes [sweepPort] (the helper's port) on
-     * 10.0.2.0/24; [fakeProximity] reads the token from a `--fake-proximity` helper over the
+     * the device LAN; [fakeProximity] reads the token from a `--fake-proximity` helper over the
      * WebSocket instead of BLE; [transport]/[adapter] replace Bluetooth HID / the adapter.
      */
     fun launch(
@@ -278,6 +288,8 @@ class JourneyRule : TestRule {
     }
 
     fun shell(cmd: String): String {
+        if (Ctl.phone && Regex("""svc (wifi|data) disable|airplane-mode enable""").containsMatchIn(cmd))
+            throw org.junit.AssumptionViolatedException(PHONE_SKIP)
         val pfd = ui.executeShellCommand(cmd)
         return android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).use { it.readBytes().toString(Charsets.UTF_8) }
     }
@@ -285,6 +297,7 @@ class JourneyRule : TestRule {
     fun grant(vararg perms: String) = perms.forEach { ui.grantRuntimePermission(ctx.packageName, it) }
 
     fun wifi(on: Boolean) {
+        if (Ctl.phone && !on) throw org.junit.AssumptionViolatedException(PHONE_SKIP)
         shell("svc wifi ${if (on) "enable" else "disable"}")
         val want = if (on) "Wi-Fi is enabled" else "Wi-Fi is disabled"
         val end = System.currentTimeMillis() + 15_000
@@ -388,6 +401,9 @@ class JourneyRule : TestRule {
                 var lost: Throwable? = null
                 try {
                     base.evaluate()
+                } catch (t: org.junit.AssumptionViolatedException) {
+                    if (failedStep == null) record("setup", Status.MANUAL, t.message ?: PHONE_SKIP, "manual")
+                    throw t
                 } catch (t: Throwable) {
                     // Test-only artifact: the compose test dispatcher resumes Bt.observe's awaitClose off the
                     // main thread when the activity is disposed (production collects on Main). Not a step failure.
@@ -415,6 +431,7 @@ class JourneyRule : TestRule {
      * clears the first-run flags); it can't be done from here because the test runs inside the app's process.
      */
     private fun resetNetwork() {
+        if (Ctl.phone) return // never touch the phone's radios: wireless adb rides on them
         runCatching { shell("cmd connectivity airplane-mode disable") }
         runCatching { shell("svc data enable") }
         runCatching { wifi(true) }
