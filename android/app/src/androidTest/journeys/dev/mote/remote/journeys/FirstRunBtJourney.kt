@@ -75,7 +75,7 @@ class FirstRunBtJourney {
             mac.await("^NEW DEVICE: \\{\"id\":\"k:[0-9a-f]{32}\",\"name\":\"\\Q$phone\\E\",\"via\":\"nearby\"\\}")
         }
         j.step("S4") {
-            j.expect("Connected over Wi-Fi", timeoutMs = 10_000)
+            j.expect("Connected over ${Ctl.link}", timeoutMs = 10_000)
             j.expect(A_BT_OFFER)
             j.expect("Android asks twice: make the phone visible, then Pair. Nothing to do on the Mac.")
             j.expect("Continue"); j.expect("Skip")
@@ -98,7 +98,7 @@ class FirstRunBtJourney {
             mac.await("bt: paired 02:00:00:00:00:01", 10_000)
         }
         j.step("S8", "faked: --fake-bt-pair (bt.info address 02:00:00:00:00:00)") { j.expect("Wi-Fi and Bluetooth are both set up.", timeoutMs = 8_000) }
-        j.step("S9") { j.aRemote(8_000); j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000) }
+        j.step("S9") { j.aRemote(8_000); j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000) }
         j.step("S10") { mac.assertNo("^NEW DEVICE", 1_000) }
     }
 
@@ -108,7 +108,7 @@ class FirstRunBtJourney {
         mac.mark()
         j.step("B1") {
             j.tap("Skip")
-            j.aRemote(); j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+            j.aRemote(); j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
             if (j.aSystemShown("Allow", 800)) throw AssertionError("a permission dialog was shown")
             mac.assertNo("bt: pair", 1_000)
         }
@@ -127,7 +127,7 @@ class FirstRunBtJourney {
         toOffer("--fake-bt-pair")
         j.tap("Skip"); j.aRemote()
         j.step("B1") {
-            j.tap("Device: $name via Wi-Fi. Tap to choose")
+            j.tap("Device: $name via ${Ctl.link}. Tap to choose")
             j.expect("Devices"); j.expect("Set up Bluetooth")
             j.expectNot(A_BT_OFFER); j.expectNot("Pair Bluetooth")
         }
@@ -227,7 +227,7 @@ class FirstRunBtJourney {
         j.step("B5", "faked: sweep port + proximity") {
             j.tap("Add a Mac")
             j.aConnect(name)
-            j.expect("Connected over Wi-Fi", timeoutMs = 10_000)
+            j.expect("Connected over ${Ctl.link}", timeoutMs = 10_000)
             j.expect(A_BT_OFFER)
         }
     }

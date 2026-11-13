@@ -76,8 +76,8 @@ class ReconnectJourney {
         j.step("B1", "faked: the silent reconnect right after pairing stands in for a cold launch (the app process can't be restarted under instrumentation)") {
             mac.from = 0
             mac.await("labs: trusted \\Q$phone\\E via trusted", 15_000)
-            mac.await("authed \\Q$phone\\E via Wi-Fi from ", 10_000)
-            j.expect(dPill(name, "Wi-Fi"), timeoutMs = 10_000)
+            mac.await("authed \\Q$phone\\E via ${Ctl.link} from ", 10_000)
+            j.expect(dPill(name, Ctl.link), timeoutMs = 10_000)
         }
         // Offline: the controller (10.0.2.2) is unreachable, so observations are taken now and the
         // B2/B3 steps assert them after the network is back (screenshots are taken then).
@@ -93,7 +93,7 @@ class ReconnectJourney {
             j.wifi(false)
             sawConnecting = runCatching { j.dWs(45_000, "Connecting") { it is WsStatus.Connecting } }.isSuccess
             if (sawConnecting) {
-                j.tap(dPill(name, "Wi-Fi"))
+                j.tap(dPill(name, Ctl.link))
                 row = runCatching { j.expect("Connecting…", 3_000) }.isSuccess
                 note = runCatching { j.dExpectAny(*notes, timeoutMs = 8_000) }.getOrNull()
             }
@@ -110,9 +110,9 @@ class ReconnectJourney {
             if (note == notes[0]) throw AssertionError("offline phone was told \"${notes[0]}\" (reconnect-D5)")
         }
         j.step("B4") {
-            mac.await("authed \\Q$phone\\E via Wi-Fi from ", 20_000)
+            mac.await("authed \\Q$phone\\E via ${Ctl.link} from ", 20_000)
             j.dWs(10_000, "Ready") { it is WsStatus.Ready }
-            j.expect("Connected · Wi-Fi", timeoutMs = 5_000)
+            j.expect("Connected · ${Ctl.link}", timeoutMs = 5_000)
         }
     }
 
@@ -137,8 +137,8 @@ class ReconnectJourney {
         j.step("B2") {
             // JourneyRule.backgroundAndReturn can't resume after Home (ActivityScenario stays STOPPED): bring the task back with am start
             j.shell("am start -n ${j.ctx.packageName}/dev.mote.remote.MainActivity")
-            mac.await("authed \\Q$phone\\E via Wi-Fi from ", 15_000)
-            j.expect(dPill(name, "Wi-Fi"), timeoutMs = 10_000)
+            mac.await("authed \\Q$phone\\E via ${Ctl.link} from ", 15_000)
+            j.expect(dPill(name, Ctl.link), timeoutMs = 10_000)
         }
     }
 
@@ -169,8 +169,8 @@ class ReconnectJourney {
             mac.sigcont()
             val hostId = Net.saved.value.first().hostId
             j.dWait("probe back to the helper", 45_000) { Net.selection.value == Selection.Helper(hostId) }
-            mac.await("authed \\Q$phone\\E via Wi-Fi from ", 20_000)
-            j.expect(dPill(name, "Wi-Fi"), timeoutMs = 10_000)
+            mac.await("authed \\Q$phone\\E via ${Ctl.link} from ", 20_000)
+            j.expect(dPill(name, Ctl.link), timeoutMs = 10_000)
             j.appEvent("transport", "select", "kind" to "helper")             // RC-5: probed back
         }
     }
@@ -182,7 +182,7 @@ class ReconnectJourney {
         j.launch(fakeProximity = true)
         j.dPair(mac, name)
         j.step("B1") {
-            j.tap(dPill(name, "Wi-Fi"))
+            j.tap(dPill(name, Ctl.link))
             j.dLongPress("Use $name")
             j.expect("Forget $name on this phone?")
             j.expect("Forget"); j.expect("Cancel")

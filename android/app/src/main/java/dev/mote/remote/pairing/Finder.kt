@@ -98,7 +98,7 @@ class Finder(context: Context, private val scope: CoroutineScope) {
         val trust = InstantPairing.records.value
         val targets = Net.saved.value.flatMap { h ->
             helperCandidates(selectPaths(trust[h.hostId]?.info, h)).map { it to h.port }
-        }.distinct()
+        }.distinct() + testProbeTargets()
         val jobs = targets.map { (addr, port) ->
             scope.launch {
                 val p = probeHelper(Net.http, addr, port)
@@ -108,6 +108,13 @@ class Finder(context: Context, private val scope: CoroutineScope) {
             }
         }
         jobs.forEach { it.join() }
+    }
+
+    /** Test seam only ([TestSeam.probeHost], null in production): the journey helper's host:port. Never the default port 8790 (a real helper). */
+    private fun testProbeTargets(): List<Pair<String, Int>> {
+        val host = TestSeam.probeHost ?: return emptyList()
+        val port = TestSeam.sweepPort?.takeIf { it != Proto.DEFAULT_PORT } ?: return emptyList()
+        return listOf(host to port)
     }
 
     companion object {

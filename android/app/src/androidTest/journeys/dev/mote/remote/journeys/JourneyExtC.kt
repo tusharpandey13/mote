@@ -35,7 +35,7 @@ const val C_BT = "faked: BT HID transport (FakeTransport)"
 const val C_PROX = "faked: proximity token read over the WebSocket from a --fake-proximity helper (TestSeam.fakeProximity) instead of BLE"
 val C_MAC = Host("AA:BB:CC:DD:EE:01", "Test Mac", Host.Kind.LAPTOP)
 
-fun cPill(name: String, route: String? = "Wi-Fi") = "Device: $name${route?.let { " via $it" } ?: ""}. Tap to choose"
+fun cPill(name: String, route: String? = Ctl.link) = "Device: $name${route?.let { " via $it" } ?: ""}. Tap to choose"
 
 fun JourneyRule.cGrantBt() = grant(
     "android.permission.BLUETOOTH_CONNECT", "android.permission.BLUETOOTH_ADVERTISE",

@@ -30,7 +30,7 @@ class RecoveryJourney {
 
     /** Pill › long-press › Forget, then "Add a Mac" and Connect (sheet stays open on the card). */
     private fun forgetAndConnect(name: String) {
-        if (!j.shown("Devices")) j.tap(dPill(name, "Wi-Fi"))
+        if (!j.shown("Devices")) j.tap(dPill(name, Ctl.link))
         j.dLongPress("Use $name")
         j.tap("Forget")
         j.dWait("forgotten") { Net.saved.value.isEmpty() }
@@ -47,8 +47,8 @@ class RecoveryJourney {
         j.step("S1", "faked: the silent reconnect right after pairing stands in for a cold launch (the app process can't be restarted under instrumentation)") {
             mac.from = 0
             mac.await("labs: trusted \\Q$phone\\E via trusted", 15_000)
-            mac.await("authed \\Q$phone\\E via Wi-Fi from ", 10_000)
-            j.expect(dPill(name, "Wi-Fi"), timeoutMs = 10_000)
+            mac.await("authed \\Q$phone\\E via ${Ctl.link} from ", 10_000)
+            j.expect(dPill(name, Ctl.link), timeoutMs = 10_000)
         }
         j.step("S2", "faked: stdin-control `revoke` stands in for the menu alert") {
             mac.stdin("revoke")
@@ -56,7 +56,7 @@ class RecoveryJourney {
         }
         j.step("S3") {
             j.dWs(10_000, "Failed(revoked)") { it is WsStatus.Failed && it.code == "revoked" }
-            j.expect(dPill(name, "Wi-Fi"))
+            j.expect(dPill(name, Ctl.link))
             j.expectNot("Not paired: pair again")
             // ~4 s after the refusal `rediscover` re-selects the Mac once; the refused handshake lands as Denied (B6, recovery-D5)
             mac.await("labs: denied \\(revoked\\)", 20_000)
@@ -64,7 +64,7 @@ class RecoveryJourney {
             j.expect(DENIED_TITLE)
         }
         j.step("S4") {
-            j.tap(dPill(name, "Wi-Fi"))
+            j.tap(dPill(name, Ctl.link))
             j.expect(denialText("revoked"))
             j.expect("Use $name")
             j.expect("Add a Mac")
@@ -89,10 +89,10 @@ class RecoveryJourney {
             mac.from = 0
             mac.await("^NEW DEVICE: ") // the first pairing (precondition)
             mac.await("^NEW DEVICE: \\{\"id\":\"k:$fp\",\"name\":\"\\Q$phone\\E\",\"via\":\"nearby\"\\}")
-            j.expectAny("Connected over Wi-Fi", "Connected", timeoutMs = 8_000)
+            j.expectAny("Connected over ${Ctl.link}", "Connected", timeoutMs = 8_000)
             j.dSkipBt(name)
         }
-        j.step("S8") { j.expect(dPill(name, "Wi-Fi"), timeoutMs = 10_000) }
+        j.step("S8") { j.expect(dPill(name, Ctl.link), timeoutMs = 10_000) }
     }
 
     @Test fun revokedRelaunch() {
@@ -107,7 +107,7 @@ class RecoveryJourney {
             mac.await("labs: denied \\(revoked\\)", 15_000)
             j.dWs(10_000, "Denied(revoked)") { it is WsStatus.Denied && it.reason == "revoked" }
             j.expect(DENIED_TITLE)
-            j.tap(dPill(name, "Wi-Fi"), timeoutMs = 10_000)
+            j.tap(dPill(name, Ctl.link), timeoutMs = 10_000)
             j.expect(denialText("revoked"))
         }
         j.step("B2") {
@@ -129,7 +129,7 @@ class RecoveryJourney {
             mac.await("labs: trusted \\Q$phone\\E via tailscale")
             mac.await("^NEW DEVICE: .*\"via\":\"tailscale\"")
             j.dWs(10_000, "Ready") { it is WsStatus.Ready }
-            j.expect(dPill(name, "Wi-Fi"))
+            j.expect(dPill(name, Ctl.link))
         }
     }
 
@@ -154,7 +154,7 @@ class RecoveryJourney {
             if (denied > 1) throw AssertionError("expected at most 1 further refused handshake in 25 s (no silent loop), saw $denied")
             j.dWs(5_000, "Denied(revoked)") { it is WsStatus.Denied && it.reason == "revoked" }
             j.expect(DENIED_TITLE)
-            j.expect(dPill(name, "Wi-Fi"))
+            j.expect(dPill(name, Ctl.link))
         }
         j.step("B2", "faked: same") {
             if (Net.selection.value != Selection.Helper(hostId)) throw AssertionError("selection ${Net.selection.value}")
@@ -172,7 +172,7 @@ class RecoveryJourney {
         }
         j.step("B2") {
             j.dWs(10_000, "Failed(revoked)") { it is WsStatus.Failed && it.code == "revoked" }
-            j.tap(dPill(name, "Wi-Fi"))
+            j.tap(dPill(name, Ctl.link))
             j.expect(revokedCopy)
         }
         j.step("B3", D_PROX) {
@@ -220,7 +220,7 @@ class RecoveryJourney {
         j.step("B1", "faked: stdin-control `pause`") {
             mac.stdin("pause"); mac.await("input paused")
             j.dWs(5_000, "Ready(paused)") { it is WsStatus.Ready && it.paused }
-            j.tap(dPill(name, "Wi-Fi"))
+            j.tap(dPill(name, Ctl.link))
             j.expect("Paused on the Mac")
             j.device.pressBack()
             j.expectGone("Paused on the Mac")
@@ -233,8 +233,8 @@ class RecoveryJourney {
         j.step("B3", "faked: stdin-control `resume`") {
             mac.stdin("resume"); mac.await("input resumed")
             j.dWs(5_000, "Ready(not paused)") { it is WsStatus.Ready && !it.paused }
-            j.tap(dPill(name, "Wi-Fi"))
-            j.expect("Connected · Wi-Fi")
+            j.tap(dPill(name, Ctl.link))
+            j.expect("Connected · ${Ctl.link}")
         }
     }
 
@@ -254,8 +254,8 @@ class RecoveryJourney {
         j.path("recovery.nearby-revoked")
         val (_, name, _) = paired()
         j.step("B2") {
-            j.expect(dPill(name, "Wi-Fi"))
-            j.tap(dPill(name, "Wi-Fi"))
+            j.expect(dPill(name, Ctl.link))
+            j.tap(dPill(name, Ctl.link))
             j.expect("Set up Bluetooth")
             if (Net.wsStatus.value !is WsStatus.Ready) throw AssertionError("helper link affected: ${Net.wsStatus.value}")
         }

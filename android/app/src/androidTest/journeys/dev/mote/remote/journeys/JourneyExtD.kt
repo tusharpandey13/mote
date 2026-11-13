@@ -57,7 +57,7 @@ fun JourneyRule.dPair(mac: Helper, name: String) {
     mac.await("labs: trusted \\Q$phone\\E via (nearby|tailscale)", 15_000)
     dLastPairMs = System.currentTimeMillis()
     dSkipBt(name)
-    expect(dPill(name, "Wi-Fi"), timeoutMs = 10_000)
+    expect(dPill(name, Ctl.link), timeoutMs = 10_000)
 }
 
 /** The optional "Also pair Bluetooth…" step, when shown: Skip. */
@@ -65,7 +65,7 @@ fun JourneyRule.dSkipBt(name: String) {
     val end = System.currentTimeMillis() + 10_000
     while (System.currentTimeMillis() < end) {
         if (shown("Skip")) { tap("Skip"); return }
-        if (shown(dPill(name, "Wi-Fi")) && !shown("Connect to your Mac") && !shown("Connected over Wi-Fi") && !shown("Connected")) return
+        if (shown(dPill(name, Ctl.link)) && !shown("Connect to your Mac") && !shown("Connected over ${Ctl.link}") && !shown("Connected")) return
         compose.mainClock.advanceTimeBy(150) // ConnectCard closes 900 ms after "Connected" (composition delay)
         Thread.sleep(150)
     }
@@ -93,7 +93,7 @@ fun JourneyRule.dPress(desc: String) {
 fun JourneyRule.dNotification(text: String, timeoutMs: Long = 8_000) {
     device.openNotification()
     val ok = device.wait(Until.hasObject(By.text(text)), timeoutMs) == true
-    device.pressBack()
+    if (Ctl.phone) closeShade() else device.pressBack()
     if (!ok) throw AssertionError("notification text \"$text\" not shown within $timeoutMs ms")
 }
 

@@ -12,7 +12,7 @@ import org.junit.runner.RunWith
 class DailyJourney {
     @get:Rule val j = JourneyRule()
 
-    private fun authed(phone: String) = "authed \\Q$phone\\E via Wi-Fi from "
+    private fun authed(phone: String) = "authed \\Q$phone\\E via ${Ctl.link} from "
 
     @Test fun main() {
         j.path("daily")
@@ -40,7 +40,7 @@ class DailyJourney {
             j.expect("Devices")
             j.expect("Mote reconnects to the selected device while the app is open.")
             j.expect("Use $name")
-            j.expect("Connected · Wi-Fi")
+            j.expect("Connected · ${Ctl.link}")
             j.expect("Add a Mac")
             j.expect("More options")
             j.expect("Set up Bluetooth")
@@ -98,7 +98,7 @@ class DailyJourney {
             mac.stdin("resume"); mac.await("input resumed")
             j.cWait("resumed state", 5_000) { (Net.wsStatus.value as? WsStatus.Ready)?.paused == false }
             mac.assertNo("DRY consumer play", 1_000)
-            j.tap(cPill(name)); j.expect("Connected · Wi-Fi")
+            j.tap(cPill(name)); j.expect("Connected · ${Ctl.link}")
         }
     }
 
@@ -146,7 +146,7 @@ class DailyJourney {
                 // D-DU-1: with a Wi-Fi helper Mac the notification follows that link, not "Ready to pair"
                 if (!j.systemShown("^Connected to \\Q$name\\E$", 8_000)) throw AssertionError("notification \"Connected to $name\" not shown")
                 j.appEvent("lifecycle", "service", "state" to "created")   // DU-8: the link notification's service
-            } finally { j.device.pressBack() }
+            } finally { if (Ctl.phone) j.closeShade() else j.device.pressBack() }
         }
     }
 
@@ -161,7 +161,7 @@ class DailyJourney {
             try {
                 if (!j.systemShown("Searching for \\QTest Mac\\E…", 8_000)) throw AssertionError("notification \"Searching for Test Mac…\" not shown")
                 j.appEvent("lifecycle", "service", "state" to "created")   // DU-8
-            } finally { j.device.pressBack() }
+            } finally { if (Ctl.phone) j.closeShade() else j.device.pressBack() }
         }
     }
 }

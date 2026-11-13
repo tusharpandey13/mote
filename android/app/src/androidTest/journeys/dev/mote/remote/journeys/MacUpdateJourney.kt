@@ -17,7 +17,7 @@ class MacUpdateJourney {
         j.launch(fakeProximity = true, transport = aHidFake(), adapter = aAdapter(supported = false))
         j.aConnect(name)
         j.aRemote(12_000)
-        j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+        j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
         return mac to name
     }
 
@@ -33,7 +33,7 @@ class MacUpdateJourney {
             j.appMark()
             mac.stop()
             j.appEvent("transport", "connect.dropped")   // UP-7: the update restart drops the link; connect.ready follows the restart (helper/tests/restart.mjs, RC-17)
-            j.tap("Device: $name via Wi-Fi. Tap to choose")
+            j.tap("Device: $name via ${Ctl.link}. Tap to choose")
             j.expect("Devices")
             j.expect("Connecting…", timeoutMs = 10_000)
         }
@@ -46,8 +46,8 @@ class MacUpdateJourney {
             mac.mark(); mac.stdin("tailscale off")
             mac.await("tailscale connections refused$")
             Thread.sleep(1_500)
-            j.tap("Device: $name via Wi-Fi. Tap to choose")
-            j.expect("Connected · Wi-Fi", timeoutMs = 6_000)
+            j.tap("Device: $name via ${Ctl.link}. Tap to choose")
+            j.expect("Connected · ${Ctl.link}", timeoutMs = 6_000)
         }
     }
 }

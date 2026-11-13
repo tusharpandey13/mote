@@ -44,13 +44,13 @@ class WifiHelperJourney {
             val phone = j.phoneName()
             // in this order (each await continues after the previous line)
             mac.await("labs: trusted \\Q$phone\\E via nearby")
-            mac.await("authed \\Q$phone\\E via Wi-Fi from 127\\.0\\.0\\.1")
+            mac.await("authed \\Q$phone\\E via ${Ctl.link} from 127\\.0\\.0\\.1")
             mac.await("labs: new device \\Q$phone\\E via nearby \\(k:[0-9a-f]{32}\\)")
             mac.await("^NEW DEVICE: \\{\"id\":\"k:[0-9a-f]{32}\",\"name\":\"\\Q$phone\\E\",\"via\":\"nearby\"\\}")
         }
         j.step("S8") {
             // next-0.6: setup stays on screen for the optional Bluetooth step (App.kt `setup`), the emulator has an adapter
-            j.expect("Connected over Wi-Fi", timeoutMs = 8_000)
+            j.expect("Connected over ${Ctl.link}", timeoutMs = 8_000)
             j.expect("Also pair Bluetooth for login screen & backup (recommended)")
             j.expect("Android asks twice: make the phone visible, then Pair. Nothing to do on the Mac.")
             j.expect("Continue"); j.expect("Skip")
@@ -61,8 +61,8 @@ class WifiHelperJourney {
         }
         j.step("S10") {
             j.tap("Skip")
-            j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
-            j.expect("WI-FI")
+            j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
+            j.expect(Ctl.link.uppercase())
         }
         j.step("S11", "faked: headless helper has no floating notice; stdout NEW DEVICE (S7) stands in") {
             mac.from = 0; mac.await("^NEW DEVICE: ")
@@ -78,7 +78,7 @@ class WifiHelperJourney {
         j.step("B1") { j.tap("Connect to $name"); j.expectAny("Connecting…", "Connected over Tailscale") }
         j.step("B2", "faked: tailnet owner match by --fake-tailscale-owner self over the LAN (no tailnet on the emulator)") {
             mac.await("labs: trusted .* via tailscale")
-            mac.await("authed .* via Wi-Fi from 127\\.0\\.0\\.1")
+            mac.await("authed .* via ${Ctl.link} from 127\\.0\\.0\\.1")
             mac.from = 0; mac.await("^NEW DEVICE: .*\"via\":\"tailscale\"")
             mac.event("session", "paired", ".*\"via\":\"tailscale\".*")   // SP-9 / FC-7: the same-owner trust decision
         }
@@ -89,7 +89,7 @@ class WifiHelperJourney {
         }
         j.step("B4") {
             j.tap("Skip")
-            j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+            j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
         }
         j.step("B5", "faked: stdout NEW DEVICE stands in for the Mac's notice") { mac.from = 0; mac.await("^NEW DEVICE: .*tailscale") }
     }

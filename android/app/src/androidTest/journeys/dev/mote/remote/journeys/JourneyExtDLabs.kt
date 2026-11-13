@@ -44,8 +44,8 @@ fun JourneyRule.dlConnect(mac: Helper, name: String) {
     launch(fakeProximity = true)
     expect("Connect to $name", timeoutMs = 10_000)
     tap("Connect to $name")
-    mac.await("authed .* via Wi-Fi", 15_000)
-    val pill = "Device: $name via Wi-Fi. Tap to choose"
+    mac.await("authed .* via ${Ctl.link}", 15_000)
+    val pill = "Device: $name via ${Ctl.link}. Tap to choose"
     if (expectAny("Skip", pill, timeoutMs = 10_000) == "Skip") tap("Skip")
     expect(pill, timeoutMs = 10_000)
 }
