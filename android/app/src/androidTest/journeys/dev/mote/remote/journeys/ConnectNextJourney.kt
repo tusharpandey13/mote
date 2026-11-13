@@ -353,8 +353,8 @@ class ConnectNextJourney {
         j.step("B1") {
             mac.stop()
             j.tap("Connect to $name")
-            j.expect("Couldn't connect to $name (IOException: ", substring = true, timeoutMs = 20_000)
-            j.expect("). Is Mote Helper running?", substring = true)
+            // D-FC-2: a refused port is "helper not running" even when WsSession wraps the ConnectException.
+            j.expect("$name answered, but Mote Helper isn't running there. Open it from ~/Applications on the Mac.", timeoutMs = 20_000)
             j.expect("Try again")
             j.appEvent("transport", "connect.failed", "code" to "io", "error" to "IOException")   // FC-13
         }

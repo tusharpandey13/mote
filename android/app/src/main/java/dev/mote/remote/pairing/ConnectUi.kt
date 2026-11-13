@@ -202,6 +202,11 @@ private sealed interface Step {
     data class Error(val msg: String) : Step
 }
 
+/** The socket-level cause of a connect failure: WsSession wraps OkHttp's failure in a plain IOException, so look down the cause chain. */
+internal fun netCause(e: Throwable): Throwable = generateSequence(e) { it.cause }.take(8).firstOrNull {
+    it is java.net.ConnectException || it is java.net.SocketTimeoutException || it is java.net.NoRouteToHostException || it is java.net.UnknownHostException
+} ?: e
+
 /** Plain-language reason for a refused or failed connect (docs/pairing.md deny reasons). */
 fun pairFailure(e: Throwable, mac: String): String = when ((e as? HelperError)?.code) {
     "far" -> "$mac couldn't confirm this phone is nearby. Bring it next to the Mac with Bluetooth on, or use the same Tailscale account."
@@ -217,7 +222,7 @@ fun pairFailure(e: Throwable, mac: String): String = when ((e as? HelperError)?.
     "helper-key" -> "That isn't the Mac it claims to be (its key doesn't match)."
     "timeout" -> "$mac didn't answer in time."
     "noroute" -> e.message ?: "No way to reach $mac."
-    null -> when (e) {
+    null -> when (netCause(e)) {
         is java.net.ConnectException -> "$mac answered, but Mote Helper isn't running there. Open it from ~/Applications on the Mac."
         is java.net.SocketTimeoutException, is java.net.NoRouteToHostException -> "Couldn't reach $mac: no answer. Is it awake and on the same Wi-Fi (or Tailscale on)?"
         is java.net.UnknownHostException -> "Couldn't find $mac's address. Same Wi-Fi, or Tailscale on?"
