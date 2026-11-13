@@ -142,5 +142,5 @@ cat <<EOF
 
 Done. Follow the Setup window (allow Accessibility; Bluetooth is recommended), then open Mote on
 your phone. Reopen it any time from the menu-bar icon: Setup…
-Uninstall: quit it from the menu, then  rm -rf "$APP"
+Uninstall: in the menu-bar icon turn off Advanced > Open at login, then Quit, then  rm -rf "$APP"
 EOF

@@ -1215,7 +1215,7 @@ INSTALL_OK = ['<span class="p">~ %</span> curl -fsSL https://tusharpandey13.gith
     '<span class="dim">    install   ~/Applications/MoteHelper.app</span>', '<span class="dim">    clear the quarantine flag on that app only, then open it</span>',
     '==&gt; Downloading MoteHelper-macos-arm64.zip', '==&gt; Verifying SHA-256', '    ok 9f2c…e41a', '==&gt; Installing to ~/Applications/MoteHelper.app', '==&gt; Opening Mote Helper',
     '', 'Done. Next steps:', '  1. Allow Accessibility when macOS asks (System Settings &gt; Privacy &amp; Security &gt; Accessibility).',
-    '  4. The menu-bar icon has Pause input, Revoke all devices, Launch at login and Quit.', '', 'Uninstall: quit it from the menu, then  rm -rf "~/Applications/MoteHelper.app"']
+    '  4. The menu-bar icon has Pause input, Revoke all devices, Launch at login and Quit.', '', 'Uninstall: in the menu-bar icon turn off Advanced &gt; Open at login, then Quit, then  rm -rf "~/Applications/MoteHelper.app"']
 def ax_prompt():
     return desk(tcc("“MoteHelper.app” would like to control this computer using accessibility features.", "Grant access to this application in Privacy &amp; Security settings, located in System Settings.", ["Open System Settings", "Deny"]))
 def ax_pane(on=True, title="Accessibility"):
@@ -1264,7 +1264,7 @@ def jA2():
         step(1, "jA2-s1", "Launch at login, Tailscale", "Menu checkboxes; Tailscale shows its MagicDNS URL when detected", macs=[mac(menu_login, "jA2-m1", items=mote_menubar_icon(False, True))]),
         step(2, "jA2-s2", "Update: run the same line", "It quits the old helper and replaces it", macs=[mac(reinst, "jA2-m2", items=mote_menubar_icon(False))]),
         step(3, "jA2-s3", "Re-grant Accessibility", "Ad-hoc signed: switch it off and on (or remove and re-add); click Always Allow on the Keychain prompt", macs=[mac(offon, "jA2-m3a", items=mote_menubar_icon(False)), mac(ax_pane(True), "jA2-m3b", items=mote_menubar_icon(False))]),
-        step(4, "jA2-s4", "Uninstall: quit", "Turn off Launch at login first", macs=[mac(quit_, "jA2-m4", items=mote_menubar_icon(False, True))]),
+        step(4, "jA2-s4", "Uninstall: quit", "Turn off Open at login (Advanced) first", macs=[mac(quit_, "jA2-m4", items=mote_menubar_icon(False, True))]),
         step(5, "jA2-s5", "Delete the app", "From the installer’s own instructions", macs=[mac(rm, "jA2-m5", menubar=False)]),
     ]
     branches = [branch("jA2-b1", 3, "Skipped the re-grant", [step("3a", "jA2-b1s", "Phone keeps the link but nothing moves", "Devices row: “Mote Helper needs Accessibility on the Mac”", [phone(scr_badge(media_shipped(), "media", pill("MacBook Pro", "led amber", "Wi-Fi", "lan"), devices(rows=devrow("d", "laptop", "MacBook Pro", "Mote Helper needs Accessibility on the Mac", badges("Wi-Fi"), sel=True)), lit=False), "jA2-b1p")])], "Fix: step 3")]
