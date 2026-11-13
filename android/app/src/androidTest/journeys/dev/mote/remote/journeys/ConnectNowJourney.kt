@@ -76,13 +76,13 @@ class ConnectNowJourney {
         }
         j.step("S6") { pairCode(code) }
         j.step("S7") {
-            mac.await("paired ${bq(phone)} \\(Wi-Fi\\)", 10_000)
-            mac.await("authed ${bq(phone)} via Wi-Fi from ", 10_000)
+            mac.await("paired ${bq(phone)} \\(${Ctl.link}\\)", 10_000)
+            mac.await("authed ${bq(phone)} via ${Ctl.link} from ", 10_000)
         }
         j.step("S8") {
             j.expectGone(codeField, timeoutMs = 8_000)
-            j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
-            j.expect("WI-FI")
+            j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
+            j.expect(Ctl.link.uppercase())
         }
     }
 
@@ -149,7 +149,7 @@ class ConnectNowJourney {
         }
         j.step("B4") {
             pairCode(code)
-            mac.await("paired ${bq(j.phoneName())} \\(Wi-Fi\\)", 10_000)
+            mac.await("paired ${bq(j.phoneName())} \\(${Ctl.link}\\)", 10_000)
         }
     }
 

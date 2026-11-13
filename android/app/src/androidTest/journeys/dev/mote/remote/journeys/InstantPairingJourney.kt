@@ -29,7 +29,7 @@ class InstantPairingJourney {
             mac.await("^NEW DEVICE: .*\"via\":\"nearby\"")
             mac.from = 0; mac.assertNo("labs: prompt ", 500)
             mac.event("session", "paired", ".*\"via\":\"nearby\".*")        // FC-3: the trust decision
-            j.expect("Connected over Wi-Fi", timeoutMs = 8_000)
+            j.expect("Connected over ${Ctl.link}", timeoutMs = 8_000)
         }
     }
 
@@ -58,7 +58,7 @@ class InstantPairingJourney {
             j.tap("Connect to $name")
             j.expect("Connected. Trusted via Tailscale", timeoutMs = 8_000)
             j.bAdvance(1_000) // ConnectCard waits 900 ms (composition delay) before onDone
-            j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 5_000)
+            j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 5_000)
         }
     }
 
@@ -70,15 +70,15 @@ class InstantPairingJourney {
         j.launch(fakeProximity = true)
         j.tap("Connect to $name", timeoutMs = 6_000)
         j.tap("Skip", timeoutMs = 10_000)
-        j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+        j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
         j.step("B1", "real (Home + return after the socket's 30 s idle close; the process stays)") {
             mac.mark(); j.appMark()
             j.bHomeAndReturn(32_000)
-            j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 10_000)
+            j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 10_000)
             mac.await("labs: trusted ${bq(phone)} via trusted", 15_000)
-            mac.await("authed ${bq(phone)} via Wi-Fi from ")
+            mac.await("authed ${bq(phone)} via ${Ctl.link} from ")
             mac.assertNo("^NEW DEVICE|labs: prompt ", 1_500)
-            mac.event("session", "authed", ".*\"transport\":\"Wi-Fi\".*")    // RC-2 helper side
+            mac.event("session", "authed", ".*\"transport\":\"${Ctl.link}\".*")    // RC-2 helper side
             j.appEvent("transport", "connect.auth", "instant" to true)         // RC-2 phone side
             j.appEvent("transport", "connect.ready")
         }
@@ -95,7 +95,7 @@ class InstantPairingJourney {
         j.launch(fakeProximity = true)
         j.tap("Connect to $name", timeoutMs = 6_000)
         j.tap("Skip", timeoutMs = 10_000)
-        j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+        j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
         val note = "The Mac no longer trusts this phone. Long-press it to forget, then Add a Mac again."
         j.step("B1", "faked: stdin revoke") {
             mac.mark(); mac.stdin("revoke")

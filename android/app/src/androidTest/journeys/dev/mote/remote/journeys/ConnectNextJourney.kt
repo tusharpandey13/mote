@@ -40,20 +40,20 @@ class ConnectNextJourney {
         }
         j.step("S4", prox) {
             mac.await("labs: trusted ${bq(phone)} via nearby")
-            mac.await("authed ${bq(phone)} via Wi-Fi from ")
+            mac.await("authed ${bq(phone)} via ${Ctl.link} from ")
             mac.await("labs: new device ${bq(phone)} via nearby \\(k:[0-9a-f]{32}\\)")
             mac.await("^NEW DEVICE: \\{\"id\":\"k:[0-9a-f]{32}\",\"name\":\"${bq(phone)}\",\"via\":\"nearby\"\\}")
-            mac.event("session", "authed", ".*\"transport\":\"Wi-Fi\".*")   // helper side of FC-1 / RC-2
+            mac.event("session", "authed", ".*\"transport\":\"${Ctl.link}\".*")   // helper side of FC-1 / RC-2
             j.appEvent("transport", "connect.ready")                          // phone side
         }
         j.step("S5") {
-            j.expect("Connected over Wi-Fi", timeoutMs = 8_000)
+            j.expect("Connected over ${Ctl.link}", timeoutMs = 8_000)
             j.expect(offer); j.expect("Continue"); j.expect("Skip")
         }
         j.step("S6") {
             j.tap("Skip")
-            j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
-            j.expect("WI-FI")
+            j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
+            j.expect(Ctl.link.uppercase())
         }
         j.step("S7", "faked: stdout NEW DEVICE (headless)") { mac.from = 0; mac.await("^NEW DEVICE: .*\"via\":\"nearby\"") }
     }
@@ -229,17 +229,17 @@ class ConnectNextJourney {
         j.step("B2") {
             j.tap("Connect to $name")
             // with --fake-approve the prompt is answered after 100 ms: the waiting copy may be gone already
-            j.expectAny("Click Allow on $name. It asks before trusting new devices.", "Connected over Wi-Fi", timeoutMs = 8_000)
+            j.expectAny("Click Allow on $name. It asks before trusting new devices.", "Connected over ${Ctl.link}", timeoutMs = 8_000)
         }
         j.step("B3", "faked: --fake-approve answers after 100 ms; alert not shown headless") {
-            mac.await("labs: prompt ${bq(phone)} \\(Wi-Fi \\S+\\)")
+            mac.await("labs: prompt ${bq(phone)} \\(${Ctl.link} \\S+\\)")
             mac.await("labs: trusted ${bq(phone)} via approved")
-            mac.await("authed ${bq(phone)} via Wi-Fi from ")
+            mac.await("authed ${bq(phone)} via ${Ctl.link} from ")
             mac.await("labs: new device ${bq(phone)} via approved \\(k:[0-9a-f]{32}\\)")
             mac.await("^NEW DEVICE: .*\"via\":\"approved\"")
             mac.event("session", "paired", ".*\"via\":\"approved\".*")   // FC-8 (ui/newdevice.shown is the non-headless notice only)
         }
-        j.step("B4") { j.expect("Connected over Wi-Fi", timeoutMs = 8_000); j.expect(offer) }
+        j.step("B4") { j.expect("Connected over ${Ctl.link}", timeoutMs = 8_000); j.expect(offer) }
     }
 
     @Test fun requireApprovalDeny() {
@@ -291,7 +291,7 @@ class ConnectNextJourney {
         j.launch(fakeProximity = true)
         j.tap("Connect to $name", timeoutMs = 6_000)
         j.tap("Skip", timeoutMs = 10_000)
-        j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+        j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
         j.step("B1", "faked: stdin block stands in for the notice button") {
             mac.mark()
             mac.stdin("block")
@@ -388,18 +388,18 @@ class ConnectNextJourney {
         j.launch(fakeProximity = true)
         j.tap("Connect to $name", timeoutMs = 6_000)
         j.tap("Skip", timeoutMs = 10_000)
-        j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+        j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
         val mac2 = j.helper("--fake-proximity", name = "mac2")
         val name2 = mac2.info().getString("n")
         j.step("B1", "faked: adapter = the emulator's; second helper on another port (TestSeam.sweepPort switched)") {
             TestSeam.sweepPort = mac2.port
             j.appMark()
-            j.tap("Device: $name via Wi-Fi. Tap to choose")
+            j.tap("Device: $name via ${Ctl.link}. Tap to choose")
             j.tap("Add a Mac")
             j.tap("Connect to $name2", timeoutMs = 10_000)
             j.appEvent("discovery", "sweep.open")   // FC-15: the second Mac is found by its own sweep (Bonjour is off in the harness)
             mac2.await("labs: trusted .* via nearby", 10_000)
-            j.expect("Connected over Wi-Fi", timeoutMs = 8_000)
+            j.expect("Connected over ${Ctl.link}", timeoutMs = 8_000)
             j.expect(offer)
             j.expect("Android asks twice: make the phone visible, then Pair. Nothing to do on the Mac.")
             j.expect("Continue"); j.expect("Skip")

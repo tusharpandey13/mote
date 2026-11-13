@@ -20,7 +20,7 @@ class TailscaleJourney {
         j.launch(fakeProximity = true)
         j.tap("Connect to $name", timeoutMs = 6_000)
         j.tap("Skip", timeoutMs = 10_000)
-        j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+        j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
         val id = Net.saved.value.first().hostId
         InstrumentationRegistry.getInstrumentation().runOnMainSync { Net.addAddress(id, "mac.example.ts.net") }
         if (Net.saved.value.first().tailnet != "mac.example.ts.net") throw AssertionError("seeding the tailnet address failed")
@@ -56,7 +56,7 @@ class TailscaleJourney {
             j.tap("Use $name")
             Thread.sleep(1_000)
             j.expectNot("Tailscale is off")
-            j.expect("Device: $name via Wi-Fi. Tap to choose", timeoutMs = 8_000)
+            j.expect("Device: $name via ${Ctl.link}. Tap to choose", timeoutMs = 8_000)
         }
         j.step("B2", seed) {
             j.wifi(false)

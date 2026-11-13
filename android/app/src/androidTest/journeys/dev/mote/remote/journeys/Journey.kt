@@ -42,6 +42,8 @@ object Ctl {
     val host: String = InstrumentationRegistry.getArguments().getString("mjHost") ?: "10.0.2.2"
     /** Phone mode (run.sh MJ_PHONE): a real phone over wireless adb. Wi-Fi / data / airplane steps are skipped. */
     val phone: Boolean = host != "10.0.2.2"
+    /** The link the helper and the app name for this route: a Wi-Fi LAN on the emulator, the tailnet in phone mode (the phone reaches the Mac at its 100.x address). */
+    val link: String = if (phone) "Tailscale" else "Wi-Fi"
     val base: String = InstrumentationRegistry.getArguments().getString("mjController") ?: "http://$host:8799"
 
     fun call(path: String, body: JSONObject = JSONObject(), timeoutMs: Int = 70_000): JSONObject {
@@ -115,6 +117,9 @@ class Helper(val name: String, val port: Int, val args: List<String>) {
  */
 const val NO_HELPER_PORT = 18_799
 
+/** Phone mode seam label (recorded on every step after a launch that probes the helper at mjHost). */
+const val PROBE_SEAM = "faked: discovery via mjHost (isolated Wi-Fi: Bonjour and the LAN sweep can't reach the Mac, so the app also probes the Mac's tailnet IP on the journey helper's port)"
+
 const val PHONE_SKIP = "skipped: phone mode (would drop wireless adb)"
 
 /** Step outcome, as REPORT.md shows it. */
@@ -159,6 +164,15 @@ class JourneyRule : TestRule {
     }
 
     private var appFrom = 0L
+    /** Set by [launch] in phone mode when a journey helper is the discovery target. */
+    private var probing = false
+
+    /** Collapses the notification / quick-settings shade and closes system dialogs (a real phone keeps what the last run left open). */
+    fun closeShade() {
+        runCatching { shell("cmd statusbar collapse") }
+        runCatching { shell("am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS") }
+        device.waitForIdle()
+    }
 
     /**
      * Waits for the phone's own diag event `area/name` (the app's [Events] ring buffer, same process) logged since [path] was
@@ -205,7 +219,8 @@ class JourneyRule : TestRule {
      * step is reported FAKED, never PASS). On failure the step is recorded FAIL with the message and
      * a screenshot, and the test stops there (later steps are reported "not run").
      */
-    fun step(id: String, seam: String = "real", block: () -> Unit) {
+    fun step(id: String, seamIn: String = "real", block: () -> Unit) {
+        val seam = if (!probing) seamIn else if (seamIn == "real") PROBE_SEAM else "$seamIn; $PROBE_SEAM"
         try {
             block()
             compose.waitForIdle()
@@ -270,6 +285,9 @@ class JourneyRule : TestRule {
     ) {
         TestSeam.noBonjour = true
         TestSeam.sweepPort = sweepPort
+        // Phone mode: the Wi-Fi may isolate clients (no Bonjour, no LAN sweep), so also probe the Mac's tailnet IP on the helper's port.
+        probing = Ctl.phone && sweepPort != null && sweepPort != NO_HELPER_PORT
+        TestSeam.probeHost = if (probing) Ctl.host else null
         TestSeam.fakeProximity = fakeProximity
         TestSeam.transport = transport
         TestSeam.adapter = adapter
@@ -398,6 +416,7 @@ class JourneyRule : TestRule {
                     throw AssertionError("journeys controller not reachable at ${Ctl.base}: run e2e/journeys/run.sh", e)
                 }
                 resetNetwork()
+                if (Ctl.phone) { closeShade(); device.pressHome() }
                 var lost: Throwable? = null
                 try {
                     base.evaluate()
@@ -415,9 +434,10 @@ class JourneyRule : TestRule {
                     // disposes the composition on the compose test dispatcher (see isTeardownArtifact).
                     // Network first: stopping helpers and the queued results both need the controller.
                     resetNetwork()
+                    if (Ctl.phone) closeShade()
                     helpers.forEach { runCatching { it.stop() } }
                     TestSeam.transport = null; TestSeam.adapter = null; TestSeam.noBonjour = false
-                    TestSeam.sweepPort = null; TestSeam.fakeProximity = false
+                    TestSeam.sweepPort = null; TestSeam.probeHost = null; TestSeam.fakeProximity = false
                     lost = runCatching { flushUndelivered() }.exceptionOrNull()
                 }
                 lost?.let { throw it } // a passing test whose results never reached the controller fails
