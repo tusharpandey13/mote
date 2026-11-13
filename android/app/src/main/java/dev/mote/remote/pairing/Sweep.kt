@@ -149,6 +149,6 @@ fun tcpReach(host: String, port: Int, timeoutMs: Int = 1500, factory: SocketFact
  */
 fun reachNote(name: String, reaches: List<Reach>): String? = when {
     reaches.isEmpty() || Reach.OPEN in reaches -> null
-    Reach.REFUSED in reaches -> "Mote Helper isn't running on $name. Open it from Applications on the Mac."
+    Reach.REFUSED in reaches -> "Mote Helper isn't running on $name. Open it from ~/Applications on the Mac."
     else -> "$name seems asleep or away. Wake it (open the lid or press a key) and keep it on this Wi-Fi or Tailscale."
 }

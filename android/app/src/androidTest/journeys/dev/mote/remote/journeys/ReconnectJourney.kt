@@ -85,7 +85,7 @@ class ReconnectJourney {
         var row = false
         var note: String? = null
         val notes = arrayOf(
-            "Mote Helper isn't running on $name. Open it from Applications on the Mac.",
+            "Mote Helper isn't running on $name. Open it from ~/Applications on the Mac.",
             "$name seems asleep or away. Wake it (open the lid or press a key) and keep it on this Wi-Fi or Tailscale.",
         )
         try {

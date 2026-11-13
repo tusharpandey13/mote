@@ -68,7 +68,7 @@ class DailyJourney {
             // What the probe sees decides the note (reachNote); assert the matching copy.
             val h = Net.saved.value.first()
             val reaches = h.candidates().take(4).map { dev.mote.remote.pairing.tcpReach(it, h.port) }
-            val refused = "Mote Helper isn't running on $name. Open it from Applications on the Mac."
+            val refused = "Mote Helper isn't running on $name. Open it from ~/Applications on the Mac."
             val asleep = "$name seems asleep or away. Wake it (open the lid or press a key) and keep it on this Wi-Fi or Tailscale."
             val want = dev.mote.remote.pairing.reachNote(name, reaches)
                 ?: throw AssertionError("a closed helper port still answers TCP (reaches ${h.candidates().take(4)} = $reaches): no note is shown, see daily-D7")

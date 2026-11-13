@@ -32,7 +32,7 @@ fun searchingCardVisible(connecting: Boolean, connectingForMs: Long) = connectin
 
 val SEARCHING_CAUSES = listOf(
     "The Mac is asleep or away: wake it (open the lid or press a key).",
-    "Mote Helper isn't running: open it from Applications on the Mac.",
+    "Mote Helper isn't running: open it from ~/Applications on the Mac.",
     "This phone is on another Wi-Fi, or Tailscale is off: join the Mac's network.",
 )
 
