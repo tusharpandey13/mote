@@ -38,6 +38,13 @@ class ReconnectTest {
         assertFalse(Reconnect.allowed(Reconnect.MAX_ATTEMPTS, 0, 0))
     }
 
+    // D-RC-3: spent budget is distinct from a pairing pause, so the UI can say "not found"
+    @Test fun exhaustedOnlyWhenBudgetSpent() {
+        assertFalse(Reconnect.exhausted(Reconnect.MAX_ATTEMPTS - 1))
+        assertTrue(Reconnect.exhausted(Reconnect.MAX_ATTEMPTS))
+        assertFalse(Reconnect.allowed(0, nowMs = 1_000, pausedUntilMs = 2_000) || Reconnect.exhausted(0))
+    }
+
     @Test fun pausedWhileDiscoverable() {
         assertFalse(Reconnect.allowed(0, nowMs = 1_000, pausedUntilMs = 2_000))
         assertTrue(Reconnect.allowed(0, nowMs = 2_000, pausedUntilMs = 2_000))

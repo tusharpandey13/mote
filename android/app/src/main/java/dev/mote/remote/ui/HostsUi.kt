@@ -110,7 +110,7 @@ fun HostPill(onClick: () -> Unit) {
         }
         pulse = st is WsStatus.Connecting || st is WsStatus.Reading
     } else {
-        val searching = !s.isConnected && s.selected != null && !s.unpaired && s.phase == Phase.READY
+        val searching = !s.isConnected && s.selected != null && !s.unpaired && !s.gaveUp && s.phase == Phase.READY
         led = when {
             s.isConnected -> c.linkOk
             searching || s.phase == Phase.REGISTERING -> c.linkWait
@@ -422,6 +422,9 @@ private fun InputField(value: String, placeholder: String, type: KeyboardType, o
 }
 
 /** A picker row. Selected = raised cap; unselected = flat with a hairline (design-language revision 3). */
+/** Bluetooth auto-reconnect used up its attempts (D-RC-3): the way forward is to tap the device again. */
+const val BT_NOT_FOUND_TEXT = "Not found · tap to retry"
+
 @Composable
 private fun HostRowCap(
     r: HostRow, selection: Selection?, active: Transport, ws: WsStatus, s: HidState,
@@ -443,6 +446,7 @@ private fun HostRowCap(
         viaHelper -> "Connecting…"
         selected && r.bt != null && s.connected?.address == r.bt.address -> "Connected · BT"
         selected && r.bt != null && s.unpaired -> "Not paired: pair again"
+        selected && r.bt != null && s.gaveUp -> BT_NOT_FOUND_TEXT
         selected && r.bt != null -> "Searching…"
         r.saved == null && r.bt == null -> "Nearby · tap to pair"
         r.saved == null && r.found != null -> "Paired over Bluetooth · Mote Helper found"

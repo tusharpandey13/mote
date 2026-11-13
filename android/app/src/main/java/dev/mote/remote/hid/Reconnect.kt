@@ -21,4 +21,7 @@ object Reconnect {
 
     fun allowed(attempts: Int, nowMs: Long, pausedUntilMs: Long): Boolean =
         attempts < MAX_ATTEMPTS && nowMs >= pausedUntilMs
+
+    /** The attempt budget is spent: the UI says the host wasn't found instead of "searching" (until the user or the environment resets it). */
+    fun exhausted(attempts: Int): Boolean = attempts >= MAX_ATTEMPTS
 }
