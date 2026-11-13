@@ -135,7 +135,7 @@ class DailyJourney {
 
     @Test fun notif() {
         j.path("daily.notif")
-        j.cLinkHelper()
+        val (_, name) = j.cLinkHelper()
         j.cGrantBt()
         j.closeActivity()
         j.launch(fakeProximity = true)
@@ -143,7 +143,8 @@ class DailyJourney {
         j.step("B1") {
             j.device.openNotification()
             try {
-                if (!j.systemShown("^Ready to pair$", 8_000)) throw AssertionError("notification text \"Ready to pair\" not shown")
+                // D-DU-1: with a Wi-Fi helper Mac the notification follows that link, not "Ready to pair"
+                if (!j.systemShown("^Connected to \\Q$name\\E$", 8_000)) throw AssertionError("notification \"Connected to $name\" not shown")
                 j.appEvent("lifecycle", "service", "state" to "created")   // DU-8: the link notification's service
             } finally { j.device.pressBack() }
         }

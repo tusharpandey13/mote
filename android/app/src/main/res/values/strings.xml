@@ -1,10 +1,12 @@
 <resources>
     <string name="app_name">Mote</string>
-    <string name="channel_link">Bluetooth link</string>
+    <string name="channel_link">Connection</string>
     <string name="channel_nowplaying">Media controls</string>
     <string name="notif_bluetooth_title">Mote · Bluetooth</string>
-<string name="notif_connected">Connected to %1$s</string>
+    <string name="notif_connected">Connected to %1$s</string>
     <string name="notif_searching">Searching for %1$s…</string>
+    <string name="notif_not_found">Can\'t find %1$s. Open Mote to retry.</string>
+    <string name="notif_helper_failed">Can\'t reach %1$s. Open Mote.</string>
     <string name="notif_idle">Ready to pair</string>
     <string name="play_pause">Play/Pause</string>
     <string name="stop">Stop</string>

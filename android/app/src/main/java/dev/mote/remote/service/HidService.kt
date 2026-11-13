@@ -16,7 +16,8 @@ import dev.mote.remote.MainActivity
 import dev.mote.remote.R
 import dev.mote.remote.hid.Consumer
 import dev.mote.remote.hid.Hid
-import dev.mote.remote.hid.HidState
+import dev.mote.remote.net.Net
+import dev.mote.remote.net.WsTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,12 +38,16 @@ class HidService : Service() {
         super.onCreate()
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.channel_link), NotificationManager.IMPORTANCE_LOW))
-        val n = notification(Hid.state.value)
+        val n = notification(currentNote())
         if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         else startForeground(NOTIF_ID, n)
         dev.mote.remote.diag.Events.log("lifecycle", "service", "state" to "created")
         Hid.start(this)
-        scope.launch { Hid.state.collect { nm.notify(NOTIF_ID, notification(it)) } }
+        // The notification follows the active link: the helper (Wi-Fi / Tailscale) or Bluetooth HID.
+        scope.launch {
+            combine(Hid.state, Net.active, Net.wsStatus, Net.saved) { _, _, _, _ -> currentNote() }
+                .collect { nm.notify(NOTIF_ID, notification(it)) }
+        }
         scope.launch {
             combine(Hid.state, Hid.inForeground) { s, fg -> fg || s.isConnected || s.connecting }
                 .collect { keep -> if (!keep) stopSelf() }
@@ -66,11 +71,19 @@ class HidService : Service() {
         super.onDestroy()
     }
 
-    private fun notification(s: HidState): Notification {
-        val text = when {
-            s.connected != null -> getString(R.string.notif_connected, s.connected.name)
-            s.selected != null -> getString(R.string.notif_searching, s.selected.name)
-            else -> getString(R.string.notif_idle)
+    private fun currentNote(): LinkNote {
+        val active = Net.active.value
+        val helperName = (active as? WsTransport)?.let { w -> Net.saved.value.firstOrNull { it.hostId == w.hostId }?.name ?: "Mac" }
+        return linkNote(Hid.state.value, helperName, Net.wsStatus.value)
+    }
+
+    private fun notification(note: LinkNote): Notification {
+        val text = when (note) {
+            is LinkNote.Connected -> getString(R.string.notif_connected, note.name)
+            is LinkNote.Searching -> getString(R.string.notif_searching, note.name)
+            is LinkNote.NotFound -> getString(R.string.notif_not_found, note.name)
+            is LinkNote.HelperFailed -> getString(R.string.notif_helper_failed, note.name)
+            LinkNote.Idle -> getString(R.string.notif_idle)
         }
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         fun action(a: String, label: Int) = Notification.Action.Builder(
