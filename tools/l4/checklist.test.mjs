@@ -33,3 +33,20 @@ test("stdin answers work when not a TTY", () => {
   assert.equal(r.status, 0);
   assert.match(readFileSync(join(out, readdirSync(out)[0]), "utf8"), /\| pass \| noted \|/);
 });
+
+test("every L4 row has written steps", () => {
+  const r = run("--list");
+  assert.equal(r.stderr, "");
+  assert.match(r.stdout, /Do:\n  1\. /);
+  assert.match(r.stdout, /Pass if: /);
+});
+
+test("--only runs a subset and keeps today's earlier answers", () => {
+  const out = mkdtempSync(join(tmpdir(), "l4-"));
+  assert.equal(run("--out", out, "--only", "RC-13", "--dry-run-answers", "p").status, 0);
+  assert.equal(run("--out", out, "--only", "SP-1", "--dry-run-answers", "f,nope").status, 1);
+  const md = readFileSync(join(out, readdirSync(out)[0]), "utf8");
+  assert.match(md, /\| RC-13 \| .* \| pass \| +\|/);
+  assert.match(md, /\| SP-1 \| .* \| fail \| nope \|/);
+  assert.equal(run("--out", out, "--only", "NOPE-1").status, 2);
+});
