@@ -37,11 +37,11 @@ Known bugs: B1 SM-14, B2 SM-11, B3 DU-13, B4 DU-14.
 | J1 install-helper | 1 | 1 | 9 | 6 | 1 | 14 | 0 | 4 | 0 |
 | J2 setup-mac | 11 | 2 | 3 | 10 | 0 | 11 | 2 | 13 | 0 |
 | J3 setup-phone | 4 | 0 | 13 | 0 | 3 | 16 | 1 | 3 | 0 |
-| J4 first-connect | 0 | 0 | 16 | 2 | 2 | 17 | 1 | 2 | 0 |
-| J5 reconnect | 6 | 0 | 12 | 1 | 1 | 17 | 2 | 1 | 0 |
-| J6 daily | 3 | 0 | 15 | 2 | 2 | 18 | 1 | 3 | 0 |
-| J7 mac-update | 1 | 1 | 6 | 5 | 3 | 8 | 1 | 7 | 0 |
-| Total (142) | 26 | 4 | 74 | 26 | 12 | 101 | 8 | 33 | 0 |
+| J4 first-connect | 0 | 0 | 16 | 2 | 2 | 17 | 0 | 3 | 0 |
+| J5 reconnect | 6 | 0 | 12 | 1 | 1 | 17 | 1 | 2 | 0 |
+| J6 daily | 3 | 0 | 15 | 2 | 2 | 18 | 0 | 4 | 0 |
+| J7 mac-update | 1 | 1 | 6 | 5 | 3 | 8 | 0 | 8 | 0 |
+| Total (142) | 26 | 4 | 74 | 26 | 12 | 101 | 4 | 37 | 0 |
 
 Gaps: L1 is nearly empty (no recorded TCC/Keychain/NetService fixtures); Mac-side failure paths (Accessibility denied, Keychain unreadable) are L3-only because `--dry-run` forces `inputReady` and there is no fake for either (U16, decided: `--fake-ax-denied`, dry-run only, not yet built).
 
