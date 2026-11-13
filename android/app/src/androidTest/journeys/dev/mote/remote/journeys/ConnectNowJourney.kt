@@ -67,7 +67,7 @@ class ConnectNowJourney {
         toAddress(waitNoMacs = true)
         var name = ""
         j.step("S5") {
-            j.bType(addrField, "10.0.2.2:${mac.port}"); j.tap("Connect")
+            j.bType(addrField, "${Ctl.host}:${mac.port}"); j.tap("Connect")
             j.expect("Pair with ", substring = true, timeoutMs = 8_000)
             name = j.visibleTexts().first { it.startsWith("Pair with ") && it != "Pair with code" }.removePrefix("Pair with ")
             j.expect("Enter the 6-digit code shown in the Mote Helper pairing window on the Mac.")
@@ -93,7 +93,7 @@ class ConnectNowJourney {
         val mac = j.helper("--open-pairing")
         val code = code(mac)
         toAddress()
-        j.bType(addrField, "10.0.2.2:${mac.port}"); j.tap("Connect")
+        j.bType(addrField, "${Ctl.host}:${mac.port}"); j.tap("Connect")
         j.expect(codeField, timeoutMs = 8_000)
         j.step("B1") {
             pairCode(if (code == "000000") "111111" else "000000")
@@ -113,7 +113,7 @@ class ConnectNowJourney {
         val mac = j.helper("--open-pairing")
         val code = code(mac)
         toAddress()
-        j.bType(addrField, "10.0.2.2:${mac.port}"); j.tap("Connect")
+        j.bType(addrField, "${Ctl.host}:${mac.port}"); j.tap("Connect")
         j.expect(codeField, timeoutMs = 8_000)
         val wrong = if (code == "000000") "111111" else "000000"
         j.step("B1") {
@@ -135,7 +135,7 @@ class ConnectNowJourney {
         val mac = j.helper()
         toAddress()
         j.step("B1") {
-            j.bType(addrField, "10.0.2.2:${mac.port}"); j.tap("Connect")
+            j.bType(addrField, "${Ctl.host}:${mac.port}"); j.tap("Connect")
             j.expect(codeField, timeoutMs = 8_000)
             j.expect(notOpen)
         }
@@ -169,11 +169,11 @@ class ConnectNowJourney {
             j.expect("Enter a name like mac.tailnet.ts.net or an address like 100.101.102.103.")
         }
         j.step("B2") {
-            j.bType(addrField, "10.0.2.2:${mac.port}"); j.tap("Connect")
+            j.bType(addrField, "${Ctl.host}:${mac.port}"); j.tap("Connect")
             j.expect(codeField, timeoutMs = 8_000)
             mac.stop()
             pairCode(code)
-            j.expect("Couldn't reach 10.0.2.2. Same Wi-Fi as the Mac? Is Mote Helper running?", timeoutMs = 10_000)
+            j.expect("Couldn't reach ${Ctl.host}. Same Wi-Fi as the Mac? Is Mote Helper running?", timeoutMs = 10_000)
         }
     }
 
@@ -182,14 +182,14 @@ class ConnectNowJourney {
         val mac = j.helper("--open-pairing")
         val code = code(mac)
         toAddress()
-        j.bType(addrField, "10.0.2.2:${mac.port}"); j.tap("Connect")
+        j.bType(addrField, "${Ctl.host}:${mac.port}"); j.tap("Connect")
         j.expect(codeField, timeoutMs = 8_000)
         pairCode(code)
         j.expectGone(codeField, timeoutMs = 8_000)
         j.step("B1") {
             j.tap("Device: ", substring = true, timeoutMs = 8_000)
             j.tap("More options"); j.tap("Pair with code"); j.tap("Enter address")
-            j.bType(addrField, "10.0.2.2:${mac.port}"); j.tap("Connect")
+            j.bType(addrField, "${Ctl.host}:${mac.port}"); j.tap("Connect")
             j.expectGone(addrField, timeoutMs = 8_000)
             j.expectNot(codeField)
         }
@@ -214,10 +214,10 @@ class ConnectNowJourney {
         j.launch()
         j.expect("Connect to your Mac", timeoutMs = 8_000)
         j.step("B1") {
-            j.shell("am start -a android.intent.action.VIEW -d mote://pair?h=10.0.2.2:${mac.port}&code=$code dev.mote.remote.dev")
+            j.shell("am start -a android.intent.action.VIEW -d mote://pair?h=${Ctl.host}:${mac.port}&code=$code dev.mote.remote.dev")
             Thread.sleep(3_000)
             j.expect("Connect to your Mac", timeoutMs = 5_000)
-            j.expectNot("Pair with 10.0.2.2")
+            j.expectNot("Pair with ${Ctl.host}")
             j.expectNot(codeField)
         }
     }

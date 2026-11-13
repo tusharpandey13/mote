@@ -55,7 +55,7 @@ Core journey specs: `docs/journeys/{install-helper,setup-mac,setup-phone,first-c
 - HID can't be tested in an emulator; needs a real phone.
 - A browser can't be a Bluetooth peripheral; that's why the helper exists.
 - macOS keys permissions (TCC) and Keychain ACLs to the helper's signature: keep the "Mote Helper Local" identity; an ad-hoc build loses them. The helper never asks for a permission from a background event: only the Setup window (`SetupWindow.swift`, `Permissions.swift`) or a feature toggle may prompt.
-- Instrumented tests (`connectedAndroidTest`, `am instrument`) MUST be pinned to an emulator: `ANDROID_SERIAL=emulator-5554 ./gradlew ...` (or `adb -s emulator-…`). Gradle otherwise installs, runs, clears data and uninstalls on EVERY connected device, including the user's physical phone (serial b7e39c2f). Never run tests on the physical phone unless the user explicitly asks.
+- Instrumented tests (`connectedAndroidTest`, `am instrument`) MUST be pinned to an emulator: `ANDROID_SERIAL=emulator-5554 ./gradlew ...` (or `adb -s emulator-…`). Gradle otherwise installs, runs, clears data and uninstalls on EVERY connected device, including the user's physical phone (serial b7e39c2f). Never run tests on the physical phone unless the user explicitly asks. The one standing exception, approved by the owner for the Mote Dev app (`dev.mote.remote.dev`) only: `e2e/journeys/run.sh` phone mode (`MJ_PHONE=<adb serial> MJ_PHONE_HW=<ro.serialno>`, see `e2e/journeys/README.md`). Never plain `gradle connectedAndroidTest` on the phone, and never touch the real `dev.mote.remote`.
 
 ## README screenshots
 (`design/exports/` is a separate, locally built gallery: use `tools/design-build.sh`.)

@@ -144,7 +144,7 @@ class ConnectNextJourney {
         j.step("B4") {
             val mac = j.helper("--fake-proximity", port = port)
             val name = mac.info().getString("n")
-            j.bType(field, "10.0.2.2:$port"); j.tap("Find")
+            j.bType(field, "${Ctl.host}:$port"); j.tap("Find")
             j.expect("Connect to $name", timeoutMs = 8_000)
             j.expect("Back")
         }

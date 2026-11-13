@@ -43,10 +43,28 @@ elif [ "$TARGET" != all ]; then
   [ -f "$ROOT/docs/journeys/$id.md" ] || echo "run.sh: warning: no spec docs/journeys/$id.md (running $(pascal "$id")Journey anyway; not in REPORT.md, see gradle exit / $OUT/junit)" >&2
 fi
 
-# ---- guard: only ever an emulator ----
-[[ "$SERIAL" =~ ^emulator-[0-9]+$ ]] || die "refusing serial '$SERIAL': only emulator-* targets are allowed"
+# ---- guard: an emulator, or (opt-in phone mode) one exact real phone ----
+# Phone mode: MJ_PHONE=<adb serial> AND MJ_PHONE_HW=<ro.serialno>; the hardware serial must match, so a stale
+# wireless-adb address can never hit another device. Only the Mote Dev app (dev.mote.remote.dev) is installed.
+PHONE=0; HOST_IP=10.0.2.2; CTL_BIND=127.0.0.1
+if [ -n "${MJ_PHONE:-}" ] || [ -n "${MJ_PHONE_HW:-}" ]; then
+  [ -n "${MJ_PHONE:-}" ] && [ -n "${MJ_PHONE_HW:-}" ] || die "phone mode needs both MJ_PHONE=<adb serial> and MJ_PHONE_HW=<ro.serialno>"
+  PHONE=1; SERIAL="$MJ_PHONE"
+  HOST_IP="${MJ_HOST:-$(tailscale ip -4 2>/dev/null | head -1)}"
+  [ -n "$HOST_IP" ] || die "phone mode: no Mac tailnet IP (set MJ_HOST or start Tailscale)"
+  CTL_BIND="$HOST_IP"; export MJ_PHONE_TAILNET=1   # controller: bind the tailnet IP, helpers get --allow-tailscale
+  [ -z "$LEVEL" ] || die "phone mode runs journeys (all, one, or one#path), not --level"
+else
+  [[ "$SERIAL" =~ ^emulator-[0-9]+$ ]] || die "refusing serial '$SERIAL': only emulator-* targets are allowed (phone mode: MJ_PHONE + MJ_PHONE_HW)"
+fi
 export ANDROID_SERIAL="$SERIAL"   # gradle installs/runs ONLY on this device
 guard_device() {
+  if [ "$PHONE" = 1 ]; then
+    "$ADB" devices | grep -q "^$SERIAL[[:space:]]*device" || die "phone $SERIAL is not connected (the wireless adb port may have changed)"
+    local hw; hw="$("$ADB" -s "$SERIAL" shell getprop ro.serialno 2>/dev/null | tr -d '\r')"
+    [ "$hw" = "$MJ_PHONE_HW" ] || die "$SERIAL reports ro.serialno '$hw', expected '$MJ_PHONE_HW': aborting"
+    return
+  fi
   local qemu; qemu="$("$ADB" -s "$SERIAL" shell getprop ro.kernel.qemu 2>/dev/null | tr -d '\r')"
   [ "$qemu" = "1" ] || qemu="$("$ADB" -s "$SERIAL" shell getprop ro.boot.qemu 2>/dev/null | tr -d '\r')"
   [ "$qemu" = "1" ] || die "$SERIAL is not an emulator (ro.kernel.qemu != 1): aborting"
@@ -68,8 +86,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# ---- emulator ----
-if ! "$ADB" devices | grep -q "^$SERIAL[[:space:]]*device"; then
+# ---- emulator (never in phone mode) ----
+if [ "$PHONE" = 0 ] && ! "$ADB" devices | grep -q "^$SERIAL[[:space:]]*device"; then
   if ! "$SDK/emulator/emulator" -list-avds | grep -qx "$AVD"; then
     echo no | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd -n "$AVD" -k "$IMAGE" -d pixel_7 >/dev/null
   fi
@@ -82,7 +100,7 @@ if ! "$ADB" devices | grep -q "^$SERIAL[[:space:]]*device"; then
 fi
 guard_device
 for k in window_animation_scale transition_animation_scale animator_duration_scale; do "$ADB" -s "$SERIAL" shell settings put global $k 0; done
-"$ADB" -s "$SERIAL" shell svc wifi enable
+[ "$PHONE" = 1 ] || "$ADB" -s "$SERIAL" shell svc wifi enable
 
 # ---- helper build ----
 HELPER="$ROOT/helper/build/MoteHelper.app/Contents/MacOS/MoteHelper"
@@ -90,12 +108,12 @@ if [ ! -x "$HELPER" ] || [ "${MJ_REBUILD_HELPER:-0}" = 1 ]; then (cd "$ROOT" && 
 
 # ---- controller ----
 mkdir -p "$OUT"
-if ! curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/ping" >/dev/null 2>&1; then
-  MJ_OUT="$OUT" MJ_CONTROLLER_PORT="$CTL_PORT" MOTE_HELPER_BIN="$HELPER" node "$HERE/controller.mjs" >>"$OUT/controller.log" 2>&1 &
+if ! curl -fsS -X POST "http://$CTL_BIND:$CTL_PORT/ping" >/dev/null 2>&1; then
+  MJ_OUT="$OUT" MJ_CONTROLLER_PORT="$CTL_PORT" MJ_CONTROLLER_BIND="$CTL_BIND" MOTE_HELPER_BIN="$HELPER" node "$HERE/controller.mjs" >>"$OUT/controller.log" 2>&1 &
   CTL_PID=$!
-  for _ in $(seq 1 50); do curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/ping" >/dev/null 2>&1 && break; sleep 0.2; done
+  for _ in $(seq 1 50); do curl -fsS -X POST "http://$CTL_BIND:$CTL_PORT/ping" >/dev/null 2>&1 && break; sleep 0.2; done
 fi
-curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/run" >/dev/null || die "controller on :$CTL_PORT has no /run (an old controller is still running? kill it)"
+curl -fsS -X POST "http://$CTL_BIND:$CTL_PORT/run" >/dev/null || die "controller on :$CTL_PORT has no /run (an old controller is still running? kill it)"
 
 # ---- which tests ----
 # Ordered journeys keep app data between their tests (each test is still a fresh process), so a
@@ -135,13 +153,13 @@ if [ -n "$LEVEL" ]; then
   "$HELPER" --dry-run --headless --memory-store --no-ble --fake-proximity --port 8795 >"$OUT/l2/sweep-helper.log" 2>&1 &
   SWEEP_PID=$!
   set +e
-  ./gradlew --max-workers=2 -q "${GARGS[@]}" "$P.mjController=http://10.0.2.2:$CTL_PORT" "$P.moteSweepPort=8795" >"$OUT/l2/gradle.log" 2>&1
+  ./gradlew --max-workers=2 -q "${GARGS[@]}" "$P.mjController=http://$HOST_IP:$CTL_PORT" "$P.mjHost=$HOST_IP" "$P.moteSweepPort=8795" >"$OUT/l2/gradle.log" 2>&1
   RC=$?
   set -e
   kill "$SWEEP_PID" 2>/dev/null || true
   tail -15 "$OUT/l2/gradle.log"
   mkdir -p "$OUT/junit"; cp -R app/build/outputs/androidTest-results/connected/. "$OUT/junit/" 2>/dev/null || true
-  curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/helper/stopall" >/dev/null 2>&1 || true
+  curl -fsS -X POST "http://$CTL_BIND:$CTL_PORT/helper/stopall" >/dev/null 2>&1 || true
   MJ_OUT="$OUT" node "$HERE/l2.mjs" collect
   MJ_OUT="$OUT" node "$HERE/l2.mjs" run-others
   RUNS=()
@@ -150,12 +168,12 @@ for run in ${RUNS[@]+"${RUNS[@]}"}; do
   set +e
   # shellcheck disable=SC2086 # $run is a list of -P args
   ./gradlew --max-workers=2 -q -PmoteJourneys :app:connectedDevAndroidTest $run \
-    "$P.mjController=http://10.0.2.2:$CTL_PORT" 2>&1 | tee -a "$OUT/gradle.log" | grep -v '^$' | tail -40
+    "$P.mjController=http://$HOST_IP:$CTL_PORT" "$P.mjHost=$HOST_IP" 2>&1 | tee -a "$OUT/gradle.log" | grep -v '^$' | tail -40
   rc=${PIPESTATUS[0]}
   set -e
   [ "$rc" = 0 ] || RC=$rc
   mkdir -p "$OUT/junit"; cp -R "$ROOT/android/app/build/outputs/androidTest-results/connected/." "$OUT/junit/" 2>/dev/null || true
-  curl -fsS -X POST "http://127.0.0.1:$CTL_PORT/helper/stopall" >/dev/null 2>&1 || true   # kept helpers of ordered journeys
+  curl -fsS -X POST "http://$CTL_BIND:$CTL_PORT/helper/stopall" >/dev/null 2>&1 || true   # kept helpers of ordered journeys
 done
 
 # ---- report ----

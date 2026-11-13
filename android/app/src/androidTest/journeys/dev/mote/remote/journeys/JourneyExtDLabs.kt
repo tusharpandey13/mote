@@ -147,7 +147,7 @@ class DlBridgeClient(val port: Int, val origin: String = "chrome-extension://mot
     var nonce = ""
 
     fun open(): JSONObject {
-        val req = okhttp3.Request.Builder().url("http://10.0.2.2:$port/bridge")
+        val req = okhttp3.Request.Builder().url("http://${Ctl.host}:$port/bridge")
             .header("Host", "127.0.0.1:$port").header("Origin", origin).build()
         ws = http.newWebSocket(req, object : okhttp3.WebSocketListener() {
             override fun onMessage(webSocket: okhttp3.WebSocket, text: String) { inbox.put(JSONObject(text)) }
