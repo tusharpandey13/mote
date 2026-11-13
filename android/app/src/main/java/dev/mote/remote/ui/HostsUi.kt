@@ -421,10 +421,10 @@ private fun InputField(value: String, placeholder: String, type: KeyboardType, o
     }
 }
 
-/** A picker row. Selected = raised cap; unselected = flat with a hairline (design-language revision 3). */
 /** Bluetooth auto-reconnect used up its attempts (D-RC-3): the way forward is to tap the device again. */
 const val BT_NOT_FOUND_TEXT = "Not found · tap to retry"
 
+/** A picker row. Selected = raised cap; unselected = flat with a hairline (design-language revision 3). */
 @Composable
 private fun HostRowCap(
     r: HostRow, selection: Selection?, active: Transport, ws: WsStatus, s: HidState,
