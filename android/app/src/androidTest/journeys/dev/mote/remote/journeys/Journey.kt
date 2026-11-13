@@ -75,6 +75,8 @@ class Helper(val name: String, val port: Int, val args: List<String>) {
     var from = 0
     /** Events are written to the log by a separate tail, so they are not ordered against log lines: they have their own cursor, moved by [mark]. */
     private var evFrom = 0
+    /** Event cursor; pass it back as `since` to look for an event from an earlier point (marks move the cursor). */
+    val evIndex: Int get() = evFrom
     fun mark(): Helper { from = Ctl.call("/helper/log", JSONObject().put("name", name)).getInt("next"); evFrom = from; return this }
     fun lines(since: Int = 0): List<String> {
         val a = Ctl.call("/helper/log", JSONObject().put("name", name).put("from", since)).getJSONArray("lines")
@@ -96,9 +98,9 @@ class Helper(val name: String, val port: Int, val args: List<String>) {
      * Waits for the helper's structured diag event `area/name` (docs/protocol.md). The controller starts every helper with
      * `--events FILE` and appends each event to the log as `EVENT area/name {fields json}`; [fields] is a regex over that JSON.
      */
-    fun event(area: String, name: String, fields: String = ".*", timeoutMs: Long = 10_000): String {
+    fun event(area: String, name: String, fields: String = ".*", timeoutMs: Long = 10_000, since: Int = evFrom): String {
         val re = "^EVENT ${area.replace(".", "\\.")}/${name.replace(".", "\\.")} $fields"
-        val r = Ctl.call("/helper/wait", JSONObject().put("name", this.name).put("re", re).put("from", evFrom).put("timeoutMs", timeoutMs))
+        val r = Ctl.call("/helper/wait", JSONObject().put("name", this.name).put("re", re).put("from", since).put("timeoutMs", timeoutMs))
         if (!r.optBoolean("ok")) throw AssertionError("helper '${this.name}': no event $area/$name $fields within $timeoutMs ms. Tail: ${r.optJSONArray("tail")}")
         evFrom = r.getInt("index") + 1
         return r.getString("line")

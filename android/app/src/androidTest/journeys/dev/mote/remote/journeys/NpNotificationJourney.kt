@@ -84,6 +84,7 @@ class NpNotificationJourney {
         }
         j.step("N4") {
             j.appMark(); mac.mark()
+            val ev0 = mac.evIndex   // input/summary is emitted per 5 s window, possibly before the marks below
             val tc = controller().transportControls
             mac.mark(); tc.skipToNext(); mac.await("DRY consumer next")
             mac.mark(); tc.skipToPrevious(); mac.await("DRY consumer prev")
@@ -93,7 +94,7 @@ class NpNotificationJourney {
             for (n in listOf("next", "prev", "pause")) j.appEvent("notification", "action", "name" to n, "sent" to true)   // DU-16
             j.appEvent("notification", "action", "name" to "play", "sent" to false)   // the stale Play is not sent
             j.appEvent("notification", "action", "name" to "seek", "sent" to true)
-            mac.event("input", "summary")
+            mac.event("input", "summary", since = ev0)
         }
         j.step("N5") {
             // The notification's buttons are broadcasts to NpActionReceiver (the PendingIntents' targets). Tapping them in
