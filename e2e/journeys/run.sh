@@ -74,7 +74,7 @@ guard_device() {
 LOCK=/tmp/mote-journeys.lock
 for _ in $(seq 1 720); do mkdir "$LOCK" 2>/dev/null && break; sleep 5; done
 [ -d "$LOCK" ] || die "could not get $LOCK"
-STARTED_EMU=0; CTL_PID=""
+STARTED_EMU=0; CTL_PID=""; OLD_TIMEOUT=""
 cleanup() {
   [ -n "$CTL_PID" ] && kill "$CTL_PID" 2>/dev/null || true
   if [ "$STARTED_EMU" = 1 ] && [ "${MJ_KEEP_EMULATOR:-0}" != 1 ]; then
@@ -82,6 +82,7 @@ cleanup() {
     # emu kill is async: wait until the device is gone, or the next run sees a dying "device" and fails its first adb shell
     for _ in $(seq 1 30); do "$ADB" devices | grep -q "^$SERIAL[[:space:]]" || break; sleep 1; done
   fi
+  [ -n "${OLD_TIMEOUT:-}" ] && "$ADB" -s "$SERIAL" shell settings put system screen_off_timeout "$OLD_TIMEOUT" >/dev/null 2>&1 || true
   rmdir "$LOCK" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -100,7 +101,16 @@ if [ "$PHONE" = 0 ] && ! "$ADB" devices | grep -q "^$SERIAL[[:space:]]*device"; 
 fi
 guard_device
 for k in window_animation_scale transition_animation_scale animator_duration_scale; do "$ADB" -s "$SERIAL" shell settings put global $k 0; done
-[ "$PHONE" = 1 ] || "$ADB" -s "$SERIAL" shell svc wifi enable
+if [ "$PHONE" = 1 ]; then
+  # UI tests need an unlocked, awake screen. A secure lock can't be bypassed from adb: the owner unlocks the phone first.
+  OLD_TIMEOUT="$("$ADB" -s "$SERIAL" shell settings get system screen_off_timeout | tr -d '\r')"
+  "$ADB" -s "$SERIAL" shell settings put system screen_off_timeout 1800000
+  "$ADB" -s "$SERIAL" shell input keyevent KEYCODE_WAKEUP; "$ADB" -s "$SERIAL" shell wm dismiss-keyguard; sleep 1
+  if "$ADB" -s "$SERIAL" shell dumpsys window | grep -q 'isKeyguardShowing=true'; then
+    "$ADB" -s "$SERIAL" shell settings put system screen_off_timeout "$OLD_TIMEOUT"
+    die "phone is locked: unlock it (screen on) and run again"
+  fi
+else "$ADB" -s "$SERIAL" shell svc wifi enable; fi
 
 # ---- helper build ----
 HELPER="$ROOT/helper/build/MoteHelper.app/Contents/MacOS/MoteHelper"
