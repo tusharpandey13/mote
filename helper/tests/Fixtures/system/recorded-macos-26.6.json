@@ -1,0 +1,102 @@
+{
+  "arch" : "arm64",
+  "discovery" : {
+    "bleAdvertising" : true,
+    "bleStatus" : "advertising",
+    "bonjour" : "registered",
+    "bonjourErrorCode" : null,
+    "listenerError" : null,
+    "listenerState" : "ready",
+    "running" : true
+  },
+  "history" : {
+    "screenRecordingGrantedBy" : "cdhash H\"41d607832cf40bcb4504f9893150cd50dd8c0dfc\""
+  },
+  "keychain" : {
+    "accounts" : [
+      "secrets",
+      "secrets.v2",
+      "secrets.v3",
+      "secrets.v4.cdhash:de76f61b99aecb4c8f09e5e996c45deb64711000",
+      "secrets.v4.teamid:TEAMID0000"
+    ],
+    "listStatus" : 0,
+    "service" : "dev.mote.helper"
+  },
+  "macOS" : "26.6.0",
+  "note" : "Owner Mac, macOS 26.6, Apple Development build of next-0.7 (identifiers redacted). Everything granted.",
+  "permissions" : {
+    "accessibility" : {
+      "api" : "AXIsProcessTrusted",
+      "checkedAt" : 1794566722780,
+      "detail" : {
+
+      },
+      "ms" : 10.859999999999999,
+      "raw" : "true",
+      "state" : "granted"
+    },
+    "automation" : {
+      "api" : "AEDeterminePermissionToAutomateTarget(ask: false)",
+      "checkedAt" : 1794566722888,
+      "detail" : {
+
+      },
+      "ms" : 57.159999999999997,
+      "raw" : "com.apple.Safari=ask,company.thebrowser.Browser=granted",
+      "state" : "granted"
+    },
+    "bluetooth" : {
+      "api" : "CBManager.authorization",
+      "checkedAt" : 1794566722798,
+      "detail" : {
+
+      },
+      "ms" : 17.859999999999999,
+      "raw" : "allowedAlways",
+      "state" : "granted"
+    },
+    "localNetwork" : {
+      "api" : "none",
+      "checkedAt" : 1794566722799,
+      "detail" : {
+
+      },
+      "ms" : 0.45000000000000001,
+      "raw" : "no API; inferred from the Bonjour listener",
+      "state" : "unknown"
+    },
+    "screenRecording" : {
+      "api" : "CGPreflightScreenCaptureAccess",
+      "checkedAt" : 1794566722831,
+      "detail" : {
+        "otherAppWindows" : "3",
+        "otherAppWindowTitlesVisible" : "2"
+      },
+      "ms" : 32.299999999999997,
+      "raw" : "true",
+      "state" : "granted"
+    }
+  },
+  "recordedAt" : 1794566722896,
+  "signing" : {
+    "adhoc" : false,
+    "authorities" : [
+      "Apple Development: owner@example.com (CERTID0000)",
+      "Apple Worldwide Developer Relations Certification Authority",
+      "Apple Root CA"
+    ],
+    "bundlePath" : "\/Users\/owner\/src\/mote\/helper\/build\/arm64\/MoteHelper.app",
+    "cdhash" : "463d5ec31b2815b6664e012d0cf294fda723fdbc",
+    "designatedRequirement" : "identifier \"dev.mote.helper\" and anchor apple generic and certificate leaf[subject.CN] = \"Apple Development: owner@example.com (CERTID0000)\" and certificate 1[field.1.2.840.113635.100.6.2.1] \/* exists *\/",
+    "executablePath" : "\/Users\/owner\/src\/mote\/helper\/build\/arm64\/MoteHelper.app\/Contents\/MacOS\/MoteHelper",
+    "expectedKeychainPartition" : "teamid:TEAMID0000",
+    "hardenedRuntime" : true,
+    "identifier" : "dev.mote.helper",
+    "identity" : "apple-development",
+    "quarantined" : false,
+    "teamId" : "TEAMID0000",
+    "translocated" : false
+  },
+  "source" : "recorded"
+}

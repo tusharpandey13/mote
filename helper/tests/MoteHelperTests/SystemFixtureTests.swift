@@ -27,6 +27,19 @@ struct SystemFixtureTests {
         #expect(!r.contains { $0.regrant })
     }
 
+    /// Owner Mac, recorded with --record-system (identifiers redacted): all granted, Local Network inferred from the
+    /// ready listener, older Keychain accounts present. Screen Recording history names an older cdhash but the grant is live.
+    @Test func recordedMacos26Healthy() throws {
+        let f = try Self.fixture("recorded-macos-26.6")
+        #expect(f.source == "recorded")
+        let s = Diag.replay(f)
+        for k in ["wifi", "bonjour", "bluetooth"] { #expect(feat(s, k)["state"] as? String == "ok", "\(k)") }
+        let r = rows(f)
+        #expect(row(.screenRecording, r).status == .ok && row(.accessibility, r).status == .ok)
+        #expect(row(.localNetwork, r).status != .grant)
+        #expect(!r.contains { $0.regrant })
+    }
+
     /// B1: Screen Recording granted to an earlier signature. The row used to say "Grant" with no hint; now it says why.
     @Test func b1StaleScreenRecordingGrantIsExplained() throws {
         let f = try Self.fixture("b1-screen-recording-stale-grant")
