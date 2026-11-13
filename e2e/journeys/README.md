@@ -39,7 +39,7 @@ its data and the animation scales may change; the real `dev.mote.remote` is neve
 MJ_PHONE=100.94.249.58:39963 MJ_PHONE_HW=b7e39c2f e2e/journeys/run.sh connect-next#unreachable   # not `all`
 ```
 
-- Needs both variables; `run.sh` aborts unless `ro.serialno` equals `MJ_PHONE_HW` (a stale wireless-adb address can't hit another device). If the adb port changed, it stops: pass the new one. `--level` is refused.
+- The phone must be unlocked (a secure lock can't be bypassed from adb); `run.sh` wakes it, sets `screen_off_timeout` to 30 min for the run and restores it. Needs both variables; `run.sh` aborts unless `ro.serialno` equals `MJ_PHONE_HW` (a stale wireless-adb address can't hit another device). If the adb port changed, it stops: pass the new one. `--level` is refused.
 - No emulator boots. The Mac is reached at its tailnet IP (`MJ_HOST`, default `tailscale ip -4`): the controller binds only that IP and its helpers start with `--allow-tailscale`; the app gets `-e mjHost` (default `10.0.2.2`) and `Ctl.host` replaces the emulator alias in the tests. The phone and the Mac must be on Tailscale.
 - Steps that turn Wi-Fi, data or airplane mode off would drop wireless adb: `j.wifi(false)`, `svc wifi|data disable`, `airplane-mode enable` throw an assumption failure, the step is recorded MANUAL "skipped: phone mode (would drop wireless adb)" and the test is reported skipped. The per-journey network reset does nothing.
 - The LAN sweep only probes the journey helper's test port (or `NO_HELPER_PORT`), never the real helper's 8790. Journeys that use `10.0.2.3` as a dead address still do (it is unreachable on most LANs).
