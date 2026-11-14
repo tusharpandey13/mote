@@ -14,8 +14,10 @@ fun startScreen(
 ): StartScreen = when {
     skip -> StartScreen.REMOTE                       // debug demo, or a pairing link opened the app
     hasHelperHost && !btSelected -> StartScreen.REMOTE
-    btSelected -> if (btReady) StartScreen.REMOTE else StartScreen.BT_GATE
+    // "Connect to your Mac instead" on the gate wins over a Bluetooth selection (else the button loops back to the gate);
+    // picking a Bluetooth device again (Net.chooseBluetooth) brings the gate back.
     macChosen -> if (hasHelperHost) StartScreen.REMOTE else StartScreen.FIND_MAC
+    btSelected -> if (btReady) StartScreen.REMOTE else StartScreen.BT_GATE
     btChosen || btPermitted -> if (btReady) StartScreen.REMOTE else StartScreen.BT_GATE
     hasHelperHost -> StartScreen.REMOTE
     else -> StartScreen.FIND_MAC

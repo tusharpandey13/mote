@@ -290,7 +290,7 @@ fun HostSheet(
                                 when (sel) {
                                     is Selection.Bt -> {
                                         val host = r.bt ?: return@HostRowCap
-                                        Net.select(sel); onPickBt(host)
+                                        Net.chooseBluetooth(); Net.select(sel); onPickBt(host)
                                         r.saved?.let { Net.linkBt(it.hostId, host.address) }
                                         close()
                                     }
