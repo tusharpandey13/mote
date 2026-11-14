@@ -49,7 +49,7 @@ const dir = arg("--out") ?? join(ROOT, "docs/journeys");
 const file = join(dir, `l4-${date}.md`);
 const results = new Map();   // id -> { result, note }; keeps today's earlier answers for rows not run now
 if (existsSync(file)) for (const m of readFileSync(file, "utf8").matchAll(/^\| (\S+) \| [^|]+ \| .*? \| (pass|fail|skip) \| (.*?) \|$/gm)) results.set(m[1], { result: m[2], note: m[3].replace(/\\\|/g, "|") });
-const todo = only ? rows.filter((r) => only.includes(r.id)) : rows;
+const todo = only ? only.map((id) => rows.find((r) => r.id === id)).filter(Boolean) : rows;   // in the order given
 if (only && todo.length !== only.length) { console.error(`unknown L4 id in --only: ${only.filter((x) => !rows.some((r) => r.id === x)).join(", ")}`); process.exit(2); }
 outer: for (const [i, r] of todo.entries()) {
   console.log(`\n[${i + 1}/${todo.length}] ${r.id}  (${r.journey})\n${show(r)}`);
